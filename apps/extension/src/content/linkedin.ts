@@ -1,4 +1,5 @@
 // LinkedIn content script — self-contained, no imports from node_modules
+export {};
 
 // Track URLs already submitted in this session to avoid duplicates
 const submittedUrls = new Set<string>();
