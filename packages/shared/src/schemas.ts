@@ -1,5 +1,28 @@
 import { z } from 'zod';
 
+export const githubUserSchema = z.object({
+  id: z.number(),
+  name: z.string().nullable(),
+  email: z.string().nullable(),
+  avatar_url: z.string(),
+  login: z.string(),
+});
+
+export const githubEmailSchema = z.object({
+  email: z.string(),
+  primary: z.boolean(),
+  verified: z.boolean(),
+});
+
+export const meResponseSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string(),
+    avatarUrl: z.string().nullable(),
+  }),
+});
+
 export const APPLICATION_STATUSES = [
   'saved',
   'applied',
