@@ -132,11 +132,20 @@ extractRouter.post('/', async (c) => {
     ? await decrypt(row.apiKeyEncrypted, c.env.SESSION_SECRET)
     : undefined;
 
+  const cfAccessHeaders =
+    c.env.CF_ACCESS_CLIENT_ID && c.env.CF_ACCESS_CLIENT_SECRET
+      ? {
+          'CF-Access-Client-Id': c.env.CF_ACCESS_CLIENT_ID,
+          'CF-Access-Client-Secret': c.env.CF_ACCESS_CLIENT_SECRET,
+        }
+      : undefined;
+
   const config = {
     provider: row.provider,
     model: row.model,
     ...(apiKey !== undefined ? { apiKey } : {}),
     ...(row.ollamaUrl !== null ? { ollamaUrl: row.ollamaUrl } : {}),
+    ...(cfAccessHeaders !== undefined ? { extraHeaders: cfAccessHeaders } : {}),
   };
 
   try {

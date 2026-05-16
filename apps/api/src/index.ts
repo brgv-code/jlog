@@ -16,6 +16,9 @@ export interface Env {
   SESSION_SECRET: string;
   WEB_ORIGIN: string;
   COOKIE_DOMAIN: string;
+  // Optional: Cloudflare Access service token for protecting a tunnelled Ollama instance
+  CF_ACCESS_CLIENT_ID?: string;
+  CF_ACCESS_CLIENT_SECRET?: string;
 }
 
 export type Variables = {

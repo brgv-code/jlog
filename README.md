@@ -113,12 +113,12 @@ See [`docs/DEPLOY.md`](docs/DEPLOY.md) for a step-by-step guide covering:
 
 Configure any of these in **Settings → LLM Provider**:
 
-| Provider | Default model | Notes |
-|---|---|---|
-| Anthropic | claude-3-5-haiku-20241022 | Fastest, cheapest |
-| OpenAI | gpt-4o-mini | Good balance |
-| Gemini | gemini-1.5-flash | Google alternative |
-| Ollama | llama3 (local) | 100% local, no API key |
+| Provider  | Default model             | Notes                  |
+| --------- | ------------------------- | ---------------------- |
+| Anthropic | claude-3-5-haiku-20241022 | Fastest, cheapest      |
+| OpenAI    | gpt-4o-mini               | Good balance           |
+| Gemini    | gemini-1.5-flash          | Google alternative     |
+| Ollama    | llama3 (local)            | 100% local, no API key |
 
 API keys are encrypted with AES-GCM-256 before being stored in D1.
 
@@ -126,15 +126,15 @@ API keys are encrypted with AES-GCM-256 before being stored in D1.
 
 ## Site detectors
 
-| Site | Detection method |
-|---|---|
-| LinkedIn | MutationObserver on Easy Apply modal + external apply click |
-| Wellfound | Apply button click + DOM confirmation |
-| Ashby HQ | Submit button click + thank-you page content |
-| Greenhouse | Form submit + confirmation content |
-| Lever | Submit button click + thank-you content |
-| YC / Work at a Startup | Apply click + confirmation |
-| Any other site | LLM extraction via popup ("Extract with AI") |
+| Site                   | Detection method                                            |
+| ---------------------- | ----------------------------------------------------------- |
+| LinkedIn               | MutationObserver on Easy Apply modal + external apply click |
+| Wellfound              | Apply button click + DOM confirmation                       |
+| Ashby HQ               | Submit button click + thank-you page content                |
+| Greenhouse             | Form submit + confirmation content                          |
+| Lever                  | Submit button click + thank-you content                     |
+| YC / Work at a Startup | Apply click + confirmation                                  |
+| Any other site         | LLM extraction via popup ("Extract with AI")                |
 
 ---
 

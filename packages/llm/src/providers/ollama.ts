@@ -7,7 +7,7 @@ interface OllamaResponse {
   response: string;
 }
 
-export function makeOllamaProvider(model: string, ollamaUrl: string): LLMProvider {
+export function makeOllamaProvider(model: string, ollamaUrl: string, extraHeaders?: Record<string, string>): LLMProvider {
   return {
     name: 'ollama',
     async extractJSON<T>(prompt: string, schema: z.ZodSchema<T>, content: string): Promise<T> {
@@ -17,7 +17,7 @@ export function makeOllamaProvider(model: string, ollamaUrl: string): LLMProvide
       try {
         res = await fetch(url, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json', ...extraHeaders },
           body: JSON.stringify({
             model,
             prompt: `${EXTRACT_JOB_SYSTEM_PROMPT}\n\n${prompt}\n\n${content}`,
@@ -37,7 +37,13 @@ export function makeOllamaProvider(model: string, ollamaUrl: string): LLMProvide
         throw new LLMError('API_ERROR', `Ollama API error ${res.status}: ${body}`);
       }
 
-      const data = (await res.json()) as OllamaResponse;
+      const rawText = await res.text();
+      let data: OllamaResponse;
+      try {
+        data = JSON.parse(rawText) as OllamaResponse;
+      } catch {
+        throw new LLMError('PARSE_ERROR', `Ollama returned non-JSON (got HTML?): ${rawText.slice(0, 200)}`);
+      }
       const text = data.response;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'Ollama returned no content');

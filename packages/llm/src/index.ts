@@ -31,6 +31,8 @@ export type LLMConfig = {
   apiKey?: string;
   model: string;
   ollamaUrl?: string;
+  // Extra headers forwarded to the provider — used for Cloudflare Access service token auth
+  extraHeaders?: Record<string, string>;
 };
 
 export function makeProvider(config: LLMConfig): LLMProvider {
@@ -42,7 +44,7 @@ export function makeProvider(config: LLMConfig): LLMProvider {
     case 'gemini':
       return makeGeminiProvider(config.apiKey ?? '', config.model);
     case 'ollama':
-      return makeOllamaProvider(config.model, config.ollamaUrl ?? 'http://localhost:11434');
+      return makeOllamaProvider(config.model, config.ollamaUrl ?? 'http://localhost:11434', config.extraHeaders);
   }
 }
 
