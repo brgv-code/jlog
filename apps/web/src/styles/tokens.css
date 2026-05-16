@@ -4,15 +4,21 @@
   --color-bg: #0d0d10;
   --color-surface: #16161a;
   --color-surface-raised: #1e1e24;
+  --color-surface-hover: rgba(255, 255, 255, 0.03);
+  --color-surface-active: #1e1e24;
   --color-border: #2a2a32;
+  --color-border-strong: #3a3a46;
   --color-text-primary: #e8e8f0;
   --color-text-secondary: #9090a8;
+  --color-text-tertiary: #5a5a70;
   --color-text-muted: #5a5a70;
   --color-accent: #5e6ad2;
-  --color-accent-hover: #7278e0;
+  --color-accent-hover: #4f58c4;
   --color-accent-active: #4a52c4;
   --color-success: #30d158;
   --color-warning: #ffd60a;
+  --color-danger: #ff453a;
+  --color-info: #60a5fa;
   --color-error: #ff453a;
 
   /* Typography */
@@ -36,6 +42,7 @@
   --space-4: 1rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
+  --space-10: 2.5rem;
   --space-12: 3rem;
   --space-16: 4rem;
 
@@ -52,7 +59,7 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
 
   /* Transitions */
-  --transition-fast: 120ms ease;
+  --transition-fast: 150ms ease-out;
   --transition-base: 200ms ease;
 }
 

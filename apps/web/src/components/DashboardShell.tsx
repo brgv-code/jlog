@@ -1,4 +1,12 @@
-import { useEffect, useState } from 'react';
+import type { ApplicationStatus } from '@jlog/shared';
+import { APPLICATION_STATUSES } from '@jlog/shared';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { apiFetch } from '../lib/api';
+import { AddApplicationDialog } from './applications/AddApplicationDialog';
+import { ApplicationDetail } from './applications/ApplicationDetail';
+import { ApplicationsTable } from './applications/ApplicationsTable';
+import { StatsStrip } from './applications/StatsStrip';
+import { Spinner } from './ui/Spinner';
 
 interface User {
   id: string;
@@ -12,13 +20,45 @@ type AuthState =
   | { status: 'authenticated'; user: User }
   | { status: 'unauthenticated' };
 
-const API_URL = import.meta.env.PUBLIC_API_URL;
+interface Application {
+  id: string;
+  company: string;
+  role: string;
+  location: string | null;
+  status: ApplicationStatus;
+  sourceUrl: string | null;
+  sourceSite: string | null;
+  appliedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type SortField = 'createdAt' | 'appliedAt' | 'company';
+
+const STATUS_TABS: { label: string; value: ApplicationStatus | 'all' }[] = [
+  { label: 'All', value: 'all' },
+  ...APPLICATION_STATUSES.map((s: ApplicationStatus) => ({
+    label: s.charAt(0).toUpperCase() + s.slice(1),
+    value: s,
+  })),
+];
 
 export default function DashboardShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loadingApps, setLoadingApps] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sort, setSort] = useState<SortField>('createdAt');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
+  // Auth check
   useEffect(() => {
-    fetch(`${API_URL}/api/auth/me`, { credentials: 'include' })
+    apiFetch('/api/auth/me')
       .then(async (res) => {
         if (res.status === 401) {
           setAuth({ status: 'unauthenticated' });
@@ -31,24 +71,64 @@ export default function DashboardShell() {
         const data = (await res.json()) as { user: User };
         setAuth({ status: 'authenticated', user: data.user });
       })
-      .catch(() => {
-        setAuth({ status: 'unauthenticated' });
-      });
+      .catch(() => setAuth({ status: 'unauthenticated' }));
   }, []);
 
-  // Redirect to login if not authenticated — effect runs after render
   useEffect(() => {
-    if (auth.status === 'unauthenticated') {
-      window.location.href = '/login';
-    }
+    if (auth.status === 'unauthenticated') window.location.href = '/login';
   }, [auth.status]);
 
+  // Debounce search
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchQuery]);
+
+  // Fetch applications
+  const fetchApplications = useCallback(() => {
+    setLoadingApps(true);
+    const params = new URLSearchParams({ sort });
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+    if (debouncedQuery) params.set('q', debouncedQuery);
+
+    apiFetch(`/api/applications?${params.toString()}`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as { applications: Application[] };
+        setApplications(data.applications);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingApps(false));
+  }, [statusFilter, debouncedQuery, sort]);
+
+  useEffect(() => {
+    if (auth.status === 'authenticated') fetchApplications();
+  }, [auth.status, fetchApplications]);
+
   async function handleSignOut() {
-    await fetch(`${API_URL}/api/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    await apiFetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/login';
+  }
+
+  function handleAddSuccess(app: Application) {
+    setApplications((prev) => [app, ...prev]);
+    setShowAddDialog(false);
+  }
+
+  function handleStatusChange(id: string, newStatus: ApplicationStatus) {
+    setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status: newStatus } : a)));
+  }
+
+  function handleDetailUpdate(updated: Application) {
+    setApplications((prev) => prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
+  }
+
+  function handleDelete(id: string) {
+    setApplications((prev) => prev.filter((a) => a.id !== id));
+    setSelectedId(null);
   }
 
   if (auth.status === 'loading') {
@@ -60,19 +140,15 @@ export default function DashboardShell() {
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: 'var(--color-bg)',
-          color: 'var(--color-text-secondary)',
           fontFamily: 'var(--font-sans)',
         }}
       >
-        Loading…
+        <Spinner />
       </div>
     );
   }
 
-  if (auth.status === 'unauthenticated') {
-    // Redirect is in progress; render nothing to avoid flash
-    return null;
-  }
+  if (auth.status === 'unauthenticated') return null;
 
   const { user } = auth;
 
@@ -107,8 +183,22 @@ export default function DashboardShell() {
         >
           jlog
         </span>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <button
+            type="button"
+            onClick={() => setShowAddDialog(true)}
+            style={{
+              backgroundColor: 'var(--color-accent)',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              color: '#fff',
+              fontSize: 'var(--text-sm)',
+              padding: '6px 16px',
+              cursor: 'pointer',
+            }}
+          >
+            Add application
+          </button>
           {user.avatarUrl && (
             <img
               src={user.avatarUrl}
@@ -132,7 +222,6 @@ export default function DashboardShell() {
               fontSize: 'var(--text-xs)',
               padding: 'var(--space-1) var(--space-3)',
               cursor: 'pointer',
-              transition: 'color var(--transition-fast)',
             }}
           >
             Sign out
@@ -140,28 +229,117 @@ export default function DashboardShell() {
         </div>
       </header>
 
-      {/* Main content placeholder — full dashboard in Phase 2 */}
-      <main
-        style={{
-          padding: 'var(--space-12) var(--space-8)',
-          maxWidth: '1200px',
-          margin: '0 auto',
-        }}
-      >
-        <h1
+      <StatsStrip />
+
+      {/* Detail view replaces main when selected */}
+      {selectedId ? (
+        <ApplicationDetail
+          applicationId={selectedId}
+          onBack={() => setSelectedId(null)}
+          onDelete={handleDelete}
+          onUpdate={handleDetailUpdate}
+        />
+      ) : (
+        <main
           style={{
-            fontSize: 'var(--text-2xl)',
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-            marginBottom: 'var(--space-2)',
+            padding: '0 var(--space-8) var(--space-8)',
+            maxWidth: '1400px',
+            margin: '0 auto',
           }}
         >
-          Welcome, {user.name}
-        </h1>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
-          Your dashboard is being built. Full features arrive in Phase 2.
-        </p>
-      </main>
+          {/* Filter bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-4)',
+              padding: 'var(--space-4) 0',
+              borderBottom: '1px solid var(--color-border)',
+              flexWrap: 'wrap',
+            }}
+          >
+            {/* Status tabs */}
+            <div style={{ display: 'flex', gap: '2px' }}>
+              {STATUS_TABS.map((tab) => {
+                const active = tab.value === statusFilter;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setStatusFilter(tab.value)}
+                    style={{
+                      background: active ? 'var(--color-surface-raised)' : 'none',
+                      border: active ? '1px solid var(--color-border)' : '1px solid transparent',
+                      borderRadius: 'var(--radius-md)',
+                      color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                      fontSize: 'var(--text-xs)',
+                      padding: '4px 10px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Search */}
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search company or role…"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-text-primary)',
+                fontSize: 'var(--text-sm)',
+                padding: '4px 10px',
+                outline: 'none',
+                width: '220px',
+              }}
+            />
+
+            {/* Sort */}
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortField)}
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-text-secondary)',
+                fontSize: 'var(--text-xs)',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="createdAt">Sort: Date added</option>
+              <option value="appliedAt">Sort: Applied date</option>
+              <option value="company">Sort: Company</option>
+            </select>
+
+            {loadingApps && <Spinner size={16} />}
+          </div>
+
+          <ApplicationsTable
+            applications={applications}
+            onRowClick={(id) => setSelectedId(id)}
+            selectedId={selectedId ?? undefined}
+            onStatusChange={handleStatusChange}
+            onAddClick={() => setShowAddDialog(true)}
+          />
+        </main>
+      )}
+
+      {showAddDialog && (
+        <AddApplicationDialog
+          onSuccess={handleAddSuccess}
+          onClose={() => setShowAddDialog(false)}
+        />
+      )}
     </div>
   );
 }

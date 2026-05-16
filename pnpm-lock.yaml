@@ -66,6 +66,9 @@ importers:
       '@astrojs/react':
         specifier: ^3.6.3
         version: 3.6.3(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@jlog/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       astro:
         specifier: ^4.16.18
         version: 4.16.19(rollup@4.60.4)(typescript@5.9.3)
