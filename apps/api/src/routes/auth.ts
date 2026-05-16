@@ -24,8 +24,9 @@ router.get('/github/start', async (c) => {
     httpOnly: true,
     secure: !isLocalhost,
     sameSite: 'Lax',
-    // browsers reject domain=localhost; omit the attribute entirely in local dev
-    ...(isLocalhost ? {} : { domain: c.env.COOKIE_DOMAIN }),
+    // No domain attribute — scopes to the exact API host automatically.
+    // workers.dev and pages.dev are on the public suffix list, so setting a
+    // domain attribute causes browsers to silently reject the cookie.
     maxAge: OAUTH_STATE_TTL_SECONDS,
     path: '/',
   });
@@ -160,8 +161,11 @@ router.get('/github/callback', async (c) => {
   setCookie(c, 'jlog_session', signedSession, {
     httpOnly: true,
     secure: !isLocalhost,
-    sameSite: 'Lax',
-    ...(isLocalhost ? {} : { domain: c.env.COOKIE_DOMAIN }),
+    // SameSite=None so the browser sends this cookie on cross-origin fetch
+    // requests from jlog-web.pages.dev to jlog-api.brgv95.workers.dev.
+    // No domain attribute — workers.dev is on the public suffix list and
+    // browsers reject cookies that try to set a domain on PSL entries.
+    sameSite: isLocalhost ? 'Lax' : 'None',
     maxAge: SESSION_TTL_SECONDS,
     path: '/',
   });
