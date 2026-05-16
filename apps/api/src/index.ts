@@ -5,6 +5,7 @@ import { sessionMiddleware } from './middleware/session';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
 import eventsRouter from './routes/events';
+import extensionRouter from './routes/extension';
 import llmRouter, { extractRouter } from './routes/llm';
 import statsRouter from './routes/stats';
 
@@ -26,7 +27,12 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use(
   '*',
   cors({
-    origin: (origin, c) => (origin === c.env.WEB_ORIGIN ? origin : null),
+    origin: (origin, c) => {
+      if (origin === c.env.WEB_ORIGIN) return origin;
+      // Chrome extension service workers send requests from chrome-extension:// origin
+      if (origin?.startsWith('chrome-extension://')) return origin;
+      return null;
+    },
     credentials: true,
     allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
@@ -39,6 +45,7 @@ app.route('/api/applications', eventsRouter);
 app.route('/api/stats', statsRouter);
 app.route('/api/llm', llmRouter);
 app.route('/api/extract', extractRouter);
+app.route('/api/extension', extensionRouter);
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'jlog-api' }));
 

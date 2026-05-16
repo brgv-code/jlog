@@ -14,7 +14,7 @@ const DEFAULT_MODELS: Record<Provider, string> = {
   anthropic: 'claude-3-5-haiku-20241022',
   openai: 'gpt-4o-mini',
   gemini: 'gemini-1.5-flash',
-  ollama: 'llama3.2',
+  ollama: 'llama3',
 };
 
 const PROVIDER_LABELS: Record<Provider, string> = {
@@ -49,6 +49,7 @@ export function LLMConfigForm() {
   const [model, setModel] = useState(DEFAULT_MODELS.anthropic);
   const [apiKey, setApiKey] = useState('');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -66,6 +67,22 @@ export function LLMConfigForm() {
       })
       .catch(() => {});
   }, []);
+
+  // Fetch available models from local Ollama whenever the URL changes and Ollama is selected
+  useEffect(() => {
+    if (provider !== 'ollama') return;
+    fetch(`${ollamaUrl}/api/tags`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as { models?: { name: string }[] };
+        const names = (data.models ?? []).map((m) => m.name);
+        setOllamaModels(names);
+        if (names.length > 0 && !names.includes(model)) {
+          setModel(names[0] ?? DEFAULT_MODELS.ollama);
+        }
+      })
+      .catch(() => setOllamaModels([]));
+  }, [provider, ollamaUrl, model]);
 
   function handleProviderChange(p: Provider) {
     setProvider(p);
@@ -132,15 +149,35 @@ export function LLMConfigForm() {
       <div>
         <label htmlFor="llm-model" style={labelStyle}>
           Model
+          {provider === 'ollama' && ollamaModels.length === 0 && (
+            <span style={{ color: 'var(--color-text-tertiary)', marginLeft: '6px' }}>
+              (Ollama not detected at {ollamaUrl})
+            </span>
+          )}
         </label>
-        <input
-          id="llm-model"
-          type="text"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          style={inputStyle}
-          required
-        />
+        {provider === 'ollama' && ollamaModels.length > 0 ? (
+          <select
+            id="llm-model"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            style={{ ...inputStyle, cursor: 'pointer' }}
+          >
+            {ollamaModels.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id="llm-model"
+            type="text"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            style={inputStyle}
+            required
+          />
+        )}
       </div>
 
       {provider !== 'ollama' && (

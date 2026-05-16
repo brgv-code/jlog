@@ -52,9 +52,11 @@ export function makeOllamaProvider(model: string, ollamaUrl: string): LLMProvide
 
       const result = schema.safeParse(parsed);
       if (!result.success) {
+        console.error('[ollama] raw response:', JSON.stringify(parsed));
+        console.error('[ollama] schema errors:', result.error.message);
         throw new LLMError(
           'SCHEMA_ERROR',
-          `Ollama response did not match schema: ${result.error.message}`,
+          `Ollama response did not match schema: ${result.error.message} | raw: ${JSON.stringify(parsed)}`,
         );
       }
 

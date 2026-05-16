@@ -1,10 +1,167 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>jlog</title>
-  </head>
-  <body>
-    <p>jlog — coming soon</p>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <title>jlog</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 320px;
+      min-height: 200px;
+      background: #111111;
+      color: #EDEDED;
+      font-family: -apple-system, system-ui, sans-serif;
+      font-size: 13px;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #222;
+    }
+    .logo {
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+      color: #EDEDED;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+    .input {
+      width: 100%;
+      background: #1A1A1A;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #EDEDED;
+      font-size: 12px;
+      padding: 8px 10px;
+      font-family: inherit;
+      outline: none;
+    }
+    .input:focus { border-color: #555; }
+    .btn {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #EDEDED; color: #111111; }
+    .btn-primary:hover:not(:disabled) { background: #D4D4D4; }
+    .btn-secondary {
+      background: #1A1A1A;
+      color: #EDEDED;
+      border: 1px solid #333;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #222; }
+    .btn-danger { background: #7F1D1D; color: #FECACA; }
+    .btn-danger:hover:not(:disabled) { background: #991B1B; }
+    .field-row {
+      margin-bottom: 10px;
+    }
+    .field-label {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .monospace {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+    }
+    .job-card {
+      background: #1A1A1A;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .job-company {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+    .job-role {
+      color: #AAA;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .job-location {
+      font-size: 11px;
+      color: #666;
+    }
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .toast-success { background: #14532D; color: #86EFAC; border: 1px solid #166534; }
+    .toast-error { background: #7F1D1D; color: #FECACA; border: 1px solid #991B1B; }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #333;
+      border-top-color: #EDEDED;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 0;
+    }
+    .warning {
+      font-size: 11px;
+      color: #AAA;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+    .link {
+      color: #888;
+      font-size: 11px;
+      text-decoration: underline;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      padding: 0;
+    }
+    .link:hover { color: #EDEDED; }
+    .gap { margin-bottom: 8px; }
+    .confirm-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .confirm-row .btn { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="logo">jlog</span>
+  </div>
+  <div id="root"></div>
+  <script type="module" src="./popup.ts"></script>
+</body>
 </html>

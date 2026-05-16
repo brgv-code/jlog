@@ -10,6 +10,31 @@ export const sessionMiddleware = createMiddleware<{
   Bindings: Env;
   Variables: Variables;
 }>(async (c, next) => {
+  // Check Authorization: Bearer <token> header first (extension auth)
+  const authHeader = c.req.header('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    const sessionId = `ext_${token}`;
+    const db = createDb(c.env.DB);
+    const rows = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+    const extSession = rows[0];
+
+    if (extSession) {
+      if (extSession.expiresAt < new Date()) {
+        await db.delete(sessions).where(eq(sessions.id, sessionId));
+        c.set('session', null);
+      } else {
+        c.set('session', { userId: extSession.userId, sessionId: extSession.id });
+      }
+    } else {
+      c.set('session', null);
+    }
+
+    await next();
+    return;
+  }
+
+  // Fall back to cookie-based session
   const cookie = getCookie(c, 'jlog_session');
 
   if (!cookie) {

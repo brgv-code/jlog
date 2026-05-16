@@ -10,18 +10,6 @@ interface AppEvent {
   createdAt: string;
 }
 
-interface CreatedPayload {
-  company: string;
-  role: string;
-}
-interface StatusChangePayload {
-  from: string;
-  to: string;
-}
-interface NoteAddedPayload {
-  preview: string;
-}
-
 function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleString('en-US', {
     month: 'long',

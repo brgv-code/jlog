@@ -9,12 +9,20 @@ export interface LLMProvider {
   extractJSON<T>(prompt: string, schema: z.ZodSchema<T>, content: string): Promise<T>;
 }
 
-export const extractedJobSchema = z.object({
-  company: z.string(),
-  role: z.string(),
-  location: z.string().nullable(),
-  confidence: z.number().min(0).max(1),
-});
+export const extractedJobSchema = z
+  .object({
+    company: z.string(),
+    role: z.string(),
+    // Local models often return "" instead of null — normalise to null
+    location: z
+      .string()
+      .nullable()
+      .optional()
+      .transform((v) => (v === '' || v == null ? null : v)),
+    // Local models sometimes return confidence as a string — coerce it
+    confidence: z.coerce.number().min(0).max(1).catch(0.5),
+  })
+  .passthrough();
 
 export type ExtractedJob = z.infer<typeof extractedJobSchema>;
 

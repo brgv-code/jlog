@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { LLMConfigForm } from './settings/LLMConfigForm';
 import { Spinner } from './ui/Spinner';
@@ -29,9 +29,17 @@ function applyTheme(theme: Theme) {
   localStorage.setItem(THEME_KEY, theme);
 }
 
+type ExtensionTokenState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'shown'; token: string }
+  | { status: 'hidden' };
+
 export default function SettingsShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const [theme, setTheme] = useState<Theme>('dark');
+  const [extToken, setExtToken] = useState<ExtensionTokenState>({ status: 'idle' });
+  const tokenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setTheme(readTheme());
@@ -61,6 +69,28 @@ export default function SettingsShell() {
   function toggleTheme(next: Theme) {
     setTheme(next);
     applyTheme(next);
+  }
+
+  function generateExtensionToken() {
+    if (tokenTimerRef.current) clearTimeout(tokenTimerRef.current);
+    setExtToken({ status: 'loading' });
+    apiFetch('/api/extension/token')
+      .then(async (res) => {
+        if (!res.ok) {
+          setExtToken({ status: 'idle' });
+          return;
+        }
+        const data = (await res.json()) as { token: string };
+        setExtToken({ status: 'shown', token: data.token });
+        tokenTimerRef.current = setTimeout(() => {
+          setExtToken({ status: 'hidden' });
+        }, 60_000);
+      })
+      .catch(() => setExtToken({ status: 'idle' }));
+  }
+
+  function copyToken(token: string) {
+    void navigator.clipboard.writeText(token);
   }
 
   if (auth.status === 'loading') {
@@ -274,7 +304,7 @@ export default function SettingsShell() {
         </section>
 
         {/* LLM Provider section */}
-        <section>
+        <section style={{ marginBottom: 'var(--space-8)' }}>
           <p style={sectionHeadingStyle}>LLM Provider</p>
           <div style={cardStyle}>
             <p
@@ -288,6 +318,139 @@ export default function SettingsShell() {
               encrypted at rest using AES-GCM.
             </p>
             <LLMConfigForm />
+          </div>
+        </section>
+
+        {/* Extension section */}
+        <section>
+          <p style={sectionHeadingStyle}>Chrome Extension</p>
+          <div style={cardStyle}>
+            <p
+              style={{
+                fontSize: 'var(--text-sm)',
+                color: 'var(--color-text-secondary)',
+                marginBottom: 'var(--space-4)',
+              }}
+            >
+              Generate a token to connect the jlog Chrome extension to your account. The token
+              expires after 24 hours.
+            </p>
+
+            {extToken.status === 'idle' && (
+              <button
+                type="button"
+                onClick={generateExtensionToken}
+                style={{
+                  background: 'var(--color-accent)',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  color: '#fff',
+                  fontSize: 'var(--text-sm)',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)',
+                }}
+              >
+                Generate token
+              </button>
+            )}
+
+            {extToken.status === 'loading' && <Spinner size={16} />}
+
+            {extToken.status === 'shown' && (
+              <div>
+                <p
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-danger)',
+                    marginBottom: 'var(--space-2)',
+                    fontWeight: 600,
+                  }}
+                >
+                  This token is shown once. Save it to your extension popup.
+                </p>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-2)',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
+                  <code
+                    style={{
+                      flex: 1,
+                      background: 'var(--color-surface-raised)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '8px 10px',
+                      fontFamily: "'SF Mono', 'Fira Code', monospace",
+                      fontSize: 'var(--text-xs)',
+                      color: 'var(--color-text-primary)',
+                      wordBreak: 'break-all',
+                      userSelect: 'all',
+                    }}
+                  >
+                    {extToken.token}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => copyToken(extToken.token)}
+                    style={{
+                      background: 'var(--color-surface-raised)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--color-text-secondary)',
+                      fontSize: 'var(--text-xs)',
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-sans)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-text-tertiary)',
+                  }}
+                >
+                  Token hides automatically after 60 seconds.
+                </p>
+              </div>
+            )}
+
+            {extToken.status === 'hidden' && (
+              <div>
+                <p
+                  style={{
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--color-text-secondary)',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
+                  Token generated — paste it into the extension popup.
+                </p>
+                <button
+                  type="button"
+                  onClick={generateExtensionToken}
+                  style={{
+                    background: 'var(--color-surface-raised)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--color-text-secondary)',
+                    fontSize: 'var(--text-sm)',
+                    padding: '6px 14px',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-sans)',
+                  }}
+                >
+                  Generate new token
+                </button>
+              </div>
+            )}
           </div>
         </section>
       </main>
