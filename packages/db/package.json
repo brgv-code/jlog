@@ -1,0 +1,21 @@
+{
+  "name": "@jlog/db",
+  "private": true,
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.37.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "drizzle-kit": "^0.29.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
