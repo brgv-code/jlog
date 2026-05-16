@@ -4,7 +4,7 @@ compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-WEB_ORIGIN = "https://jlog-web.pages.dev"
+WEB_ORIGIN = "https://jlog.bhargav.dev"
 COOKIE_DOMAIN = "production"
 
 [[d1_databases]]
