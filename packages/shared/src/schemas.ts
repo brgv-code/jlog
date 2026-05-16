@@ -55,3 +55,18 @@ export const paginationSchema = z.object({
   sort: z.enum(['createdAt', 'appliedAt', 'company']).default('createdAt'),
   q: z.string().max(200).optional(),
 });
+
+export const llmProviders = ['anthropic', 'openai', 'gemini', 'ollama'] as const;
+export type LLMProviderName = (typeof llmProviders)[number];
+
+export const llmConfigSchema = z.object({
+  provider: z.enum(llmProviders),
+  model: z.string().min(1).max(100),
+  apiKey: z.string().max(500).optional(),
+  ollamaUrl: z.string().url().optional(),
+});
+
+export const extractSchema = z.object({
+  html: z.string().min(1).max(50000),
+  url: z.string().url().optional(),
+});

@@ -5,6 +5,7 @@ import { sessionMiddleware } from './middleware/session';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
 import eventsRouter from './routes/events';
+import llmRouter, { extractRouter } from './routes/llm';
 import statsRouter from './routes/stats';
 
 export interface Env {
@@ -36,6 +37,8 @@ app.route('/api/auth', authRouter);
 app.route('/api/applications', applicationsRouter);
 app.route('/api/applications', eventsRouter);
 app.route('/api/stats', statsRouter);
+app.route('/api/llm', llmRouter);
+app.route('/api/extract', extractRouter);
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'jlog-api' }));
 

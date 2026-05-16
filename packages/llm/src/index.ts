@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { makeAnthropicProvider } from './providers/anthropic';
+import { makeGeminiProvider } from './providers/gemini';
+import { makeOllamaProvider } from './providers/ollama';
+import { makeOpenAIProvider } from './providers/openai';
 
 export interface LLMProvider {
   name: 'anthropic' | 'openai' | 'gemini' | 'ollama';
@@ -21,7 +25,21 @@ export type LLMConfig = {
   ollamaUrl?: string;
 };
 
-export function makeProvider(_config: LLMConfig): LLMProvider {
-  // Implemented in Phase 4
-  throw new Error('LLM providers not yet implemented');
+export function makeProvider(config: LLMConfig): LLMProvider {
+  switch (config.provider) {
+    case 'anthropic':
+      return makeAnthropicProvider(config.apiKey ?? '', config.model);
+    case 'openai':
+      return makeOpenAIProvider(config.apiKey ?? '', config.model);
+    case 'gemini':
+      return makeGeminiProvider(config.apiKey ?? '', config.model);
+    case 'ollama':
+      return makeOllamaProvider(config.model, config.ollamaUrl ?? 'http://localhost:11434');
+  }
 }
+
+export { makeAnthropicProvider } from './providers/anthropic';
+export { makeGeminiProvider } from './providers/gemini';
+export { makeOllamaProvider } from './providers/ollama';
+export { makeOpenAIProvider } from './providers/openai';
+export { EXTRACT_JOB_SYSTEM_PROMPT } from './prompts/extract-job';

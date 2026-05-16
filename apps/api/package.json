@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@jlog/db": "workspace:*",
+    "@jlog/llm": "workspace:*",
     "@jlog/shared": "workspace:*",
     "drizzle-orm": "^0.37.0",
     "hono": "^4.6.14"

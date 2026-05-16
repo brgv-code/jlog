@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { LLMConfigForm } from './settings/LLMConfigForm';
 import { Spinner } from './ui/Spinner';
 
 interface User {
@@ -241,7 +242,7 @@ export default function SettingsShell() {
         </section>
 
         {/* Theme section */}
-        <section>
+        <section style={{ marginBottom: 'var(--space-8)' }}>
           <p style={sectionHeadingStyle}>Appearance</p>
           <div style={cardStyle}>
             <p
@@ -269,6 +270,24 @@ export default function SettingsShell() {
                 Light
               </button>
             </div>
+          </div>
+        </section>
+
+        {/* LLM Provider section */}
+        <section>
+          <p style={sectionHeadingStyle}>LLM Provider</p>
+          <div style={cardStyle}>
+            <p
+              style={{
+                fontSize: 'var(--text-sm)',
+                color: 'var(--color-text-secondary)',
+                marginBottom: 'var(--space-4)',
+              }}
+            >
+              Choose the AI provider used to extract job details from postings. API keys are
+              encrypted at rest using AES-GCM.
+            </p>
+            <LLMConfigForm />
           </div>
         </section>
       </main>

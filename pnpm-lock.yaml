@@ -20,6 +20,9 @@ importers:
       '@jlog/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@jlog/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
       '@jlog/shared':
         specifier: workspace:*
         version: link:../../packages/shared
