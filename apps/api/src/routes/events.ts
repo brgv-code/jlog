@@ -1,0 +1,43 @@
+import { events, createDb } from '@jlog/db';
+import { applications } from '@jlog/db';
+import { HttpError } from '@jlog/shared';
+import { and, asc, eq } from 'drizzle-orm';
+import { Hono } from 'hono';
+import type { Env, Variables } from '../index';
+
+const router = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+function requireSession(c: { var: { session: { userId: string; sessionId: string } | null } }) {
+  const session = c.var.session;
+  if (!session) {
+    throw new HttpError(401, 'UNAUTHORIZED', 'Not authenticated');
+  }
+  return session;
+}
+
+// GET /:id/events — list events for an application
+router.get('/:id/events', async (c) => {
+  const session = requireSession(c);
+  const { id } = c.req.param();
+  const db = createDb(c.env.DB);
+
+  // Verify the application belongs to the session user
+  const [application] = await db
+    .select()
+    .from(applications)
+    .where(and(eq(applications.id, id), eq(applications.userId, session.userId)));
+
+  if (!application) {
+    throw new HttpError(404, 'NOT_FOUND', 'Application not found');
+  }
+
+  const rows = await db
+    .select()
+    .from(events)
+    .where(eq(events.applicationId, id))
+    .orderBy(asc(events.createdAt));
+
+  return c.json({ events: rows });
+});
+
+export default router;

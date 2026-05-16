@@ -1,8 +1,10 @@
 import type { ApplicationStatus } from '@jlog/shared';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../lib/api';
+import { renderMarkdown } from '../../lib/markdown';
 import { Spinner } from '../ui/Spinner';
 import { StatusSelect } from './StatusSelect';
+import { Timeline } from './Timeline';
 
 interface Application {
   id: string;
@@ -43,6 +45,8 @@ function InlineField({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
+  // Only used for the notes field: 'edit' | 'preview'
+  const [notesMode, setNotesMode] = useState<'edit' | 'preview'>('edit');
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -81,6 +85,78 @@ function InlineField({
     fontFamily: 'var(--font-sans)',
   } as const;
 
+  const toggleBtnStyle = (active: boolean) =>
+    ({
+      background: active ? 'var(--color-surface-raised)' : 'none',
+      border: active ? '1px solid var(--color-border)' : '1px solid transparent',
+      borderRadius: 'var(--radius-sm)',
+      color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+      fontSize: 'var(--text-xs)',
+      padding: '2px 8px',
+      cursor: 'pointer',
+    }) as const;
+
+  if (multiline) {
+    return (
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '4px',
+          }}
+        >
+          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{label}</span>
+          <div style={{ display: 'flex', gap: '2px' }}>
+            <button
+              type="button"
+              style={toggleBtnStyle(notesMode === 'edit')}
+              onClick={() => {
+                setNotesMode('edit');
+                setEditing(true);
+              }}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              style={toggleBtnStyle(notesMode === 'preview')}
+              onClick={() => {
+                setNotesMode('preview');
+                setEditing(false);
+              }}
+            >
+              Preview
+            </button>
+          </div>
+        </div>
+        {notesMode === 'preview' ? (
+          <div
+            // Content is user-authored and sanitised by renderMarkdown before being set
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(draft || '') }}
+            style={{
+              fontSize: 'var(--text-sm)',
+              color: draft ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+              lineHeight: 1.6,
+              minHeight: '60px',
+            }}
+          />
+        ) : (
+          <textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={save}
+            rows={4}
+            style={{ ...baseStyle, resize: 'vertical' }}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ marginBottom: 'var(--space-4)' }}>
       <span
@@ -94,28 +170,17 @@ function InlineField({
         {label}
       </span>
       {editing ? (
-        multiline ? (
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={save}
-            rows={4}
-            style={{ ...baseStyle, resize: 'vertical' }}
-          />
-        ) : (
-          <input
-            ref={inputRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={save}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') save();
-              if (e.key === 'Escape') setEditing(false);
-            }}
-            style={baseStyle}
-          />
-        )
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') save();
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          style={baseStyle}
+        />
       ) : (
         <button
           type="button"
@@ -223,7 +288,7 @@ export function ApplicationDetail({
     : '—';
 
   return (
-    <div style={{ padding: 'var(--space-6)', maxWidth: '640px' }}>
+    <div style={{ padding: 'var(--space-6)', maxWidth: '720px', margin: '0 auto' }}>
       <button
         type="button"
         onClick={onBack}
@@ -315,6 +380,29 @@ export function ApplicationDetail({
           onSave={handleSaveField}
           multiline
         />
+      </div>
+
+      {/* Activity timeline */}
+      <div
+        style={{
+          marginTop: 'var(--space-8)',
+          borderTop: '1px solid var(--color-border)',
+          paddingTop: 'var(--space-6)',
+        }}
+      >
+        <h3
+          style={{
+            fontSize: 'var(--text-sm)',
+            fontWeight: 600,
+            color: 'var(--color-text-secondary)',
+            marginBottom: 'var(--space-4)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          Activity
+        </h3>
+        <Timeline applicationId={applicationId} />
       </div>
 
       <div

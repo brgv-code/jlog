@@ -16,8 +16,30 @@ const { title = 'jlog — Job Application Tracker' } = Astro.props;
     <meta name="description" content="Track your job applications — open source, self-hostable." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
+    <!-- Reads persisted theme before first paint to prevent flash -->
+    <script>
+      const t = localStorage.getItem('jlog_theme');
+      if (t) document.documentElement.setAttribute('data-theme', t);
+    </script>
   </head>
   <body>
     <slot />
   </body>
 </html>
+
+<style is:global>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+</style>

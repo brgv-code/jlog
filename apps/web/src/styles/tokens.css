@@ -63,6 +63,21 @@
   --transition-base: 200ms ease;
 }
 
+/* Light theme overrides */
+[data-theme="light"] {
+  --color-bg: #f4f4f6;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f0f0f4;
+  --color-surface-hover: rgba(0, 0, 0, 0.03);
+  --color-surface-active: #e8e8ec;
+  --color-border: #d8d8e0;
+  --color-border-strong: #c0c0cc;
+  --color-text-primary: #111118;
+  --color-text-secondary: #555568;
+  --color-text-tertiary: #888898;
+  --color-text-muted: #888898;
+}
+
 /* Global base styles */
 *,
 *::before,

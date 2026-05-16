@@ -211,6 +211,23 @@ export default function DashboardShell() {
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
             {user.name}
           </span>
+          <a
+            href="/settings"
+            style={{
+              background: 'none',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--color-text-secondary)',
+              fontSize: 'var(--text-xs)',
+              padding: 'var(--space-1) var(--space-3)',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+          >
+            Settings
+          </a>
           <button
             type="button"
             onClick={handleSignOut}
@@ -233,12 +250,14 @@ export default function DashboardShell() {
 
       {/* Detail view replaces main when selected */}
       {selectedId ? (
-        <ApplicationDetail
-          applicationId={selectedId}
-          onBack={() => setSelectedId(null)}
-          onDelete={handleDelete}
-          onUpdate={handleDetailUpdate}
-        />
+        <main style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+          <ApplicationDetail
+            applicationId={selectedId}
+            onBack={() => setSelectedId(null)}
+            onDelete={handleDelete}
+            onUpdate={handleDetailUpdate}
+          />
+        </main>
       ) : (
         <main
           style={{

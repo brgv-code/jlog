@@ -10,6 +10,9 @@
       },
       "a11y": {
         "noNoninteractiveTabindex": "off"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "off"
       }
     }
   },

@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { sessionMiddleware } from './middleware/session';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
+import eventsRouter from './routes/events';
 import statsRouter from './routes/stats';
 
 export interface Env {
@@ -33,6 +34,7 @@ app.use(
 app.use('*', sessionMiddleware);
 app.route('/api/auth', authRouter);
 app.route('/api/applications', applicationsRouter);
+app.route('/api/applications', eventsRouter);
 app.route('/api/stats', statsRouter);
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'jlog-api' }));

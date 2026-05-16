@@ -1,5 +1,4 @@
-import { createDb } from '@jlog/db';
-import { applications } from '@jlog/db';
+import { events, applications, createDb } from '@jlog/db';
 import {
   HttpError,
   createApplicationSchema,
@@ -117,6 +116,15 @@ router.post('/', async (c) => {
     throw new HttpError(500, 'DB_ERROR', 'Failed to retrieve created application');
   }
 
+  // Record the creation event
+  await db.insert(events).values({
+    id: crypto.randomUUID(),
+    applicationId: id,
+    type: 'created',
+    payload: JSON.stringify({ company: data.company, role: data.role }),
+    createdAt: now,
+  });
+
   return c.json({ application }, 201);
 });
 
@@ -191,6 +199,30 @@ router.patch('/:id', async (c) => {
 
   if (!updated) {
     throw new HttpError(500, 'DB_ERROR', 'Failed to retrieve updated application');
+  }
+
+  const eventNow = new Date();
+
+  // Record status change event when the status field actually changed
+  if (data.status !== undefined && data.status !== existing.status) {
+    await db.insert(events).values({
+      id: crypto.randomUUID(),
+      applicationId: id,
+      type: 'status_change',
+      payload: JSON.stringify({ from: existing.status, to: data.status }),
+      createdAt: eventNow,
+    });
+  }
+
+  // Record note_added event when the notes field is updated
+  if (data.notes !== undefined && data.notes !== existing.notes) {
+    await db.insert(events).values({
+      id: crypto.randomUUID(),
+      applicationId: id,
+      type: 'note_added',
+      payload: JSON.stringify({ preview: (data.notes ?? '').slice(0, 80) }),
+      createdAt: eventNow,
+    });
   }
 
   return c.json({ application: updated });
