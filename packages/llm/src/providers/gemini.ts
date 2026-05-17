@@ -19,6 +19,7 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
       try {
         res = await fetch(url, {
           method: 'POST',
+          signal: AbortSignal.timeout(30000),
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             contents: [

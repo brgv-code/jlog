@@ -15,6 +15,7 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
       try {
         res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
+          signal: AbortSignal.timeout(30000),
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'content-type': 'application/json',
@@ -25,6 +26,7 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
               { role: 'system', content: EXTRACT_JOB_SYSTEM_PROMPT },
               { role: 'user', content: `${prompt}\n\n${content}` },
             ],
+            max_tokens: 1024,
             response_format: { type: 'json_object' },
           }),
         });
