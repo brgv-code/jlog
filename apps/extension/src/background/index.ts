@@ -32,7 +32,7 @@ async function saveJob(job: DetectedJob): Promise<{ ok: boolean; error?: string 
       body: JSON.stringify({
         company: job.company,
         role: job.role,
-        location: job.location ?? null,
+        ...(job.location != null ? { location: job.location } : {}),
         status: 'applied',
         sourceUrl: job.sourceUrl,
         sourceSite: job.sourceSite,

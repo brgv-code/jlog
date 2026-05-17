@@ -37,12 +37,12 @@ export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export const createApplicationSchema = z.object({
   company: z.string().min(1).max(200),
   role: z.string().min(1).max(200),
-  location: z.string().max(200).optional(),
+  location: z.string().max(200).nullish(),
   status: z.enum(APPLICATION_STATUSES).default('applied'),
-  sourceUrl: z.string().url().optional(),
-  sourceSite: z.string().max(50).optional(),
+  sourceUrl: z.string().url().nullish(),
+  sourceSite: z.string().max(50).nullish(),
   appliedAt: z.number().int().optional(),
-  notes: z.string().max(10000).optional(),
+  notes: z.string().max(10000).nullish(),
   metadata: z.record(z.unknown()).optional(),
 });
 
