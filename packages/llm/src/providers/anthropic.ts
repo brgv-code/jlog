@@ -36,7 +36,9 @@ export function makeAnthropicProvider(apiKey: string, model: string): LLMProvide
         throw new LLMError('API_ERROR', `Anthropic API error ${res.status}: ${body}`);
       }
 
-      const data = (await res.json()) as AnthropicMessage;
+      const data = await res.json().catch(() => {
+        throw new LLMError('PARSE_ERROR', 'Anthropic returned a non-JSON success response');
+      }) as AnthropicMessage;
       const text = data.content[0]?.text;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'Anthropic returned no content');

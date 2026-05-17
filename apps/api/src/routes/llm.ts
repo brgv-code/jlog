@@ -128,9 +128,14 @@ extractRouter.post('/', async (c) => {
     throw new HttpError(400, 'LLM_NOT_CONFIGURED', 'Configure an LLM provider in settings first');
   }
 
-  const apiKey = row.apiKeyEncrypted
-    ? await decrypt(row.apiKeyEncrypted, c.env.SESSION_SECRET)
-    : undefined;
+  let apiKey: string | undefined;
+  try {
+    apiKey = row.apiKeyEncrypted
+      ? await decrypt(row.apiKeyEncrypted, c.env.SESSION_SECRET)
+      : undefined;
+  } catch {
+    throw new HttpError(400, 'LLM_CONFIG_ERROR', 'Failed to decrypt API key — re-save your LLM settings');
+  }
 
   const cfAccessHeaders =
     c.env.CF_ACCESS_CLIENT_ID && c.env.CF_ACCESS_CLIENT_SECRET
