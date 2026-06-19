@@ -29,11 +29,12 @@ export const applications = sqliteTable('applications', {
     enum: ['saved', 'applied', 'interviewing', 'offer', 'rejected', 'withdrawn'],
   })
     .notNull()
-    .default('applied'),
+    .default('saved'),
   sourceUrl: text('source_url'),
   sourceSite: text('source_site'),
   appliedAt: integer('applied_at', { mode: 'timestamp' }),
   notes: text('notes'),
+  jobDescription: text('job_description'),
   metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -57,7 +58,7 @@ export const events = sqliteTable('events', {
   applicationId: text('application_id')
     .notNull()
     .references(() => applications.id, { onDelete: 'cascade' }),
-  type: text('type', { enum: ['status_change', 'note_added', 'created'] }).notNull(),
+  type: text('type', { enum: ['status_change', 'note_added', 'created', 'follow_up_sent'] }).notNull(),
   payload: text('payload', { mode: 'json' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });

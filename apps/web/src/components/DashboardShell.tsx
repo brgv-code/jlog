@@ -253,6 +253,7 @@ export default function DashboardShell() {
         <main style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
           <ApplicationDetail
             applicationId={selectedId}
+            userName={user.name}
             onBack={() => setSelectedId(null)}
             onDelete={handleDelete}
             onUpdate={handleDetailUpdate}

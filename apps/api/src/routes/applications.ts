@@ -106,6 +106,7 @@ router.post('/', async (c) => {
     sourceSite: data.sourceSite ?? null,
     appliedAt: data.appliedAt ? new Date(data.appliedAt * 1000) : null,
     notes: data.notes ?? null,
+    jobDescription: data.jobDescription ?? null,
     metadata: data.metadata ?? null,
     createdAt: now,
     updatedAt: now,
@@ -185,6 +186,7 @@ router.patch('/:id', async (c) => {
   if (data.appliedAt !== undefined)
     updateValues.appliedAt = data.appliedAt ? new Date(data.appliedAt * 1000) : null;
   if (data.notes !== undefined) updateValues.notes = data.notes;
+  if (data.jobDescription !== undefined) updateValues.jobDescription = data.jobDescription;
   if (data.metadata !== undefined) updateValues.metadata = data.metadata;
 
   await db

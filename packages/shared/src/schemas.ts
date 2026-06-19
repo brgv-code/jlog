@@ -38,11 +38,12 @@ export const createApplicationSchema = z.object({
   company: z.string().min(1).max(200),
   role: z.string().min(1).max(200),
   location: z.string().max(200).nullish(),
-  status: z.enum(APPLICATION_STATUSES).default('applied'),
+  status: z.enum(APPLICATION_STATUSES).default('saved'),
   sourceUrl: z.string().url().nullish(),
   sourceSite: z.string().max(50).nullish(),
   appliedAt: z.number().int().optional(),
   notes: z.string().max(10000).nullish(),
+  jobDescription: z.string().max(50000).nullish(),
   metadata: z.record(z.unknown()).optional(),
 });
 

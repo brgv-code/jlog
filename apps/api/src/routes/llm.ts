@@ -159,6 +159,12 @@ extractRouter.post('/', async (c) => {
       extractedJobSchema,
       html.slice(0, 6000),
     );
+    if (!result.company || !result.role) {
+      return c.json(
+        { error: { code: 'EXTRACTION_FAILED', message: 'Could not identify company or role from this page. Try on a page with a visible job posting.' } },
+        422,
+      );
+    }
     return c.json(result);
   } catch (e) {
     if (e instanceof LLMError) {

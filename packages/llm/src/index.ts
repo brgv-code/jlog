@@ -11,8 +11,9 @@ export interface LLMProvider {
 
 export const extractedJobSchema = z
   .object({
-    company: z.string(),
-    role: z.string(),
+    // Some models return null when uncertain — normalise to empty string; caller checks for empty
+    company: z.string().nullable().catch(null).transform((v) => v ?? ''),
+    role: z.string().nullable().catch(null).transform((v) => v ?? ''),
     // Local models often return "" instead of null — normalise to null
     location: z
       .string()

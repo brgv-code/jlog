@@ -2,6 +2,9 @@ export interface DetectedJob {
   company: string;
   role: string;
   location?: string;
+  status?: 'saved' | 'applied' | 'interviewing' | 'offer' | 'rejected' | 'withdrawn';
+  notes?: string;
+  jobDescription?: string;
   sourceUrl: string;
   sourceSite: string;
   appliedAt?: number;

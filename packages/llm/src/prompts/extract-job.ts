@@ -9,6 +9,7 @@ Return ONLY a valid JSON object with exactly these four fields:
 }
 
 Rules:
+- company and role must always be non-null strings. If uncertain, use your best guess from the page text.
 - confidence must be a number between 0.0 and 1.0 (your certainty about the extraction)
 - location must be null (not empty string) if not specified or fully remote
 - Do not include any other fields

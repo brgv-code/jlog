@@ -5,7 +5,7 @@ import { Spinner } from '../ui/Spinner';
 interface AppEvent {
   id: string;
   applicationId: string;
-  type: 'created' | 'status_change' | 'note_added';
+  type: 'created' | 'status_change' | 'note_added' | 'follow_up_sent';
   payload: unknown;
   createdAt: string;
 }
@@ -23,6 +23,7 @@ function formatTimestamp(iso: string): string {
 function eventLabel(type: AppEvent['type']): string {
   if (type === 'created') return 'Application created';
   if (type === 'status_change') return 'Status changed';
+  if (type === 'follow_up_sent') return 'Follow-up sent';
   return 'Note added';
 }
 
@@ -47,6 +48,10 @@ function eventDetail(event: AppEvent): string {
     const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
     return `${cap(String(p.from ?? ''))} → ${cap(String(p.to ?? ''))}`;
   }
+  if (event.type === 'follow_up_sent') {
+    const channel = String(p.channel ?? '');
+    return channel === 'whatsapp' ? 'via WhatsApp' : 'via email';
+  }
   const preview = String(p.preview ?? '');
   return preview ? `"${preview}${preview.length >= 80 ? '…' : ''}"` : '';
 }
@@ -54,6 +59,7 @@ function eventDetail(event: AppEvent): string {
 function dotColor(type: AppEvent['type']): string {
   if (type === 'created') return 'var(--color-success)';
   if (type === 'status_change') return 'var(--color-accent)';
+  if (type === 'follow_up_sent') return 'var(--color-info)';
   return 'var(--color-warning)';
 }
 

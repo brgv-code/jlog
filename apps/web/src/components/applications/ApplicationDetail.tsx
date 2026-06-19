@@ -16,18 +16,20 @@ interface Application {
   sourceSite: string | null;
   appliedAt: string | null;
   notes: string | null;
+  jobDescription: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 interface ApplicationDetailProps {
   applicationId: string;
+  userName: string;
   onBack: () => void;
   onDelete: (id: string) => void;
   onUpdate: (app: Application) => void;
 }
 
-type EditableField = 'company' | 'role' | 'location' | 'sourceUrl' | 'notes';
+type EditableField = 'company' | 'role' | 'location' | 'sourceUrl' | 'notes' | 'jobDescription';
 
 function InlineField({
   label,
@@ -212,8 +214,33 @@ function InlineField({
   );
 }
 
+function generateFollowUpMessage(
+  company: string,
+  role: string,
+  appliedAt: string | null,
+  userName: string,
+): string {
+  const daysSince =
+    appliedAt != null
+      ? Math.floor((Date.now() - new Date(appliedAt).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+  const timePhrase =
+    daysSince != null ? `${daysSince} day${daysSince === 1 ? '' : 's'} ago` : 'recently';
+  return `Hi,
+
+I wanted to follow up on my application for the ${role} position at ${company}. I applied ${timePhrase} and remain very interested in the opportunity.
+
+Could you provide an update on the status of my application? I'm happy to share any additional information or answer questions.
+
+Thank you for your time.
+
+Best regards,
+${userName}`;
+}
+
 export function ApplicationDetail({
   applicationId,
+  userName,
   onBack,
   onDelete,
   onUpdate,
@@ -221,6 +248,9 @@ export function ApplicationDetail({
   const [app, setApp] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [showFollowUp, setShowFollowUp] = useState(false);
+  const [followUpMessage, setFollowUpMessage] = useState('');
+  const [followUpLogging, setFollowUpLogging] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -261,6 +291,31 @@ export function ApplicationDetail({
     }
     await apiFetch(`/api/applications/${applicationId}`, { method: 'DELETE' });
     onDelete(applicationId);
+  }
+
+  function openFollowUp() {
+    if (!app) return;
+    setFollowUpMessage(generateFollowUpMessage(app.company, app.role, app.appliedAt, userName));
+    setShowFollowUp(true);
+  }
+
+  async function sendFollowUp(channel: 'email' | 'whatsapp') {
+    if (!app) return;
+    const encoded = encodeURIComponent(followUpMessage);
+    if (channel === 'email') {
+      const subject = encodeURIComponent(`Following up — ${app.role} at ${app.company}`);
+      window.open(`mailto:?subject=${subject}&body=${encoded}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    }
+    setFollowUpLogging(true);
+    await apiFetch(`/api/applications/${applicationId}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel }),
+    }).catch(() => {});
+    setFollowUpLogging(false);
+    setShowFollowUp(false);
   }
 
   if (loading) {
@@ -380,6 +435,129 @@ export function ApplicationDetail({
           onSave={handleSaveField}
           multiline
         />
+
+        <InlineField
+          label="Job Description"
+          value={app.jobDescription ?? ''}
+          fieldName="jobDescription"
+          onSave={handleSaveField}
+          multiline
+        />
+      </div>
+
+      {/* Follow-up */}
+      <div
+        style={{
+          marginTop: 'var(--space-6)',
+          borderTop: '1px solid var(--color-border)',
+          paddingTop: 'var(--space-4)',
+        }}
+      >
+        {!showFollowUp ? (
+          <button
+            type="button"
+            onClick={openFollowUp}
+            style={{
+              background: 'none',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--color-text-secondary)',
+              fontSize: 'var(--text-xs)',
+              padding: '4px 12px',
+              cursor: 'pointer',
+            }}
+          >
+            Send follow-up
+          </button>
+        ) : (
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 'var(--space-2)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--color-text-secondary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                Follow-up message
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowFollowUp(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-text-tertiary)',
+                  fontSize: 'var(--text-xs)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+            <textarea
+              value={followUpMessage}
+              onChange={(e) => setFollowUpMessage(e.target.value)}
+              rows={8}
+              style={{
+                width: '100%',
+                backgroundColor: 'var(--color-bg)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--color-text-primary)',
+                fontSize: 'var(--text-sm)',
+                padding: '8px',
+                fontFamily: 'var(--font-sans)',
+                resize: 'vertical',
+                outline: 'none',
+                lineHeight: 1.6,
+              }}
+            />
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+              <button
+                type="button"
+                onClick={() => sendFollowUp('email')}
+                disabled={followUpLogging}
+                style={{
+                  backgroundColor: 'var(--color-accent)',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  color: '#fff',
+                  fontSize: 'var(--text-xs)',
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Open in Email
+              </button>
+              <button
+                type="button"
+                onClick={() => sendFollowUp('whatsapp')}
+                disabled={followUpLogging}
+                style={{
+                  backgroundColor: '#25D366',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  color: '#fff',
+                  fontSize: 'var(--text-xs)',
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Send via WhatsApp
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Activity timeline */}

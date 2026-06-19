@@ -15,6 +15,41 @@ function requireSession(c: { var: { session: { userId: string; sessionId: string
   return session;
 }
 
+// POST /:id/events — log a follow_up_sent event
+router.post('/:id/events', async (c) => {
+  const session = requireSession(c);
+  const { id } = c.req.param();
+  const db = createDb(c.env.DB);
+
+  const [application] = await db
+    .select()
+    .from(applications)
+    .where(and(eq(applications.id, id), eq(applications.userId, session.userId)));
+
+  if (!application) {
+    throw new HttpError(404, 'NOT_FOUND', 'Application not found');
+  }
+
+  const body = await c.req.json().catch(() => {
+    throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+  });
+
+  const { channel } = body as { channel?: string };
+  if (channel !== 'email' && channel !== 'whatsapp') {
+    throw new HttpError(400, 'VALIDATION_ERROR', 'channel must be "email" or "whatsapp"');
+  }
+
+  await db.insert(events).values({
+    id: crypto.randomUUID(),
+    applicationId: id,
+    type: 'follow_up_sent',
+    payload: JSON.stringify({ channel }),
+    createdAt: new Date(),
+  });
+
+  return c.json({ ok: true });
+});
+
 // GET /:id/events — list events for an application
 router.get('/:id/events', async (c) => {
   const session = requireSession(c);

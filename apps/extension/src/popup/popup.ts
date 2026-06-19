@@ -193,15 +193,15 @@ function renderExtracting(root: HTMLElement, url: string): void {
     chrome.scripting.executeScript(
       {
         target: { tabId },
-        func: () => document.body.innerText.slice(0, 6000),
+        func: () => document.body.innerText.slice(0, 10000),
       },
       (results) => {
         if (chrome.runtime.lastError || !results?.[0]) {
           renderError(root, chrome.runtime.lastError?.message ?? 'Script injection failed.');
           return;
         }
-        const text = results[0].result as string;
-        sendMessage({ type: 'EXTRACT_REQUEST', text, url })
+        const pageText = results[0].result as string;
+        sendMessage({ type: 'EXTRACT_REQUEST', text: pageText.slice(0, 6000), url })
           .then((resp) => {
             const response = resp as { job: ExtractedJob | null; error?: string };
             if (response.error?.includes('401') || response.error?.includes('Unauthorized')) {
@@ -212,7 +212,7 @@ function renderExtracting(root: HTMLElement, url: string): void {
               renderError(root, response.error ?? 'Could not extract job details.');
               return;
             }
-            renderConfirmExtracted(root, response.job, url);
+            renderConfirmExtracted(root, response.job, url, pageText);
           })
           .catch((err: unknown) => {
             renderError(root, String(err));
@@ -222,37 +222,74 @@ function renderExtracting(root: HTMLElement, url: string): void {
   });
 }
 
-function renderConfirmExtracted(root: HTMLElement, job: ExtractedJob, url: string): void {
+function renderConfirmExtracted(
+  root: HTMLElement,
+  job: ExtractedJob,
+  url: string,
+  scrapedText?: string,
+): void {
   clear(root);
 
   const label = h('p', { class: 'section-label' }, 'Extracted — confirm to track');
 
   const companyInput = h('input', {
-    class: 'input monospace',
+    class: 'input',
     type: 'text',
     value: job.company,
     id: 'confirm-company',
-    style: 'margin-bottom:6px',
   }) as HTMLInputElement;
 
   const roleInput = h('input', {
-    class: 'input monospace',
+    class: 'input',
     type: 'text',
     value: job.role,
     id: 'confirm-role',
-    style: 'margin-bottom:6px',
   }) as HTMLInputElement;
 
   const locationInput = h('input', {
-    class: 'input monospace',
+    class: 'input',
     type: 'text',
     value: job.location ?? '',
     id: 'confirm-location',
     placeholder: 'Location (optional)',
   }) as HTMLInputElement;
 
-  const btnRow = h('div', { class: 'confirm-row' });
+  const statusSelect = h('select', {
+    class: 'input select',
+    id: 'confirm-status',
+  }) as HTMLSelectElement;
+  const statusOptions: [string, string][] = [
+    ['saved', 'Saved'],
+    ['applied', 'Applied'],
+    ['interviewing', 'Interviewing'],
+    ['offer', 'Offer'],
+    ['rejected', 'Rejected'],
+    ['withdrawn', 'Withdrawn'],
+  ];
+  for (const [val, label] of statusOptions) {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = label;
+    if (val === 'saved') opt.selected = true;
+    statusSelect.appendChild(opt);
+  }
 
+  const notesTextarea = h('textarea', {
+    class: 'input textarea',
+    id: 'confirm-notes',
+    placeholder: 'Notes (optional)',
+    rows: '3',
+  }) as HTMLTextAreaElement;
+
+  const jobDescTextarea = h('textarea', {
+    class: 'input textarea',
+    id: 'confirm-job-desc',
+    placeholder: 'Job description (auto-scraped, optional)',
+    rows: '4',
+  }) as HTMLTextAreaElement;
+  if (scrapedText) jobDescTextarea.value = scrapedText;
+
+  const btnRow = h('div', { class: 'confirm-row' });
   const cancelBtn = h('button', { class: 'btn btn-secondary', type: 'button' }, 'Cancel');
   const saveBtn = h('button', { class: 'btn btn-primary', type: 'button' }, 'Track');
 
@@ -260,13 +297,18 @@ function renderConfirmExtracted(root: HTMLElement, job: ExtractedJob, url: strin
 
   saveBtn.addEventListener('click', () => {
     const loc = locationInput.value.trim();
+    const notes = notesTextarea.value.trim();
+    const jobDescription = jobDescTextarea.value.trim();
+    const statusVal = (statusSelect.value || 'saved') as NonNullable<DetectedJob['status']>;
     const detectedJob: DetectedJob = {
       company: companyInput.value.trim() || job.company,
       role: roleInput.value.trim() || job.role,
       ...(loc ? { location: loc } : {}),
+      status: statusVal,
+      ...(notes ? { notes } : {}),
+      ...(jobDescription ? { jobDescription } : {}),
       sourceUrl: url,
       sourceSite: 'generic',
-      appliedAt: Date.now(),
     };
     renderSaving(root, detectedJob);
   });
@@ -275,12 +317,29 @@ function renderConfirmExtracted(root: HTMLElement, job: ExtractedJob, url: strin
   btnRow.appendChild(saveBtn);
 
   root.appendChild(label);
-  root.appendChild(h('div', { class: 'field-label' }, 'Company'));
-  root.appendChild(companyInput);
-  root.appendChild(h('div', { class: 'field-label' }, 'Role'));
-  root.appendChild(roleInput);
-  root.appendChild(h('div', { class: 'field-label' }, 'Location'));
-  root.appendChild(locationInput);
+  root.appendChild(
+    h('div', { class: 'field-row' }, h('div', { class: 'field-label' }, 'Company'), companyInput),
+  );
+  root.appendChild(
+    h('div', { class: 'field-row' }, h('div', { class: 'field-label' }, 'Role'), roleInput),
+  );
+  root.appendChild(
+    h('div', { class: 'field-row' }, h('div', { class: 'field-label' }, 'Location'), locationInput),
+  );
+  root.appendChild(
+    h('div', { class: 'field-row' }, h('div', { class: 'field-label' }, 'Status'), statusSelect),
+  );
+  root.appendChild(
+    h('div', { class: 'field-row' }, h('div', { class: 'field-label' }, 'Notes'), notesTextarea),
+  );
+  root.appendChild(
+    h(
+      'div',
+      { class: 'field-row' },
+      h('div', { class: 'field-label' }, 'Job Description'),
+      jobDescTextarea,
+    ),
+  );
   root.appendChild(btnRow);
 }
 
