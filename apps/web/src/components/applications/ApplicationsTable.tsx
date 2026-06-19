@@ -23,6 +23,29 @@ interface ApplicationsTableProps {
   onAddClick: () => void;
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  linkedin: 'LinkedIn',
+  ashby: 'Ashby',
+  ashbyhq: 'Ashby',
+  greenhouse: 'Greenhouse',
+  lever: 'Lever',
+  wellfound: 'Wellfound',
+  ycombinator: 'Y Combinator',
+  personio: 'Personio',
+  workday: 'Workday',
+  smartrecruiters: 'SmartRecruiters',
+  jobvite: 'Jobvite',
+  icims: 'iCIMS',
+  bamboohr: 'BambooHR',
+  generic: 'AI extracted',
+  manual: 'Manual',
+};
+
+function formatSourceSite(site: string | null): string {
+  if (!site) return 'Manual';
+  return SOURCE_LABELS[site.toLowerCase()] ?? site.charAt(0).toUpperCase() + site.slice(1);
+}
+
 function formatDate(value: string | null): string {
   if (!value) return '—';
   const d = new Date(value);
@@ -221,10 +244,12 @@ export function ApplicationsTable({
                       onClick={(e) => e.stopPropagation()}
                       style={{ color: 'var(--color-accent)', fontSize: 'var(--text-xs)' }}
                     >
-                      {app.sourceSite ?? 'Link'}
+                      {formatSourceSite(app.sourceSite)}
                     </a>
                   ) : (
-                    <span style={{ color: 'var(--color-text-secondary)' }}>—</span>
+                    <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)' }}>
+                      {formatSourceSite(app.sourceSite)}
+                    </span>
                   )}
                 </td>
               </tr>
