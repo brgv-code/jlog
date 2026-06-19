@@ -63,7 +63,9 @@ export const events = sqliteTable('events', {
   applicationId: text('application_id')
     .notNull()
     .references(() => applications.id, { onDelete: 'cascade' }),
-  type: text('type', { enum: ['status_change', 'note_added', 'created', 'follow_up_sent'] }).notNull(),
+  type: text('type', {
+    enum: ['status_change', 'note_added', 'created', 'follow_up_sent'],
+  }).notNull(),
   payload: text('payload', { mode: 'json' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });

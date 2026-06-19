@@ -134,7 +134,11 @@ extractRouter.post('/', async (c) => {
       ? await decrypt(row.apiKeyEncrypted, c.env.SESSION_SECRET)
       : undefined;
   } catch {
-    throw new HttpError(400, 'LLM_CONFIG_ERROR', 'Failed to decrypt API key — re-save your LLM settings');
+    throw new HttpError(
+      400,
+      'LLM_CONFIG_ERROR',
+      'Failed to decrypt API key — re-save your LLM settings',
+    );
   }
 
   const cfAccessHeaders =
@@ -161,7 +165,13 @@ extractRouter.post('/', async (c) => {
     );
     if (!result.company || !result.role) {
       return c.json(
-        { error: { code: 'EXTRACTION_FAILED', message: 'Could not identify company or role from this page. Try on a page with a visible job posting.' } },
+        {
+          error: {
+            code: 'EXTRACTION_FAILED',
+            message:
+              'Could not identify company or role from this page. Try on a page with a visible job posting.',
+          },
+        },
         422,
       );
     }

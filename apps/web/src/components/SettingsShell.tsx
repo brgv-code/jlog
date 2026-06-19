@@ -370,7 +370,9 @@ export default function SettingsShell() {
                     height: '22px',
                     borderRadius: 'var(--radius-full)',
                     border: 'none',
-                    backgroundColor: analyticsOptIn ? 'var(--color-accent)' : 'var(--color-surface-raised)',
+                    backgroundColor: analyticsOptIn
+                      ? 'var(--color-accent)'
+                      : 'var(--color-surface-raised)',
                     cursor: 'pointer',
                     position: 'relative',
                     flexShrink: 0,

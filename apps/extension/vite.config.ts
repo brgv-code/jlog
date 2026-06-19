@@ -7,9 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [crx({ manifest })],
     define: {
-      'import.meta.env.VITE_API_BASE': JSON.stringify(
-        env.VITE_API_BASE ?? 'http://localhost:8787',
-      ),
+      'import.meta.env.VITE_API_BASE': JSON.stringify(env.VITE_API_BASE ?? 'http://localhost:8787'),
     },
   };
 });

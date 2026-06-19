@@ -7,7 +7,11 @@ interface OllamaResponse {
   response: string;
 }
 
-export function makeOllamaProvider(model: string, ollamaUrl: string, extraHeaders?: Record<string, string>): LLMProvider {
+export function makeOllamaProvider(
+  model: string,
+  ollamaUrl: string,
+  extraHeaders?: Record<string, string>,
+): LLMProvider {
   return {
     name: 'ollama',
     async extractJSON<T>(prompt: string, schema: z.ZodSchema<T>, content: string): Promise<T> {
@@ -43,7 +47,10 @@ export function makeOllamaProvider(model: string, ollamaUrl: string, extraHeader
       try {
         data = JSON.parse(rawText) as OllamaResponse;
       } catch {
-        throw new LLMError('PARSE_ERROR', `Ollama returned non-JSON (got HTML?): ${rawText.slice(0, 200)}`);
+        throw new LLMError(
+          'PARSE_ERROR',
+          `Ollama returned non-JSON (got HTML?): ${rawText.slice(0, 200)}`,
+        );
       }
       const text = data.response;
       if (!text) {

@@ -39,9 +39,9 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
         throw new LLMError('API_ERROR', `Gemini API error ${res.status}: ${body}`);
       }
 
-      const data = await res.json().catch(() => {
+      const data = (await res.json().catch(() => {
         throw new LLMError('PARSE_ERROR', 'Gemini returned a non-JSON success response');
-      }) as GeminiResponse;
+      })) as GeminiResponse;
       const text = data.candidates[0]?.content?.parts[0]?.text;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'Gemini returned no content');

@@ -238,7 +238,9 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
           {errors.sourceUrl && <p style={errorStyle}>{errors.sourceUrl}</p>}
         </div>
         <div>
-          <label style={labelStyle}>Salary range</label>
+          <label htmlFor="add-salary-min" style={labelStyle}>
+            Salary range
+          </label>
           <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
             <input
               id="add-salary-min"
@@ -248,7 +250,9 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
               placeholder="Min"
               style={{ ...inputStyle, flex: 1 }}
             />
-            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--text-sm)' }}>–</span>
+            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--text-sm)' }}>
+              –
+            </span>
             <input
               id="add-salary-max"
               type="number"

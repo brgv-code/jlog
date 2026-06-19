@@ -35,8 +35,8 @@ router.get('/', async (c) => {
   let avgDaysToResponse: number | null = null;
   if (withResponse.length > 0) {
     const totalDays = withResponse.reduce((sum, a) => {
-      const applied = new Date(a.appliedAt!).getTime();
-      const responded = new Date(a.responseReceivedAt!).getTime();
+      const applied = new Date(a.appliedAt as Date).getTime();
+      const responded = new Date(a.responseReceivedAt as Date).getTime();
       return sum + (responded - applied) / (1000 * 60 * 60 * 24);
     }, 0);
     avgDaysToResponse = Math.round((totalDays / withResponse.length) * 10) / 10;
@@ -56,9 +56,7 @@ router.get('/', async (c) => {
   }
 
   // Response rate (got any response vs total applied or beyond)
-  const everApplied = allApps.filter(
-    (a) => a.status !== 'saved',
-  ).length;
+  const everApplied = allApps.filter((a) => a.status !== 'saved').length;
   const gotResponse = allApps.filter(
     (a) => a.status === 'interviewing' || a.status === 'offer' || a.status === 'rejected',
   ).length;

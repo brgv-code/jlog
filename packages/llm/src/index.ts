@@ -12,8 +12,16 @@ export interface LLMProvider {
 export const extractedJobSchema = z
   .object({
     // Some models return null when uncertain — normalise to empty string; caller checks for empty
-    company: z.string().nullable().catch(null).transform((v) => v ?? ''),
-    role: z.string().nullable().catch(null).transform((v) => v ?? ''),
+    company: z
+      .string()
+      .nullable()
+      .catch(null)
+      .transform((v) => v ?? ''),
+    role: z
+      .string()
+      .nullable()
+      .catch(null)
+      .transform((v) => v ?? ''),
     // Local models often return "" instead of null — normalise to null
     location: z
       .string()
@@ -45,7 +53,11 @@ export function makeProvider(config: LLMConfig): LLMProvider {
     case 'gemini':
       return makeGeminiProvider(config.apiKey ?? '', config.model);
     case 'ollama':
-      return makeOllamaProvider(config.model, config.ollamaUrl ?? 'http://localhost:11434', config.extraHeaders);
+      return makeOllamaProvider(
+        config.model,
+        config.ollamaUrl ?? 'http://localhost:11434',
+        config.extraHeaders,
+      );
   }
 }
 

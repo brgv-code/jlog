@@ -247,7 +247,9 @@ export function ApplicationsTable({
                       {formatSourceSite(app.sourceSite)}
                     </a>
                   ) : (
-                    <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)' }}>
+                    <span
+                      style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)' }}
+                    >
                       {formatSourceSite(app.sourceSite)}
                     </span>
                   )}

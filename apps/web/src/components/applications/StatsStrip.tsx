@@ -25,7 +25,12 @@ function SkeletonBox() {
   );
 }
 
-function StatCard({ label, value, loading, warn }: { label: string; value: string | number; loading: boolean; warn?: boolean }) {
+function StatCard({
+  label,
+  value,
+  loading,
+  warn,
+}: { label: string; value: string | number; loading: boolean; warn?: boolean }) {
   return (
     <div
       style={{

@@ -39,9 +39,9 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
         throw new LLMError('API_ERROR', `OpenAI API error ${res.status}: ${body}`);
       }
 
-      const data = await res.json().catch(() => {
+      const data = (await res.json().catch(() => {
         throw new LLMError('PARSE_ERROR', 'OpenAI returned a non-JSON success response');
-      }) as OpenAICompletion;
+      })) as OpenAICompletion;
       const text = data.choices[0]?.message?.content;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'OpenAI returned no content');

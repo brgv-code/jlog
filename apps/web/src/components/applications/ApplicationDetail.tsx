@@ -445,10 +445,10 @@ export function ApplicationDetail({
           </span>
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
             {app.salaryMin != null || app.salaryMax != null
-              ? [
+              ? `${[
                   app.salaryMin != null ? app.salaryMin.toLocaleString() : '?',
                   app.salaryMax != null ? app.salaryMax.toLocaleString() : '?',
-                ].join(' – ') + ` ${app.salaryCurrency ?? 'USD'}`
+                ].join(' – ')} ${app.salaryCurrency ?? 'USD'}`
               : '—'}
           </span>
         </div>
