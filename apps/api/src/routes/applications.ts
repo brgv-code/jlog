@@ -107,6 +107,10 @@ router.post('/', async (c) => {
     appliedAt: data.appliedAt ? new Date(data.appliedAt * 1000) : null,
     notes: data.notes ?? null,
     jobDescription: data.jobDescription ?? null,
+    salaryMin: data.salaryMin ?? null,
+    salaryMax: data.salaryMax ?? null,
+    salaryCurrency: data.salaryCurrency ?? 'USD',
+    responseReceivedAt: data.responseReceivedAt ? new Date(data.responseReceivedAt * 1000) : null,
     metadata: data.metadata ?? null,
     createdAt: now,
     updatedAt: now,
@@ -187,7 +191,26 @@ router.patch('/:id', async (c) => {
     updateValues.appliedAt = data.appliedAt ? new Date(data.appliedAt * 1000) : null;
   if (data.notes !== undefined) updateValues.notes = data.notes;
   if (data.jobDescription !== undefined) updateValues.jobDescription = data.jobDescription;
+  if (data.salaryMin !== undefined) updateValues.salaryMin = data.salaryMin;
+  if (data.salaryMax !== undefined) updateValues.salaryMax = data.salaryMax;
+  if (data.salaryCurrency !== undefined) updateValues.salaryCurrency = data.salaryCurrency;
+  if (data.responseReceivedAt !== undefined)
+    updateValues.responseReceivedAt = data.responseReceivedAt
+      ? new Date(data.responseReceivedAt * 1000)
+      : null;
   if (data.metadata !== undefined) updateValues.metadata = data.metadata;
+
+  // Auto-set responseReceivedAt when status moves out of 'applied' for the first time
+  if (
+    data.status !== undefined &&
+    existing.status === 'applied' &&
+    data.status !== 'applied' &&
+    data.status !== 'saved' &&
+    existing.responseReceivedAt == null &&
+    updateValues.responseReceivedAt == null
+  ) {
+    updateValues.responseReceivedAt = new Date();
+  }
 
   await db
     .update(applications)

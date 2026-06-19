@@ -17,6 +17,10 @@ interface Application {
   appliedAt: string | null;
   notes: string | null;
   jobDescription: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
+  responseReceivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -427,6 +431,49 @@ export function ApplicationDetail({
             {appliedDate}
           </span>
         </div>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <span
+            style={{
+              display: 'block',
+              fontSize: '11px',
+              color: 'var(--color-text-secondary)',
+              marginBottom: '2px',
+            }}
+          >
+            Salary range
+          </span>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
+            {app.salaryMin != null || app.salaryMax != null
+              ? [
+                  app.salaryMin != null ? app.salaryMin.toLocaleString() : '?',
+                  app.salaryMax != null ? app.salaryMax.toLocaleString() : '?',
+                ].join(' – ') + ` ${app.salaryCurrency ?? 'USD'}`
+              : '—'}
+          </span>
+        </div>
+
+        {app.responseReceivedAt && (
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            <span
+              style={{
+                display: 'block',
+                fontSize: '11px',
+                color: 'var(--color-text-secondary)',
+                marginBottom: '2px',
+              }}
+            >
+              Response received
+            </span>
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
+              {new Date(app.responseReceivedAt).toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </span>
+          </div>
+        )}
 
         <InlineField
           label="Notes"

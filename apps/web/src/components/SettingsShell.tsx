@@ -39,6 +39,8 @@ export default function SettingsShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const [theme, setTheme] = useState<Theme>('dark');
   const [extToken, setExtToken] = useState<ExtensionTokenState>({ status: 'idle' });
+  const [analyticsOptIn, setAnalyticsOptIn] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const tokenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -65,6 +67,27 @@ export default function SettingsShell() {
   useEffect(() => {
     if (auth.status === 'unauthenticated') window.location.href = '/login';
   }, [auth.status]);
+
+  useEffect(() => {
+    if (auth.status !== 'authenticated') return;
+    apiFetch('/api/settings')
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as { analyticsOptIn: boolean };
+        setAnalyticsOptIn(data.analyticsOptIn);
+      })
+      .catch(() => {})
+      .finally(() => setAnalyticsLoading(false));
+  }, [auth.status]);
+
+  async function toggleAnalyticsOptIn(val: boolean) {
+    setAnalyticsOptIn(val);
+    await apiFetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ analyticsOptIn: val }),
+    }).catch(() => setAnalyticsOptIn(!val));
+  }
 
   function toggleTheme(next: Theme) {
     setTheme(next);
@@ -318,6 +341,61 @@ export default function SettingsShell() {
               encrypted at rest using AES-GCM.
             </p>
             <LLMConfigForm />
+          </div>
+        </section>
+
+        {/* Analytics opt-in section */}
+        <section style={{ marginBottom: 'var(--space-8)' }}>
+          <p style={sectionHeadingStyle}>Analytics</p>
+          <div style={cardStyle}>
+            <p
+              style={{
+                fontSize: 'var(--text-sm)',
+                color: 'var(--color-text-secondary)',
+                marginBottom: 'var(--space-4)',
+                lineHeight: 1.6,
+              }}
+            >
+              Help improve jlog by sharing anonymized data — response rates, time-to-offer, ghosting
+              patterns. No company names, no personal details. Your data helps other job seekers
+              understand the market.
+            </p>
+            {analyticsLoading ? null : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                <button
+                  type="button"
+                  onClick={() => toggleAnalyticsOptIn(!analyticsOptIn)}
+                  style={{
+                    width: '40px',
+                    height: '22px',
+                    borderRadius: 'var(--radius-full)',
+                    border: 'none',
+                    backgroundColor: analyticsOptIn ? 'var(--color-accent)' : 'var(--color-surface-raised)',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    flexShrink: 0,
+                    transition: 'background-color var(--transition-fast)',
+                  }}
+                  aria-label="Toggle analytics opt-in"
+                >
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '3px',
+                      left: analyticsOptIn ? '21px' : '3px',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      backgroundColor: '#fff',
+                      transition: 'left var(--transition-fast)',
+                    }}
+                  />
+                </button>
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                  {analyticsOptIn ? 'Contributing anonymized data' : 'Not sharing data'}
+                </span>
+              </div>
+            )}
           </div>
         </section>
 

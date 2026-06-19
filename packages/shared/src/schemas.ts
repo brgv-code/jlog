@@ -44,6 +44,10 @@ export const createApplicationSchema = z.object({
   appliedAt: z.number().int().optional(),
   notes: z.string().max(10000).nullish(),
   jobDescription: z.string().max(50000).nullish(),
+  salaryMin: z.number().int().positive().nullish(),
+  salaryMax: z.number().int().positive().nullish(),
+  salaryCurrency: z.string().max(3).default('USD'),
+  responseReceivedAt: z.number().int().nullish(),
   metadata: z.record(z.unknown()).optional(),
 });
 

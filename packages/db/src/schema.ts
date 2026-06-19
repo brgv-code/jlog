@@ -6,6 +6,7 @@ export const users = sqliteTable('users', {
   email: text('email').notNull(),
   name: text('name').notNull(),
   avatarUrl: text('avatar_url'),
+  analyticsOptIn: integer('analytics_opt_in', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
@@ -35,6 +36,10 @@ export const applications = sqliteTable('applications', {
   appliedAt: integer('applied_at', { mode: 'timestamp' }),
   notes: text('notes'),
   jobDescription: text('job_description'),
+  salaryMin: integer('salary_min'),
+  salaryMax: integer('salary_max'),
+  salaryCurrency: text('salary_currency').default('USD'),
+  responseReceivedAt: integer('response_received_at', { mode: 'timestamp' }),
   metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),

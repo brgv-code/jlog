@@ -6,6 +6,9 @@ interface Stats {
   thisWeek: number;
   interviewRate: number;
   offers: number;
+  avgDaysToResponse: number | null;
+  ghosted: number;
+  responseRate: number;
 }
 
 function SkeletonBox() {
@@ -22,13 +25,7 @@ function SkeletonBox() {
   );
 }
 
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  loading: boolean;
-}
-
-function StatCard({ label, value, loading }: StatCardProps) {
+function StatCard({ label, value, loading, warn }: { label: string; value: string | number; loading: boolean; warn?: boolean }) {
   return (
     <div
       style={{
@@ -47,7 +44,7 @@ function StatCard({ label, value, loading }: StatCardProps) {
             fontSize: 'var(--text-2xl)',
             fontWeight: 600,
             letterSpacing: '-0.02em',
-            color: 'var(--color-text-primary)',
+            color: warn ? 'var(--color-warning)' : 'var(--color-text-primary)',
             fontVariantNumeric: 'tabular-nums',
           }}
         >
@@ -76,12 +73,16 @@ export function StatsStrip() {
       .finally(() => setLoading(false));
   }, []);
 
-  const dividerStyle = {
-    width: '1px',
-    backgroundColor: 'var(--color-border)',
-    alignSelf: 'stretch',
-    margin: 'var(--space-3) 0',
-  };
+  const divider = (
+    <div
+      style={{
+        width: '1px',
+        backgroundColor: 'var(--color-border)',
+        alignSelf: 'stretch',
+        margin: 'var(--space-3) 0',
+      }}
+    />
+  );
 
   return (
     <div
@@ -90,19 +91,39 @@ export function StatsStrip() {
         alignItems: 'stretch',
         borderBottom: '1px solid var(--color-border)',
         backgroundColor: 'var(--color-surface)',
+        overflowX: 'auto',
       }}
     >
       <StatCard label="Total" value={stats?.total ?? 0} loading={loading} />
-      <div style={dividerStyle} />
+      {divider}
       <StatCard label="This week" value={stats?.thisWeek ?? 0} loading={loading} />
-      <div style={dividerStyle} />
+      {divider}
+      <StatCard
+        label="Response rate"
+        value={stats ? `${stats.responseRate}%` : '0%'}
+        loading={loading}
+      />
+      {divider}
       <StatCard
         label="Interview rate"
         value={stats ? `${stats.interviewRate}%` : '0%'}
         loading={loading}
       />
-      <div style={dividerStyle} />
+      {divider}
       <StatCard label="Offers" value={stats?.offers ?? 0} loading={loading} />
+      {divider}
+      <StatCard
+        label="Avg response"
+        value={stats?.avgDaysToResponse != null ? `${stats.avgDaysToResponse}d` : '—'}
+        loading={loading}
+      />
+      {divider}
+      <StatCard
+        label="Ghosted"
+        value={stats?.ghosted ?? 0}
+        loading={loading}
+        warn={(stats?.ghosted ?? 0) > 0}
+      />
     </div>
   );
 }

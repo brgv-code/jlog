@@ -36,10 +36,13 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
   const [location, setLocation] = useState('');
-  const [status, setStatus] = useState<ApplicationStatus>('applied');
+  const [status, setStatus] = useState<ApplicationStatus>('saved');
   const [appliedAt, setAppliedAt] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
   const [notes, setNotes] = useState('');
+  const [salaryMin, setSalaryMin] = useState('');
+  const [salaryMax, setSalaryMax] = useState('');
+  const [salaryCurrency, setSalaryCurrency] = useState('USD');
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -68,6 +71,9 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
     if (sourceUrl.trim()) body.sourceUrl = sourceUrl.trim();
     if (notes.trim()) body.notes = notes.trim();
     if (appliedAt) body.appliedAt = Math.floor(new Date(appliedAt).getTime() / 1000);
+    if (salaryMin) body.salaryMin = Number.parseInt(salaryMin, 10);
+    if (salaryMax) body.salaryMax = Number.parseInt(salaryMax, 10);
+    body.salaryCurrency = salaryCurrency;
 
     try {
       const res = await apiFetch('/api/applications', {
@@ -230,6 +236,40 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
             placeholder="https://"
           />
           {errors.sourceUrl && <p style={errorStyle}>{errors.sourceUrl}</p>}
+        </div>
+        <div>
+          <label style={labelStyle}>Salary range</label>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+            <input
+              id="add-salary-min"
+              type="number"
+              value={salaryMin}
+              onChange={(e) => setSalaryMin(e.target.value)}
+              placeholder="Min"
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--text-sm)' }}>–</span>
+            <input
+              id="add-salary-max"
+              type="number"
+              value={salaryMax}
+              onChange={(e) => setSalaryMax(e.target.value)}
+              placeholder="Max"
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <select
+              value={salaryCurrency}
+              onChange={(e) => setSalaryCurrency(e.target.value)}
+              style={{ ...inputStyle, width: '72px', cursor: 'pointer' }}
+            >
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="INR">INR</option>
+              <option value="CAD">CAD</option>
+              <option value="AUD">AUD</option>
+            </select>
+          </div>
         </div>
         <div>
           <label htmlFor="add-notes" style={labelStyle}>
