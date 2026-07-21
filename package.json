@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "pnpm --parallel -r dev",
     "build": "pnpm -r build",
+    "deploy": "pnpm --filter @jlog/api exec wrangler versions upload",
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",
