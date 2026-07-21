@@ -14,12 +14,16 @@ export const githubEmailSchema = z.object({
   verified: z.boolean(),
 });
 
+export const PLANS = ['free', 'pro'] as const;
+export type Plan = (typeof PLANS)[number];
+
 export const meResponseSchema = z.object({
   user: z.object({
     id: z.string(),
     name: z.string(),
     email: z.string(),
     avatarUrl: z.string().nullable(),
+    plan: z.enum(PLANS),
   }),
 });
 
@@ -75,3 +79,40 @@ export const extractSchema = z.object({
   html: z.string().min(1).max(50000),
   url: z.string().url().optional(),
 });
+
+// --- Documents (base templates + generated, tailored per application) ---
+
+// v1 supports LaTeX only; the column/enum leave room to add 'pdf' later.
+export const DOCUMENT_FORMATS = ['latex'] as const;
+export type DocumentFormat = (typeof DOCUMENT_FORMATS)[number];
+
+// `type` is an open set — these are the well-known ones; custom labels allowed.
+export const KNOWN_DOCUMENT_TYPES = ['cv', 'cover_letter'] as const;
+
+export const DOCUMENT_STATUSES = ['draft', 'compiled', 'failed'] as const;
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+
+// A sibling file shipped into the compile sandbox. Paths must be relative and
+// in-directory — the compile service strips `..` — so reject traversal here too.
+export const documentAssetSchema = z.object({
+  path: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine((p) => !p.includes('..') && !p.startsWith('/'), {
+      message: 'asset path must be relative and must not traverse directories',
+    }),
+  encoding: z.enum(['utf8', 'base64']),
+  content: z.string().max(2_000_000),
+});
+
+export const createBaseDocumentSchema = z.object({
+  type: z.string().min(1).max(50),
+  label: z.string().min(1).max(120),
+  format: z.enum(DOCUMENT_FORMATS).default('latex'),
+  content: z.string().min(1).max(500_000),
+  assets: z.array(documentAssetSchema).max(20).optional(),
+  isDefault: z.boolean().default(false),
+});
+
+export const updateBaseDocumentSchema = createBaseDocumentSchema.partial();

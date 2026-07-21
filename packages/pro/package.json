@@ -1,0 +1,19 @@
+{
+  "name": "@jlog/pro",
+  "private": true,
+  "description": "Pro-feature seam (PUBLIC STUB). Keeps the OSS build compiling with the paid feature shown as locked; the real implementation is private and aliased over this in the hosted build.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
