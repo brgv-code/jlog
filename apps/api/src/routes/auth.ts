@@ -206,6 +206,7 @@ router.get('/me', async (c) => {
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl ?? null,
+      plan: user.plan,
     },
   });
 });

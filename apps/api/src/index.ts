@@ -1,3 +1,4 @@
+import { createProRouter } from '@jlog/pro';
 import { HttpError } from '@jlog/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -51,6 +52,9 @@ app.route('/api/settings', settingsRouter);
 app.route('/api/llm', llmRouter);
 app.route('/api/extract', extractRouter);
 app.route('/api/extension', extensionRouter);
+// Paid feature surface. In the OSS build this is the @jlog/pro stub (every route
+// returns 402); the hosted build aliases @jlog/pro to the private implementation.
+app.route('/api/pro', createProRouter());
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'jlog-api' }));
 
