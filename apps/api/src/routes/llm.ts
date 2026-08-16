@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { decrypt, encrypt } from '../lib/encryption';
+import { getLangfuse } from '../lib/langfuse';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
@@ -157,13 +158,32 @@ extractRouter.post('/', async (c) => {
     ...(cfAccessHeaders !== undefined ? { extraHeaders: cfAccessHeaders } : {}),
   };
 
+  const content = html.slice(0, 6000);
+  const langfuse = getLangfuse(c.env);
+  const trace = langfuse?.trace({
+    name: 'extract-job',
+    userId: session.userId,
+    input: { url: parsed.data.url, content },
+    metadata: { provider: row.provider, model: row.model },
+    tags: ['extraction', row.provider],
+  });
+  const generation = trace?.generation({
+    name: 'extract-job-llm-call',
+    model: row.model,
+    input: content,
+  });
+
   try {
     const result = await makeProvider(config).extractJSON(
       'Extract the job details from the following job posting content:',
       extractedJobSchema,
-      html.slice(0, 6000),
+      content,
     );
+
+    generation?.end({ output: result });
+
     if (!result.company || !result.role) {
+      trace?.update({ output: result, metadata: { extractionFailed: true } });
       return c.json(
         {
           error: {
@@ -175,11 +195,21 @@ extractRouter.post('/', async (c) => {
         422,
       );
     }
+
+    trace?.update({ output: result });
     return c.json(result);
   } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    generation?.end({ output: null, level: 'ERROR', statusMessage: message });
+    trace?.update({ output: null, metadata: { error: message } });
+
     if (e instanceof LLMError) {
       return c.json({ error: { code: 'EXTRACTION_FAILED', message: e.message } }, 422);
     }
     throw e;
+  } finally {
+    // Workers tear down the isolate right after the response is sent, so the
+    // background flush has to be handed to waitUntil to actually complete.
+    if (langfuse) c.executionCtx.waitUntil(langfuse.flushAsync());
   }
 });
