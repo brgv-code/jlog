@@ -11,3 +11,18 @@ COOKIE_DOMAIN = "production"
 binding = "DB"
 database_name = "jlog"
 database_id = "8247e5bd-5d9d-4616-95cb-aa4cffee19ee"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+persist = true
+head_sampling_rate = 1
