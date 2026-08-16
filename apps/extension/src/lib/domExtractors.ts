@@ -74,8 +74,12 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
         );
       }
       function readCompany(pane: ParentNode): string {
-        const companyLabel = pane.querySelector('[aria-label^="Company,"]')?.getAttribute('aria-label') ?? '';
-        const fromAriaLabel = companyLabel.replace(/^Company,\s*/, '').replace(/\.$/, '').trim();
+        const companyLabel =
+          pane.querySelector('[aria-label^="Company,"]')?.getAttribute('aria-label') ?? '';
+        const fromAriaLabel = companyLabel
+          .replace(/^Company,\s*/, '')
+          .replace(/\.$/, '')
+          .trim();
         return (
           getText('.job-details-jobs-unified-top-card__company-name') ||
           getText('.jobs-unified-top-card__company-name') ||
@@ -115,7 +119,9 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
       }
       function readContainer(): HTMLElement | null {
         return (
-          firstNonEmpty('[data-sdui-component="com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob"]') ??
+          firstNonEmpty(
+            '[data-sdui-component="com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob"]',
+          ) ??
           firstNonEmpty('#job-details') ??
           firstNonEmpty('.jobs-description__content') ??
           firstNonEmpty('.jobs-box__html-content') ??

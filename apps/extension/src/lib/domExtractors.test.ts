@@ -44,7 +44,10 @@ describe('domExtractors', () => {
       <h1 class="topcard__title">Fallback Role</h1>
     `);
     const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
-    await expect(linkedin?.extract()).resolves.toEqual({ company: 'Fallback Co', role: 'Fallback Role' });
+    await expect(linkedin?.extract()).resolves.toEqual({
+      company: 'Fallback Co',
+      role: 'Fallback Role',
+    });
   });
 
   it('extracts LinkedIn from the SDUI-rendered pane (hashed classes, no stable BEM selectors)', async () => {

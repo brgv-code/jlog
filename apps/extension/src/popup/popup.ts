@@ -239,7 +239,12 @@ function renderExtracting(root: HTMLElement, url: string): void {
         (results) => {
           const domResult = results?.[0]?.result as { company: string; role: string } | undefined;
           if (!chrome.runtime.lastError && domResult?.company && domResult?.role) {
-            const job = { company: domResult.company, role: domResult.role, location: null, confidence: 1 };
+            const job = {
+              company: domResult.company,
+              role: domResult.role,
+              location: null,
+              confidence: 1,
+            };
             // Company/role came straight from the DOM, so there's no need to
             // call the LLM at all — but also read the description straight
             // from the DOM (no LLM) so the field isn't left blank just
