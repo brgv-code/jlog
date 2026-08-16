@@ -1,19 +1,12 @@
 import { events, createDb } from '@jlog/db';
 import { applications } from '@jlog/db';
-import { HttpError } from '@jlog/shared';
+import { HttpError, followUpEventSchema } from '@jlog/shared';
 import { and, asc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
+import { requireSession } from '../lib/session';
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
-
-function requireSession(c: { var: { session: { userId: string; sessionId: string } | null } }) {
-  const session = c.var.session;
-  if (!session) {
-    throw new HttpError(401, 'UNAUTHORIZED', 'Not authenticated');
-  }
-  return session;
-}
 
 // POST /:id/events — log a follow_up_sent event
 router.post('/:id/events', async (c) => {
@@ -34,10 +27,11 @@ router.post('/:id/events', async (c) => {
     throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
   });
 
-  const { channel } = body as { channel?: string };
-  if (channel !== 'email' && channel !== 'whatsapp') {
-    throw new HttpError(400, 'VALIDATION_ERROR', 'channel must be "email" or "whatsapp"');
+  const parsed = followUpEventSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
   }
+  const { channel } = parsed.data;
 
   await db.insert(events).values({
     id: crypto.randomUUID(),

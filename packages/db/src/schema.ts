@@ -32,6 +32,12 @@ export const sessions = sqliteTable('sessions', {
   userId: text('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  // Real column instead of an 'ext_' id prefix — also lets the auth middleware
+  // reject a session used via the wrong channel (e.g. an extension token
+  // presented as a cookie session id).
+  type: text('type', { enum: ['cookie', 'extension'] })
+    .notNull()
+    .default('cookie'),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
 });
 

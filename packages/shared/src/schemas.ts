@@ -80,6 +80,16 @@ export const extractSchema = z.object({
   url: z.string().url().optional(),
 });
 
+export const settingsSchema = z.object({
+  analyticsOptIn: z.boolean(),
+});
+
+export const FOLLOW_UP_CHANNELS = ['email', 'whatsapp'] as const;
+
+export const followUpEventSchema = z.object({
+  channel: z.enum(FOLLOW_UP_CHANNELS),
+});
+
 // --- Documents (base templates + generated, tailored per application) ---
 
 // v1 supports LaTeX only; the column/enum leave room to add 'pdf' later.

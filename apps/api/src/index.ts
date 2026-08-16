@@ -16,8 +16,13 @@ export interface Env {
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
   SESSION_SECRET: string;
+  // Dedicated secret for encrypting stored LLM API keys — kept separate from
+  // SESSION_SECRET so a change to one doesn't have blast radius on the other.
+  ENCRYPTION_SECRET: string;
   WEB_ORIGIN: string;
   COOKIE_DOMAIN: string;
+  // The jlog Chrome extension's ID — CORS only trusts this one, not any chrome-extension:// origin.
+  EXTENSION_ID: string;
   // Optional: Cloudflare Access service token for protecting a tunnelled Ollama instance
   CF_ACCESS_CLIENT_ID?: string;
   CF_ACCESS_CLIENT_SECRET?: string;
@@ -29,20 +34,28 @@ export interface Env {
 }
 
 export type Variables = {
+  // what is sessionID?
   session: { userId: string; sessionId: string } | null;
 };
-
+// Hono wiring: CORS has to run before the session middleware and routes so a
+// disallowed origin is rejected before we ever touch cookies or the DB; the
+// error handler sits last so it can catch anything thrown further down the chain.
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
-
 app.use(
   '*',
   cors({
     origin: (origin, c) => {
+      // Returning the origin string (vs. true) is what makes Hono echo it back in
+      // Access-Control-Allow-Origin — required because credentials: true forbids "*".
       if (origin === c.env.WEB_ORIGIN) return origin;
-      // Chrome extension service workers send requests from chrome-extension:// origin
-      if (origin?.startsWith('chrome-extension://')) return origin;
+
+      // Only jlog's own extension, pinned by ID — chrome-extension:// is a scheme,
+      // not a domain, so matching the prefix alone would trust every extension
+      // installed in the user's browser, not just this one.
+      if (origin === `chrome-extension://${c.env.EXTENSION_ID}`) return origin;
       return null;
     },
+    // Lets the browser attach/receive the session cookie on cross-origin requests.
     credentials: true,
     allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
