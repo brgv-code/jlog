@@ -26,6 +26,11 @@ export interface Env {
   // Optional: Cloudflare Access service token for protecting a tunnelled Ollama instance
   CF_ACCESS_CLIENT_ID?: string;
   CF_ACCESS_CLIENT_SECRET?: string;
+  // Optional: Langfuse tracing for LLM extraction calls. Unset in an environment
+  // (e.g. a contributor's local .dev.vars) means tracing is simply skipped.
+  LANGFUSE_PUBLIC_KEY?: string;
+  LANGFUSE_SECRET_KEY?: string;
+  LANGFUSE_BASE_URL?: string;
 }
 
 export type Variables = {
