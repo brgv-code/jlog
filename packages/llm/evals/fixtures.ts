@@ -106,6 +106,49 @@ Nimbus Cloud Systems is an equal opportunity employer.`,
     note: "Role lists two offices plus a remote option. Per the system prompt's own rule ('null ... if fully remote or not mentioned'), an ambiguous multi-region-plus-remote posting like this should resolve to null, not one arbitrarily chosen city. A model returning 'New York' or 'London' here is picking the first mention, not following the rule.",
   },
   {
+    name: 'linkedin-notifications-and-similar-jobs',
+    text: `Home 3   My Network 12   Jobs   Messaging 8   Notifications 41   Me
+
+Search jobs, companies
+
+Cedar Ridge Analytics
+Follow
+
+Staff Machine Learning Engineer
+Cedar Ridge Analytics · Seattle, WA (Hybrid) · 340 applicants
+
+About the job
+Cedar Ridge Analytics is hiring a Staff Machine Learning Engineer to lead our
+forecasting platform team. You will own the model architecture that powers
+demand predictions for hundreds of retail partners.
+
+Responsibilities
+- Design and ship the next generation forecasting models
+- Mentor a team of four ML engineers
+- Partner with product on the roadmap for the forecasting platform
+
+Qualifications
+- 8+ years of ML engineering experience
+- Track record shipping production forecasting or ranking systems
+
+People also viewed
+Machine Learning Engineer — Baystone Retail — Chicago, IL
+Senior Data Scientist — Harborline Group — Remote
+ML Platform Engineer — Baystone Retail — Seattle, WA
+Applied Scientist — Harborline Group — New York, NY
+
+Cedar Ridge Analytics · 2,400 followers
+11 comments · 89 reactions
+
+© 2026 LinkedIn Corporation`,
+    expected: {
+      company: 'Cedar Ridge Analytics',
+      role: 'Staff Machine Learning Engineer',
+      location: 'Seattle, WA',
+    },
+    note: "The literal failure a user reported: LinkedIn's top nav carries unread-count badges ('Notifications 41', 'Messaging 8') right at the start of the page dump, and a 'People also viewed' module below the real posting lists four other companies and roles. Both are exactly the kind of chrome document.body.innerText picks up that a DOM-scoped scrape (LinkedIn actually has one, see apps/extension/src/content/linkedin.ts) would never include — this fixture exists for the popup's manual-extract fallback path, which has no such scoping.",
+  },
+  {
     name: 'cookie-nav-clutter',
     text: `We use cookies to improve your experience.   Accept All   Manage Preferences
 
