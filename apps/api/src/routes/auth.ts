@@ -153,6 +153,7 @@ router.get('/github/callback', async (c) => {
   await db.insert(sessions).values({
     id: sessionId,
     userId: savedUser.id,
+    type: 'cookie',
     expiresAt,
   });
 

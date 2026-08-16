@@ -6,6 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 WEB_ORIGIN = "https://jlog.bhargav.dev"
 COOKIE_DOMAIN = "production"
+# jlog's own Chrome extension ID — CORS only trusts this one. Dev-loaded unpacked
+# extensions get an ID derived from their install path unless manifest.json pins a
+# "key"; repin this if the extension is reloaded from a different path or published.
+EXTENSION_ID = "enonliciopahgdejgpdjaeadebclgjom"
 
 [[d1_databases]]
 binding = "DB"

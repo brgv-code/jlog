@@ -5,18 +5,52 @@ import {
   paginationSchema,
   updateApplicationSchema,
 } from '@jlog/shared';
-import { and, desc, eq, gt, like, or } from 'drizzle-orm';
+import type { BatchItem } from 'drizzle-orm/batch';
+import { and, desc, eq, like, lt, or } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
+import { requireSession } from '../lib/session';
+
+type BatchStatement = BatchItem<'sqlite'>;
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-function requireSession(c: { var: { session: { userId: string; sessionId: string } | null } }) {
-  const session = c.var.session;
-  if (!session) {
-    throw new HttpError(401, 'UNAUTHORIZED', 'Not authenticated');
+// Cursor encodes the value of whichever column is being sorted on, plus the row id
+// as a tiebreaker — a plain id cursor only works for the default sort (createdAt).
+function encodeCursor(sortValue: string, id: string): string {
+  return btoa(JSON.stringify({ v: sortValue, id }));
+}
+
+function decodeCursor(cursor: string): { v: string; id: string } | null {
+  try {
+    const parsed = JSON.parse(atob(cursor));
+    if (typeof parsed.v !== 'string' || typeof parsed.id !== 'string') return null;
+    return parsed;
+  } catch {
+    return null;
   }
-  return session;
+}
+
+/**
+ * The first time an application's status leaves 'applied' (excluding a move back to
+ * 'saved'), and nothing has explicitly set responseReceivedAt already, stamp it now.
+ * Named and pure so the rule is testable without a Hono context.
+ */
+export function deriveResponseReceivedAt(
+  existing: { status: string; responseReceivedAt: Date | null },
+  patch: { status: string | undefined; responseReceivedAt: Date | null | undefined },
+): Date | undefined {
+  const statusLeftApplied =
+    patch.status !== undefined &&
+    existing.status === 'applied' &&
+    patch.status !== 'applied' &&
+    patch.status !== 'saved';
+
+  if (statusLeftApplied && existing.responseReceivedAt == null && patch.responseReceivedAt == null) {
+    return new Date();
+  }
+
+  return undefined;
 }
 
 // GET / — paginated list
@@ -52,11 +86,6 @@ router.get('/', async (c) => {
     if (searchCondition) conditions.push(searchCondition);
   }
 
-  // Cursor: use the id of the last seen item for offset-style cursor
-  if (cursor) {
-    conditions.push(gt(applications.id, cursor));
-  }
-
   const sortCol =
     sort === 'appliedAt'
       ? applications.appliedAt
@@ -64,16 +93,38 @@ router.get('/', async (c) => {
         ? applications.company
         : applications.createdAt;
 
+  // Keyset pagination on (sortCol, id) so the cursor stays valid for every
+  // sort option, not just the default (createdAt).
+  if (cursor) {
+    const decoded = decodeCursor(cursor);
+    if (!decoded) {
+      throw new HttpError(400, 'VALIDATION_ERROR', 'Invalid cursor');
+    }
+    const cursorValue = sort === 'company' ? decoded.v : new Date(decoded.v);
+    conditions.push(
+      or(lt(sortCol, cursorValue), and(eq(sortCol, cursorValue), lt(applications.id, decoded.id)))!,
+    );
+  }
+
   const rows = await db
     .select()
     .from(applications)
     .where(and(...conditions))
-    .orderBy(desc(sortCol))
+    .orderBy(desc(sortCol), desc(applications.id))
     .limit(limit + 1);
 
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
-  const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+  const lastItem = items[items.length - 1];
+  const nextCursor =
+    hasMore && lastItem
+      ? encodeCursor(
+          sort === 'company'
+            ? lastItem.company
+            : (sort === 'appliedAt' ? lastItem.appliedAt : lastItem.createdAt)?.toISOString() ?? '',
+          lastItem.id,
+        )
+      : null;
 
   return c.json({ applications: items, nextCursor });
 });
@@ -95,40 +146,47 @@ router.post('/', async (c) => {
   const id = crypto.randomUUID();
 
   const db = createDb(c.env.DB);
-  await db.insert(applications).values({
-    id,
-    userId: session.userId,
-    company: data.company,
-    role: data.role,
-    location: data.location ?? null,
-    status: data.status,
-    sourceUrl: data.sourceUrl ?? null,
-    sourceSite: data.sourceSite ?? null,
-    appliedAt: data.appliedAt ? new Date(data.appliedAt * 1000) : null,
-    notes: data.notes ?? null,
-    jobDescription: data.jobDescription ?? null,
-    salaryMin: data.salaryMin ?? null,
-    salaryMax: data.salaryMax ?? null,
-    salaryCurrency: data.salaryCurrency ?? 'USD',
-    responseReceivedAt: data.responseReceivedAt ? new Date(data.responseReceivedAt * 1000) : null,
-    metadata: data.metadata ?? null,
-    createdAt: now,
-    updatedAt: now,
-  });
 
-  const [application] = await db.select().from(applications).where(eq(applications.id, id));
+  // Insert + event both run in one D1 batch, so a failure on either statement
+  // leaves neither applied — no application can end up missing its 'created' event.
+  const [[application]] = await db.batch([
+    db
+      .insert(applications)
+      .values({
+        id,
+        userId: session.userId,
+        company: data.company,
+        role: data.role,
+        location: data.location ?? null,
+        status: data.status,
+        sourceUrl: data.sourceUrl ?? null,
+        sourceSite: data.sourceSite ?? null,
+        appliedAt: data.appliedAt ? new Date(data.appliedAt * 1000) : null,
+        notes: data.notes ?? null,
+        jobDescription: data.jobDescription ?? null,
+        salaryMin: data.salaryMin ?? null,
+        salaryMax: data.salaryMax ?? null,
+        salaryCurrency: data.salaryCurrency ?? 'USD',
+        responseReceivedAt: data.responseReceivedAt
+          ? new Date(data.responseReceivedAt * 1000)
+          : null,
+        metadata: data.metadata ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning(),
+    db.insert(events).values({
+      id: crypto.randomUUID(),
+      applicationId: id,
+      type: 'created',
+      payload: JSON.stringify({ company: data.company, role: data.role }),
+      createdAt: now,
+    }),
+  ]);
+
   if (!application) {
-    throw new HttpError(500, 'DB_ERROR', 'Failed to retrieve created application');
+    throw new HttpError(500, 'DB_ERROR', 'Failed to create application');
   }
-
-  // Record the creation event
-  await db.insert(events).values({
-    id: crypto.randomUUID(),
-    applicationId: id,
-    type: 'created',
-    payload: JSON.stringify({ company: data.company, role: data.role }),
-    createdAt: now,
-  });
 
   return c.json({ application }, 201);
 });
@@ -200,54 +258,54 @@ router.patch('/:id', async (c) => {
       : null;
   if (data.metadata !== undefined) updateValues.metadata = data.metadata;
 
-  // Auto-set responseReceivedAt when status moves out of 'applied' for the first time
-  if (
-    data.status !== undefined &&
-    existing.status === 'applied' &&
-    data.status !== 'applied' &&
-    data.status !== 'saved' &&
-    existing.responseReceivedAt == null &&
-    updateValues.responseReceivedAt == null
-  ) {
-    updateValues.responseReceivedAt = new Date();
-  }
-
-  await db
-    .update(applications)
-    .set(updateValues)
-    .where(and(eq(applications.id, id), eq(applications.userId, session.userId)));
-
-  const [updated] = await db
-    .select()
-    .from(applications)
-    .where(and(eq(applications.id, id), eq(applications.userId, session.userId)));
-
-  if (!updated) {
-    throw new HttpError(500, 'DB_ERROR', 'Failed to retrieve updated application');
+  const derivedResponseReceivedAt = deriveResponseReceivedAt(existing, {
+    status: data.status,
+    responseReceivedAt: updateValues.responseReceivedAt,
+  });
+  if (derivedResponseReceivedAt !== undefined) {
+    updateValues.responseReceivedAt = derivedResponseReceivedAt;
   }
 
   const eventNow = new Date();
 
-  // Record status change event when the status field actually changed
+  // Build the update plus whichever event inserts actually apply, and run them
+  // as one D1 batch — the update never lands without its event log entries.
+  const statements: [BatchStatement, ...BatchStatement[]] = [
+    db
+      .update(applications)
+      .set(updateValues)
+      .where(and(eq(applications.id, id), eq(applications.userId, session.userId)))
+      .returning(),
+  ];
+
   if (data.status !== undefined && data.status !== existing.status) {
-    await db.insert(events).values({
-      id: crypto.randomUUID(),
-      applicationId: id,
-      type: 'status_change',
-      payload: JSON.stringify({ from: existing.status, to: data.status }),
-      createdAt: eventNow,
-    });
+    statements.push(
+      db.insert(events).values({
+        id: crypto.randomUUID(),
+        applicationId: id,
+        type: 'status_change',
+        payload: JSON.stringify({ from: existing.status, to: data.status }),
+        createdAt: eventNow,
+      }),
+    );
   }
 
-  // Record note_added event when the notes field is updated
   if (data.notes !== undefined && data.notes !== existing.notes) {
-    await db.insert(events).values({
-      id: crypto.randomUUID(),
-      applicationId: id,
-      type: 'note_added',
-      payload: JSON.stringify({ preview: (data.notes ?? '').slice(0, 80) }),
-      createdAt: eventNow,
-    });
+    statements.push(
+      db.insert(events).values({
+        id: crypto.randomUUID(),
+        applicationId: id,
+        type: 'note_added',
+        payload: JSON.stringify({ preview: (data.notes ?? '').slice(0, 80) }),
+        createdAt: eventNow,
+      }),
+    );
+  }
+
+  const [[updated]] = await db.batch(statements);
+
+  if (!updated) {
+    throw new HttpError(500, 'DB_ERROR', 'Failed to update application');
   }
 
   return c.json({ application: updated });

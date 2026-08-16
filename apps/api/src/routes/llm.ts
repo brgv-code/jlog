@@ -5,18 +5,11 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { decrypt, encrypt } from '../lib/encryption';
+import { requireSession } from '../lib/session';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
 const router = new Hono<AppContext>();
-
-function requireSession(c: { var: { session: { userId: string; sessionId: string } | null } }) {
-  const session = c.var.session;
-  if (!session) {
-    throw new HttpError(401, 'UNAUTHORIZED', 'Not authenticated');
-  }
-  return session;
-}
 
 // GET /config — return current LLM config for the user (never return the raw key)
 router.get('/config', async (c) => {
@@ -65,7 +58,7 @@ router.put('/config', async (c) => {
   let apiKeyEncrypted: string | null = existing?.apiKeyEncrypted ?? null;
 
   if (data.apiKey !== undefined && data.apiKey !== '') {
-    apiKeyEncrypted = await encrypt(data.apiKey, c.env.SESSION_SECRET);
+    apiKeyEncrypted = await encrypt(data.apiKey, c.env.ENCRYPTION_SECRET);
   }
 
   await db
@@ -105,10 +98,7 @@ export default router;
 export const extractRouter = new Hono<AppContext>();
 
 extractRouter.post('/', async (c) => {
-  const session = c.var.session;
-  if (!session) {
-    throw new HttpError(401, 'UNAUTHORIZED', 'Not authenticated');
-  }
+  const session = requireSession(c);
 
   const body = await c.req.json().catch(() => {
     throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
@@ -131,7 +121,7 @@ extractRouter.post('/', async (c) => {
   let apiKey: string | undefined;
   try {
     apiKey = row.apiKeyEncrypted
-      ? await decrypt(row.apiKeyEncrypted, c.env.SESSION_SECRET)
+      ? await decrypt(row.apiKeyEncrypted, c.env.ENCRYPTION_SECRET)
       : undefined;
   } catch {
     throw new HttpError(

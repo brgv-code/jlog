@@ -1,6 +1,6 @@
 import { createDb } from '@jlog/db';
 import { sessions } from '@jlog/db';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
 import type { Env, Variables } from '../index';
@@ -14,14 +14,18 @@ export const sessionMiddleware = createMiddleware<{
   const authHeader = c.req.header('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
-    const sessionId = `ext_${token}`;
     const db = createDb(c.env.DB);
-    const rows = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+    // Require type: 'extension' too, not just a matching id — keeps a cookie
+    // session id from being usable as a bearer token, and vice versa.
+    const rows = await db
+      .select()
+      .from(sessions)
+      .where(and(eq(sessions.id, token), eq(sessions.type, 'extension')));
     const extSession = rows[0];
 
     if (extSession) {
       if (extSession.expiresAt < new Date()) {
-        await db.delete(sessions).where(eq(sessions.id, sessionId));
+        await db.delete(sessions).where(eq(sessions.id, token));
         c.set('session', null);
       } else {
         c.set('session', { userId: extSession.userId, sessionId: extSession.id });
