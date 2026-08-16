@@ -1,3 +1,4 @@
+import { matchSiteExtractor } from '../lib/domExtractors';
 import type { DetectedJob, ExtractedJob } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -179,6 +180,38 @@ function renderNotJobPage(root: HTMLElement, url: string): void {
   root.appendChild(extractBtn);
 }
 
+function renderExtractingViaLLM(root: HTMLElement, url: string, tabId: number): void {
+  chrome.scripting.executeScript(
+    {
+      target: { tabId },
+      func: () => document.body.innerText.slice(0, 10000),
+    },
+    (results) => {
+      if (chrome.runtime.lastError || !results?.[0]) {
+        renderError(root, chrome.runtime.lastError?.message ?? 'Script injection failed.');
+        return;
+      }
+      const pageText = results[0].result as string;
+      sendMessage({ type: 'EXTRACT_REQUEST', text: pageText.slice(0, 6000), url })
+        .then((resp) => {
+          const response = resp as { job: ExtractedJob | null; error?: string };
+          if (response.error?.includes('401') || response.error?.includes('Unauthorized')) {
+            renderDisconnected(root);
+            return;
+          }
+          if (response.error ?? !response.job) {
+            renderError(root, response.error ?? 'Could not extract job details.');
+            return;
+          }
+          renderConfirmExtracted(root, response.job, url, pageText);
+        })
+        .catch((err: unknown) => {
+          renderError(root, String(err));
+        });
+    },
+  );
+}
+
 function renderExtracting(root: HTMLElement, url: string): void {
   renderSpinner(root);
 
@@ -190,35 +223,33 @@ function renderExtracting(root: HTMLElement, url: string): void {
     }
     const tabId = tab.id;
 
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        func: () => document.body.innerText.slice(0, 10000),
-      },
-      (results) => {
-        if (chrome.runtime.lastError || !results?.[0]) {
-          renderError(root, chrome.runtime.lastError?.message ?? 'Script injection failed.');
-          return;
-        }
-        const pageText = results[0].result as string;
-        sendMessage({ type: 'EXTRACT_REQUEST', text: pageText.slice(0, 6000), url })
-          .then((resp) => {
-            const response = resp as { job: ExtractedJob | null; error?: string };
-            if (response.error?.includes('401') || response.error?.includes('Unauthorized')) {
-              renderDisconnected(root);
-              return;
-            }
-            if (response.error ?? !response.job) {
-              renderError(root, response.error ?? 'Could not extract job details.');
-              return;
-            }
-            renderConfirmExtracted(root, response.job, url, pageText);
-          })
-          .catch((err: unknown) => {
-            renderError(root, String(err));
-          });
-      },
-    );
+    // For a site we already have real selectors for, read the DOM directly instead
+    // of dumping the whole page into the LLM. On LinkedIn's search-results split
+    // view especially, a whole-page dump is the list of *other* job cards, not the
+    // open job's own details — the LLM never even sees the real posting there.
+    const siteExtractor = matchSiteExtractor(url);
+    if (siteExtractor) {
+      chrome.scripting.executeScript(
+        { target: { tabId }, func: siteExtractor.extract },
+        (results) => {
+          const domResult = results?.[0]?.result as { company: string; role: string } | undefined;
+          if (!chrome.runtime.lastError && domResult?.company && domResult?.role) {
+            renderConfirmExtracted(
+              root,
+              { company: domResult.company, role: domResult.role, location: null, confidence: 1 },
+              url,
+            );
+            return;
+          }
+          // Selectors found nothing (page not fully loaded, or markup changed) —
+          // fall back to the LLM path rather than dead-ending the user.
+          renderExtractingViaLLM(root, url, tabId);
+        },
+      );
+      return;
+    }
+
+    renderExtractingViaLLM(root, url, tabId);
   });
 }
 
