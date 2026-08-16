@@ -14,7 +14,7 @@ describe('domExtractors', () => {
     expect(matchSiteExtractor('https://example.com/some/random/page')).toBeNull();
   });
 
-  it('extracts LinkedIn even when a job list sits alongside the real posting in the DOM', () => {
+  it('extracts LinkedIn even when a job list sits alongside the real posting in the DOM', async () => {
     // Reproduces the real reported bug: LinkedIn's split search-results view keeps
     // several other job cards in the DOM around the real, open job's detail panel.
     // document.body.innerText (the old path) reads in document order and can miss
@@ -34,17 +34,83 @@ describe('domExtractors', () => {
     `);
     const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
     expect(linkedin).toBeDefined();
-    const result = linkedin?.extract();
+    const result = await linkedin?.extract();
     expect(result).toEqual({ company: 'Real Employer Inc', role: 'Senior Full Stack Developer' });
   });
 
-  it('falls back through the LinkedIn selector chain when the primary class is absent', () => {
+  it('falls back through the LinkedIn selector chain when the primary class is absent', async () => {
     setBody(`
       <div class="topcard__flavor">Fallback Co</div>
       <h1 class="topcard__title">Fallback Role</h1>
     `);
     const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
-    expect(linkedin?.extract()).toEqual({ company: 'Fallback Co', role: 'Fallback Role' });
+    await expect(linkedin?.extract()).resolves.toEqual({ company: 'Fallback Co', role: 'Fallback Role' });
+  });
+
+  it('extracts LinkedIn from the SDUI-rendered pane (hashed classes, no stable BEM selectors)', async () => {
+    // Reproduces the real markup LinkedIn now serves on at least some job pages:
+    // every class is an opaque atomic hash and the container id is suffixed with
+    // the job posting id, so only the semantic `data-sdui-component` attribute
+    // and the `aria-label="Company, X."` wrapper are usable as selectors. Also
+    // includes a decoy [data-testid="lazy-column"] (e.g. a sidebar job list)
+    // ahead of the real one in the DOM, reproducing the reported bug where the
+    // first lazy-column on the page — not the one containing the open job —
+    // got picked for title/company.
+    setBody(`
+      <div data-testid="lazy-column">
+        <a href="https://www.linkedin.com/jobs/view/9999999999/?trackingId=xyz">Decoy Sidebar Job</a>
+        <div aria-label="Company, Decoy Inc.">
+          <a href="https://www.linkedin.com/company/decoy/life/">Decoy Inc</a>
+        </div>
+      </div>
+      <div data-testid="lazy-column">
+        <p>
+          <a href="https://www.linkedin.com/jobs/view/4440528243/?trackingId=abc">Staff Engineer - Fullstack</a>
+        </p>
+        <div aria-label="Company, Staffbase.">
+          <a href="https://www.linkedin.com/company/staffbase/life/">Staffbase</a>
+        </div>
+        <div id="JobDetails_AboutTheJob_4440528243">
+          <div data-sdui-component="com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob">
+            <h2>About the job</h2>
+            <p>We inspire people to achieve great things together.</p>
+          </div>
+        </div>
+      </div>
+    `);
+    const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
+    await expect(linkedin?.extract()).resolves.toEqual({
+      company: 'Staffbase',
+      role: 'Staff Engineer - Fullstack',
+    });
+    const pageText = await linkedin?.extractPageText?.();
+    expect(pageText).toContain('About the job');
+    expect(pageText).toContain('We inspire people to achieve great things together.');
+    expect(pageText).not.toContain('Decoy');
+  });
+
+  it('skips an empty duplicate "About the job" node and uses the populated one', async () => {
+    // LinkedIn can render a second, empty copy of the data-sdui-component node
+    // (e.g. a pre-hydration placeholder) earlier in the DOM than the real one.
+    // A plain querySelector picks that first, empty match and returns nothing;
+    // this reproduces that regression.
+    setBody(`
+      <div data-sdui-component="com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob"></div>
+      <div data-testid="lazy-column">
+        <p><a href="https://www.linkedin.com/jobs/view/111/?trackingId=abc">Some Role</a></p>
+        <div aria-label="Company, Acme.">
+          <a href="https://www.linkedin.com/company/acme/life/">Acme</a>
+        </div>
+        <div data-sdui-component="com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob">
+          <h2>About the job</h2>
+          <p>Real description text.</p>
+        </div>
+      </div>
+    `);
+    const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
+    await expect(linkedin?.extract()).resolves.toEqual({ company: 'Acme', role: 'Some Role' });
+    const pageText = await linkedin?.extractPageText?.();
+    expect(pageText).toContain('Real description text.');
   });
 
   it('extracts Greenhouse from the URL when no company element is present', () => {
@@ -60,9 +126,9 @@ describe('domExtractors', () => {
     });
   });
 
-  it('returns empty strings when nothing on the page matches any selector', () => {
+  it('returns empty strings when nothing on the page matches any selector', async () => {
     setBody('<div>completely unrelated content</div>');
     const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
-    expect(linkedin?.extract()).toEqual({ company: '', role: '' });
-  });
+    await expect(linkedin?.extract()).resolves.toEqual({ company: '', role: '' });
+  }, 5000);
 });

@@ -180,18 +180,23 @@ function renderNotJobPage(root: HTMLElement, url: string): void {
   root.appendChild(extractBtn);
 }
 
-function renderExtractingViaLLM(root: HTMLElement, url: string, tabId: number): void {
+function renderExtractingViaLLM(
+  root: HTMLElement,
+  url: string,
+  tabId: number,
+  extractPageText?: () => string | Promise<string>,
+): void {
   chrome.scripting.executeScript(
     {
       target: { tabId },
-      func: () => document.body.innerText.slice(0, 10000),
+      func: extractPageText ?? (() => document.body.innerText),
     },
     (results) => {
       if (chrome.runtime.lastError || !results?.[0]) {
         renderError(root, chrome.runtime.lastError?.message ?? 'Script injection failed.');
         return;
       }
-      const pageText = results[0].result as string;
+      const pageText = (results[0].result as string).slice(0, 10000);
       sendMessage({ type: 'EXTRACT_REQUEST', text: pageText.slice(0, 6000), url })
         .then((resp) => {
           const response = resp as { job: ExtractedJob | null; error?: string };
@@ -234,16 +239,27 @@ function renderExtracting(root: HTMLElement, url: string): void {
         (results) => {
           const domResult = results?.[0]?.result as { company: string; role: string } | undefined;
           if (!chrome.runtime.lastError && domResult?.company && domResult?.role) {
-            renderConfirmExtracted(
-              root,
-              { company: domResult.company, role: domResult.role, location: null, confidence: 1 },
-              url,
-            );
+            const job = { company: domResult.company, role: domResult.role, location: null, confidence: 1 };
+            // Company/role came straight from the DOM, so there's no need to
+            // call the LLM at all — but also read the description straight
+            // from the DOM (no LLM) so the field isn't left blank just
+            // because the fast path skipped the LLM call.
+            if (siteExtractor.extractPageText) {
+              chrome.scripting.executeScript(
+                { target: { tabId }, func: siteExtractor.extractPageText },
+                (textResults) => {
+                  const description = textResults?.[0]?.result as string | undefined;
+                  renderConfirmExtracted(root, job, url, description);
+                },
+              );
+              return;
+            }
+            renderConfirmExtracted(root, job, url);
             return;
           }
           // Selectors found nothing (page not fully loaded, or markup changed) —
           // fall back to the LLM path rather than dead-ending the user.
-          renderExtractingViaLLM(root, url, tabId);
+          renderExtractingViaLLM(root, url, tabId, siteExtractor.extractPageText);
         },
       );
       return;
