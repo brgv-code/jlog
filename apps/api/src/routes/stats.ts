@@ -27,7 +27,9 @@ router.get('/', async (c) => {
         offers: sql<number>`sum(case when ${eq(applications.status, 'offer')} then 1 else 0 end)`,
         // 'unixepoch' is required: these columns store raw unix seconds, and
         // julianday() silently returns NULL if it isn't told how to parse that.
-        avgDaysToResponse: sql<number | null>`avg(case when ${and(isNotNull(applications.appliedAt), isNotNull(applications.responseReceivedAt))} then (julianday(${applications.responseReceivedAt}, 'unixepoch') - julianday(${applications.appliedAt}, 'unixepoch')) end)`,
+        avgDaysToResponse: sql<
+          number | null
+        >`avg(case when ${and(isNotNull(applications.appliedAt), isNotNull(applications.responseReceivedAt))} then (julianday(${applications.responseReceivedAt}, 'unixepoch') - julianday(${applications.appliedAt}, 'unixepoch')) end)`,
         ghosted: sql<number>`sum(case when ${and(eq(applications.status, 'applied'), isNotNull(applications.appliedAt), lt(applications.appliedAt, fourteenDaysAgo))} then 1 else 0 end)`,
         everApplied: sql<number>`sum(case when ${not(eq(applications.status, 'saved'))} then 1 else 0 end)`,
         gotResponse: sql<number>`sum(case when ${inArray(applications.status, ['interviewing', 'offer', 'rejected'])} then 1 else 0 end)`,
@@ -60,7 +62,9 @@ router.get('/', async (c) => {
     interviewRate: total > 0 ? Math.round((interviewingOrOffer / total) * 1000) / 10 : 0,
     offers: aggregate?.offers ?? 0,
     avgDaysToResponse:
-      aggregate?.avgDaysToResponse != null ? Math.round(aggregate.avgDaysToResponse * 10) / 10 : null,
+      aggregate?.avgDaysToResponse != null
+        ? Math.round(aggregate.avgDaysToResponse * 10) / 10
+        : null,
     ghosted: aggregate?.ghosted ?? 0,
     responseRate: everApplied > 0 ? Math.round((gotResponse / everApplied) * 1000) / 10 : 0,
     sourceBreakdown,

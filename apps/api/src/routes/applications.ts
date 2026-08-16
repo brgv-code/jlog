@@ -5,8 +5,8 @@ import {
   paginationSchema,
   updateApplicationSchema,
 } from '@jlog/shared';
-import type { BatchItem } from 'drizzle-orm/batch';
 import { and, desc, eq, like, lt, or } from 'drizzle-orm';
+import type { BatchItem } from 'drizzle-orm/batch';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { requireSession } from '../lib/session';
@@ -46,7 +46,11 @@ export function deriveResponseReceivedAt(
     patch.status !== 'applied' &&
     patch.status !== 'saved';
 
-  if (statusLeftApplied && existing.responseReceivedAt == null && patch.responseReceivedAt == null) {
+  if (
+    statusLeftApplied &&
+    existing.responseReceivedAt == null &&
+    patch.responseReceivedAt == null
+  ) {
     return new Date();
   }
 
@@ -101,9 +105,12 @@ router.get('/', async (c) => {
       throw new HttpError(400, 'VALIDATION_ERROR', 'Invalid cursor');
     }
     const cursorValue = sort === 'company' ? decoded.v : new Date(decoded.v);
-    conditions.push(
-      or(lt(sortCol, cursorValue), and(eq(sortCol, cursorValue), lt(applications.id, decoded.id)))!,
+    const cursorCondition = or(
+      lt(sortCol, cursorValue),
+      and(eq(sortCol, cursorValue), lt(applications.id, decoded.id)),
     );
+    // or() returns undefined only when called with zero args; here we always pass two, so it is defined
+    if (cursorCondition) conditions.push(cursorCondition);
   }
 
   const rows = await db
@@ -121,7 +128,8 @@ router.get('/', async (c) => {
       ? encodeCursor(
           sort === 'company'
             ? lastItem.company
-            : (sort === 'appliedAt' ? lastItem.appliedAt : lastItem.createdAt)?.toISOString() ?? '',
+            : ((sort === 'appliedAt' ? lastItem.appliedAt : lastItem.createdAt)?.toISOString() ??
+                ''),
           lastItem.id,
         )
       : null;
