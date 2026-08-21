@@ -8,6 +8,7 @@ export default defineManifest({
     'Track job applications automatically from LinkedIn, Wellfound, Ashby, Greenhouse, Lever, and more.',
   permissions: ['storage', 'activeTab', 'scripting'],
   host_permissions: [
+    'https://jlog-api.bhargav.dev/*',
     'https://*.linkedin.com/*',
     'https://*.wellfound.com/*',
     'https://*.ashbyhq.com/*',
