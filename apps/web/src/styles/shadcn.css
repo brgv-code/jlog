@@ -1,0 +1,71 @@
+/*
+ * shadcn/ui token bridge.
+ *
+ * shadcn components style themselves from semantic variables (--background,
+ * --primary, --border …). Rather than adopt its stock zinc palette and end up
+ * with a feature that looks bolted on, these map onto the colours already in
+ * tokens.css — same hue 240 throughout, same accent — so a shadcn Button and a
+ * hand-rolled Badge are the same design.
+ *
+ * Values are HSL channel triplets, not hex, because that is what lets Tailwind
+ * opacity modifiers work: `bg-primary/10` needs the channels to interpolate.
+ */
+/* Declared at :root so they resolve everywhere, including Radix portals
+   which render outside the app subtree. */
+:root {
+  --background: 240 10.3% 5.7%;
+  --foreground: 240 21.1% 92.5%;
+
+  --card: 240 8.3% 9.4%;
+  --card-foreground: 240 21.1% 92.5%;
+
+  --popover: 240 9.1% 12.9%;
+  --popover-foreground: 240 21.1% 92.5%;
+
+  --primary: 233.8 56.3% 59.6%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 240 9.1% 12.9%;
+  --secondary-foreground: 240 21.1% 92.5%;
+
+  --muted: 240 9.1% 12.9%;
+  --muted-foreground: 240 12.1% 61.2%;
+
+  --accent: 240 9.1% 12.9%;
+  --accent-foreground: 240 21.1% 92.5%;
+
+  --destructive: 3.4 100% 61.4%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 134.9 63.6% 50.4%;
+  --warning: 50 100% 52%;
+
+  --border: 240 8.7% 18%;
+  --input: 240 8.7% 18%;
+  --ring: 233.8 56.3% 59.6%;
+
+  --radius: 0.5rem;
+}
+
+[data-theme="light"] {
+  --background: 240 10% 96.1%;
+  --foreground: 240 17.1% 8%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 240 17.1% 8%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 17.1% 8%;
+
+  --secondary: 240 15.4% 94.9%;
+  --secondary-foreground: 240 17.1% 8%;
+
+  --muted: 240 15.4% 94.9%;
+  --muted-foreground: 240 10.1% 37.1%;
+
+  --accent: 240 15.4% 94.9%;
+  --accent-foreground: 240 17.1% 8%;
+
+  --border: 240 11.4% 86.3%;
+  --input: 240 11.4% 86.3%;
+}

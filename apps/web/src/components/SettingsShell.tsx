@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { CvProfileForm } from './settings/CvProfileForm';
 import { LLMConfigForm } from './settings/LLMConfigForm';
 import { Spinner } from './ui/Spinner';
 
@@ -342,6 +343,12 @@ export default function SettingsShell() {
             </p>
             <LLMConfigForm />
           </div>
+        </section>
+
+        {/* CV profile — the non-claim half of a generated CV */}
+        <section style={{ marginBottom: 'var(--space-8)' }}>
+          <p style={sectionHeadingStyle}>CV</p>
+          <CvProfileForm />
         </section>
 
         {/* Analytics opt-in section */}

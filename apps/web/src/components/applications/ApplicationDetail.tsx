@@ -4,6 +4,7 @@ import { apiFetch } from '../../lib/api';
 import { renderMarkdown } from '../../lib/markdown';
 import { Spinner } from '../ui/Spinner';
 import { StatusSelect } from './StatusSelect';
+import { TailorCvCard } from './TailorCvCard';
 import { Timeline } from './Timeline';
 
 interface Application {
@@ -394,6 +395,13 @@ export function ApplicationDetail({
           onStatusChange={handleStatusChange}
         />
       </div>
+
+      <TailorCvCard
+        applicationId={app.id}
+        company={app.company}
+        role={app.role}
+        jobDescription={app.jobDescription}
+      />
 
       <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-6)' }}>
         <InlineField
