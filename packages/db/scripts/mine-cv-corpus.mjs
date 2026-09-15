@@ -39,44 +39,51 @@ const STOPWORDS = new Set(
 // --- LaTeX reading -------------------------------------------------------
 
 /** Read the balanced `{...}` group starting at `i`. Returns [content, nextIndex]. */
-function readGroup(src, i) {
-  if (src[i] !== '{') return [null, i];
+function readGroup(src, from) {
+  if (src[from] !== '{') return [null, from];
   let depth = 0;
-  const start = i + 1;
-  for (; i < src.length; i++) {
-    const ch = src[i];
-    if (ch === '\\') { i++; continue; }
+  const start = from + 1;
+  let cursor = from;
+  while (cursor < src.length) {
+    const ch = src[cursor];
+    if (ch === '\\') {
+      cursor += 2;
+      continue;
+    }
     if (ch === '{') depth++;
     else if (ch === '}') {
       depth--;
-      if (depth === 0) return [src.slice(start, i), i + 1];
+      if (depth === 0) return [src.slice(start, cursor), cursor + 1];
     }
+    cursor++;
   }
-  return [null, i];
+  return [null, cursor];
 }
 
 /** Skip any `[...]` optional arguments and surrounding whitespace. */
-function skipOptional(src, i) {
+function skipOptional(src, from) {
+  let cursor = from;
   for (;;) {
-    while (i < src.length && /\s/.test(src[i])) i++;
-    if (src[i] !== '[') return i;
-    const close = src.indexOf(']', i);
-    if (close === -1) return i;
-    i = close + 1;
+    while (cursor < src.length && /\s/.test(src[cursor])) cursor++;
+    if (src[cursor] !== '[') return cursor;
+    const close = src.indexOf(']', cursor);
+    if (close === -1) return cursor;
+    cursor = close + 1;
   }
 }
 
 /** Read `n` consecutive brace groups from `i`, tolerating optional args between them. */
-function readGroups(src, i, n) {
+function readGroups(src, from, n) {
   const out = [];
+  let cursor = from;
   for (let k = 0; k < n; k++) {
-    i = skipOptional(src, i);
-    const [group, next] = readGroup(src, i);
-    if (group === null) return [out, i];
+    cursor = skipOptional(src, cursor);
+    const [group, next] = readGroup(src, cursor);
+    if (group === null) return [out, cursor];
     out.push(group);
-    i = next;
+    cursor = next;
   }
-  return [out, i];
+  return [out, cursor];
 }
 
 /** Strip LaTeX markup down to the prose a human would read. */
@@ -118,9 +125,13 @@ function parseCv(file, root) {
   const roles = [];
 
   const entryRe = /\\cventry\b/g;
-  let m;
-  while ((m = entryRe.exec(src)) !== null) {
-    const [groups] = readGroups(src, m.index + m[0].length, 6);
+  let m = entryRe.exec(src);
+  while (m !== null) {
+    // Advance before any branch below can `continue`, or a skipped entry loops
+    // forever on the same match.
+    const at = m.index + m[0].length;
+    m = entryRe.exec(src);
+    const [groups] = readGroups(src, at, 6);
     if (groups.length < 6) continue;
     const [dates, roleTitle, employer, location, , body] = groups.map(toProse.bind(null));
     const employerName = employer || '(unknown)';
@@ -130,9 +141,12 @@ function parseCv(file, root) {
     // so \item boundaries survive; convert each to prose individually.
     const rawBody = groups[5];
     const itemRe = /\\item\b/g;
-    let im;
     const positions = [];
-    while ((im = itemRe.exec(rawBody)) !== null) positions.push(im.index);
+    let im = itemRe.exec(rawBody);
+    while (im !== null) {
+      positions.push(im.index);
+      im = itemRe.exec(rawBody);
+    }
     positions.forEach((pos, idx) => {
       const end = idx + 1 < positions.length ? positions[idx + 1] : rawBody.length;
       const text = toProse(rawBody.slice(pos + 5, end).replace(/\\end\{itemize\}[\s\S]*$/, ''));
@@ -176,7 +190,10 @@ function cluster(bullets, threshold) {
   for (const b of bullets) {
     const key = `${b.employer}::${normalise(b.content)}`;
     const hit = byExact.get(key);
-    if (hit) { hit.variants.push(b); continue; }
+    if (hit) {
+      hit.variants.push(b);
+      continue;
+    }
 
     const words = contentWords(b.content);
     let best = null;
@@ -193,7 +210,10 @@ function cluster(bullets, threshold) {
         const s = jaccard(words, memberWords);
         if (s > score) score = s;
       }
-      if (score > bestScore) { bestScore = score; best = c; }
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
+      }
     }
 
     if (best && bestScore >= threshold) {
@@ -202,8 +222,11 @@ function cluster(bullets, threshold) {
       byExact.set(key, best);
     } else {
       const created = {
-        employer: b.employer, roleTitle: b.roleTitle, dates: b.dates,
-        memberWords: [words], variants: [b],
+        employer: b.employer,
+        roleTitle: b.roleTitle,
+        dates: b.dates,
+        memberWords: [words],
+        variants: [b],
       };
       clusters.push(created);
       byExact.set(key, created);
@@ -217,10 +240,12 @@ function cluster(bullets, threshold) {
       const k = normalise(v.content);
       counts.set(k, (counts.get(k) ?? 0) + 1);
     }
-    let bestKey = null, bestCount = -1;
+    let bestKey = null;
+    let bestCount = -1;
     for (const [k, n] of counts) {
       if (n > bestCount || (n === bestCount && k.length > (bestKey?.length ?? 0))) {
-        bestKey = k; bestCount = n;
+        bestKey = k;
+        bestCount = n;
       }
     }
     c.canonical = c.variants.find((v) => normalise(v.content) === bestKey).content;
@@ -258,7 +283,12 @@ function mergeCandidates(clusters, threshold, floor = 0.25) {
         }
       }
       if (score >= floor && score < threshold) {
-        pairs.push({ score: Number(score.toFixed(2)), employer: a.employer, a: a.canonical, b: b.canonical });
+        pairs.push({
+          score: Number(score.toFixed(2)),
+          employer: a.employer,
+          a: a.canonical,
+          b: b.canonical,
+        });
       }
     }
   }
@@ -279,7 +309,9 @@ function walk(dir, out = []) {
 
 const [, , corpusDir, ...rest] = process.argv;
 if (!corpusDir) {
-  console.error('usage: mine-cv-corpus.mjs <corpus-dir> [--out report.json] [--threshold 0.45] [--extra file.tex ...]');
+  console.error(
+    'usage: mine-cv-corpus.mjs <corpus-dir> [--out report.json] [--threshold 0.45] [--extra file.tex ...]',
+  );
   process.exit(64);
 }
 const outIdx = rest.indexOf('--out');
@@ -310,7 +342,9 @@ console.log(`pairs to review for merging:  ${candidates.length}`);
 console.log();
 console.log('Top candidate facts by reuse:');
 for (const c of clusters.slice(0, 12)) {
-  console.log(`  [${String(c.uses).padStart(2)}x used, ${c.distinctPhrasings} phrasing(s)] ${c.employer}`);
+  console.log(
+    `  [${String(c.uses).padStart(2)}x used, ${c.distinctPhrasings} phrasing(s)] ${c.employer}`,
+  );
   console.log(`      ${c.canonical.slice(0, 130)}`);
 }
 
@@ -342,12 +376,14 @@ if (outPath) {
       })),
     })),
     mergeCandidates: candidates,
-    summaries: parsed.filter((p) => p.summary).map((p) => ({
-      content: p.summary,
-      source: p.source,
-      sourceCompany: p.target.company,
-      sourceRoleTitle: p.target.roleTitle,
-    })),
+    summaries: parsed
+      .filter((p) => p.summary)
+      .map((p) => ({
+        content: p.summary,
+        source: p.source,
+        sourceCompany: p.target.company,
+        sourceRoleTitle: p.target.roleTitle,
+      })),
   };
   writeFileSync(outPath, JSON.stringify(report, null, 2));
   console.log(`\nreport written: ${outPath}`);
