@@ -90,6 +90,63 @@ export const followUpEventSchema = z.object({
   channel: z.enum(FOLLOW_UP_CHANNELS),
 });
 
+// --- Document asset references inside LaTeX source ---
+
+/**
+ * LaTeX commands whose brace argument names a file that has to exist next to
+ * the document at compile time.
+ */
+const ASSET_REF_COMMANDS = [
+  'photo',
+  'includegraphics',
+  'input',
+  'include',
+  'bibliography',
+  'addbibresource',
+  'lstinputlisting',
+] as const;
+
+const ASSET_REF_RE = new RegExp(
+  `\\\\(${ASSET_REF_COMMANDS.join('|')})(?:\\[[^\\]]*\\])*\\{([^}]*)\\}`,
+  'g',
+);
+
+/**
+ * Find asset references that cannot resolve inside the compile sandbox.
+ *
+ * The compile service gives every job its own directory and strips `..` from
+ * asset paths, so a document referencing a parent directory or an absolute path
+ * fails at compile time with an unrecoverable XeTeX error rather than anything
+ * a user could act on:
+ *
+ *   error: main.tex:28: Unable to load picture or PDF file '../Profile.png'
+ *
+ * Catching it when the document is saved turns that into a clear message. Real
+ * case: a CV exported from Overleaf carried `\photo{../Profile.png}`, which is
+ * correct in Overleaf's project layout and impossible in the sandbox.
+ */
+export function findTraversingAssetRefs(latex: string): string[] {
+  const found: string[] = [];
+  for (const match of latex.matchAll(ASSET_REF_RE)) {
+    const target = (match[2] ?? '').trim();
+    if (target === '') continue;
+    const traverses = target.split('/').some((seg) => seg === '..');
+    if (traverses || target.startsWith('/')) found.push(target);
+  }
+  return [...new Set(found)];
+}
+
+const inDirAssetRefs = (schema: z.ZodString) =>
+  schema.superRefine((value, ctx) => {
+    const bad = findTraversingAssetRefs(value);
+    if (bad.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `asset paths must be relative and in-directory; found ${bad.join(', ')}. Ship the file alongside the document and reference it by name.`,
+      });
+    }
+  });
+
 // --- Documents (base templates + generated, tailored per application) ---
 
 // v1 supports LaTeX only; the column/enum leave room to add 'pdf' later.
@@ -120,9 +177,56 @@ export const createBaseDocumentSchema = z.object({
   type: z.string().min(1).max(50),
   label: z.string().min(1).max(120),
   format: z.enum(DOCUMENT_FORMATS).default('latex'),
-  content: z.string().min(1).max(500_000),
+  content: inDirAssetRefs(z.string().min(1).max(500_000)),
   assets: z.array(documentAssetSchema).max(20).optional(),
   isDefault: z.boolean().default(false),
 });
 
 export const updateBaseDocumentSchema = createBaseDocumentSchema.partial();
+
+// --- Profile facts (structured career data tailoring selects from, ADR-005) ---
+
+export const PROFILE_FACT_KINDS = [
+  'role',
+  'bullet',
+  'skill',
+  'education',
+  'project',
+  'summary',
+] as const;
+export type ProfileFactKind = (typeof PROFILE_FACT_KINDS)[number];
+
+export const PROFILE_FACT_STATUSES = ['active', 'parked', 'archived'] as const;
+export type ProfileFactStatus = (typeof PROFILE_FACT_STATUSES)[number];
+
+export const createProfileFactSchema = z.object({
+  kind: z.enum(PROFILE_FACT_KINDS),
+  parentFactId: z.string().max(64).nullish(),
+  employer: z.string().max(200).nullish(),
+  roleTitle: z.string().max(200).nullish(),
+  location: z.string().max(200).nullish(),
+  // Free text because CV dates are imprecise and often open ended.
+  startDate: z.string().max(32).nullish(),
+  endDate: z.string().max(32).nullish(),
+  canonical: z.string().min(1).max(2000),
+  tags: z.array(z.string().max(50)).max(30).optional(),
+  status: z.enum(PROFILE_FACT_STATUSES).default('active'),
+});
+
+export const updateProfileFactSchema = createProfileFactSchema.partial();
+
+export const createFactVariantSchema = z.object({
+  factId: z.string().min(1).max(64),
+  content: z.string().min(1).max(2000),
+  // Provenance. `sourceRoleTitle` is the selection signal: it records what the
+  // phrasing was aimed at, which past applications already encode for free.
+  source: z.string().max(500).nullish(),
+  sourceRoleTitle: z.string().max(200).nullish(),
+  sourceCompany: z.string().max(200).nullish(),
+  usedAt: z.number().int().nullish(),
+});
+
+/** Normalisation used for the variant content hash, so dedupe is whitespace and case insensitive. */
+export function normaliseVariantContent(content: string): string {
+  return content.replace(/\s+/g, ' ').trim().toLowerCase();
+}

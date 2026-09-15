@@ -132,6 +132,62 @@ export const documents = sqliteTable('documents', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+/**
+ * Structured career facts: the source of truth that tailoring selects from
+ * (ADR-005). Core/public — this is the user's own CV data, and a self-hoster
+ * needs it; the tailoring that consumes it is the paid part.
+ *
+ * A bullet hangs off its role through `parentFactId`, so employer, title and
+ * dates live on the role and are not repeated on every bullet beneath it.
+ */
+export const profileFacts = sqliteTable('profile_facts', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  parentFactId: text('parent_fact_id'),
+  employer: text('employer'),
+  roleTitle: text('role_title'),
+  location: text('location'),
+  // Text rather than timestamps: CV dates are imprecise and often open ended
+  // ("2025--current"). Storing what the source says beats inventing precision.
+  startDate: text('start_date'),
+  endDate: text('end_date'),
+  canonical: text('canonical').notNull(),
+  tags: text('tags', { mode: 'json' }).$type<string[]>(),
+  status: text('status', { enum: ['active', 'parked', 'archived'] })
+    .notNull()
+    .default('active'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * A real phrasing of a fact, with the role it was written for. One fact recurs
+ * across applications in wordings tuned to each target, so the canonical claim
+ * and its wordings are separate rows.
+ *
+ * `contentHash` plus the unique index on (userId, contentHash) is what makes
+ * importing a CV corpus idempotent: re-running it cannot duplicate a phrasing.
+ */
+export const profileFactVariants = sqliteTable('profile_fact_variants', {
+  id: text('id').primaryKey(),
+  factId: text('fact_id')
+    .notNull()
+    .references(() => profileFacts.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  contentHash: text('content_hash').notNull(),
+  source: text('source'),
+  sourceRoleTitle: text('source_role_title'),
+  sourceCompany: text('source_company'),
+  usedAt: integer('used_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const events = sqliteTable('events', {
   id: text('id').primaryKey(),
   applicationId: text('application_id')
