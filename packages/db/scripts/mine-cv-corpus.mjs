@@ -37,6 +37,14 @@ const STOPWORDS = new Set(
    built build building shipped ship led lead owned own that this it its their our`.split(/\s+/),
 );
 
+// Employers are the partition key for clustering, so a job written two ways in
+// two CVs becomes two disjoint fact pools that no merge candidate can ever
+// reconcile. Supply `--aliases` to fold them together before anything clusters.
+let ALIASES = new Map();
+
+const aliasKey = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+const aliasEmployer = (name) => ALIASES.get(aliasKey(name)) ?? name;
+
 // --- LaTeX reading -------------------------------------------------------
 
 /** Read the balanced `{...}` group starting at `i`. Returns [content, nextIndex]. */
@@ -89,16 +97,42 @@ function readGroups(src, from, n) {
 
 /** Strip LaTeX markup down to the prose a human would read. */
 function toProse(latex) {
-  return latex
-    .replace(/%.*$/gm, '')
-    .replace(/\\href\{[^}]*\}\{([^}]*)\}/g, '$1')
-    .replace(/\\(emph|textbf|textit|texttt|underline)\{([^}]*)\}/g, '$2')
-    .replace(/\\[a-zA-Z@]+\s*(\[[^\]]*\])?/g, ' ')
-    .replace(/[{}]/g, ' ')
-    .replace(/\\[&%$#_]/g, '')
-    .replace(/~/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    latex
+      // Only an unescaped % opens a comment. `\%` is data, and stripping it turned
+      // "reducing manual effort by 60\%" into "...by 60\".
+      .replace(/(^|[^\\])%.*$/gm, '$1')
+      .replace(/\\href\{[^}]*\}\{([^}]*)\}/g, '$1')
+      .replace(/\\(emph|textbf|textit|texttt|underline)\{([^}]*)\}/g, '$2')
+      // Unescape specials to the character they stand for, before the generic
+      // command strip runs; deleting them dropped the % from every percentage.
+      .replace(/\\([&%$#_])/g, '$1')
+      .replace(/\\[a-zA-Z@]+\s*(\[[^\]]*\])?/g, ' ')
+      .replace(/[{}]/g, ' ')
+      .replace(/~/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
+/**
+ * Reduce a date range to years. One job is written "Jun 2017 -- Oct 2021",
+ * "2017 -- 2021" and "2017--2021" across the corpus; those are one answer split
+ * three ways, and `commonest` picks a winner by counting strings.
+ */
+function normaliseDates(raw) {
+  if (!raw) return raw;
+  const parts = raw.split(/\s*(?:--+|[\u2013\u2014]|\s-\s|\bto\b)\s*/).filter(Boolean);
+  const side = (s) => {
+    const year = s.match(/\b(?:19|20)\d{2}\b/);
+    if (year) return year[0];
+    const open = s.match(/current|present|ongoing|now/i);
+    return open ? open[0].toLowerCase() : s.trim();
+  };
+  const ends = parts.map(side);
+  if (ends.length < 2) return ends[0] ?? raw;
+  const [from, to] = [ends[0], ends[ends.length - 1]];
+  return from === to ? from : `${from}--${to}`;
 }
 
 // --- Parsing one CV ------------------------------------------------------
@@ -134,8 +168,9 @@ function parseCv(file, root) {
     m = entryRe.exec(src);
     const [groups] = readGroups(src, at, 6);
     if (groups.length < 6) continue;
-    const [dates, roleTitle, employer, location, , body] = groups.map(toProse.bind(null));
-    const employerName = employer || '(unknown)';
+    const [rawDates, roleTitle, employer, location, , body] = groups.map(toProse.bind(null));
+    const employerName = aliasEmployer(employer || '(unknown)');
+    const dates = normaliseDates(rawDates);
     roles.push({ employer: employerName, roleTitle, dates, location });
 
     // Bullets inside this entry belong to this employer. Read from the raw body
@@ -384,7 +419,7 @@ function walk(dir, out = []) {
 const [, , corpusDir, ...rest] = process.argv;
 if (!corpusDir) {
   console.error(
-    'usage: mine-cv-corpus.mjs <corpus-dir> [--out report.json] [--threshold 0.45] [--extra file.tex ...]',
+    'usage: mine-cv-corpus.mjs <corpus-dir> [--out report.json] [--threshold 0.45] [--aliases employers.json] [--extra file.tex ...]',
   );
   process.exit(64);
 }
@@ -392,6 +427,12 @@ const outIdx = rest.indexOf('--out');
 const outPath = outIdx === -1 ? null : rest[outIdx + 1];
 const extraIdx = rest.indexOf('--extra');
 const extras = extraIdx === -1 ? [] : rest.slice(extraIdx + 1).filter((a) => !a.startsWith('--'));
+
+const aliasIdx = rest.indexOf('--aliases');
+if (aliasIdx !== -1 && rest[aliasIdx + 1]) {
+  const raw = JSON.parse(readFileSync(rest[aliasIdx + 1], 'utf8'));
+  ALIASES = new Map(Object.entries(raw).map(([from, to]) => [aliasKey(from), to]));
+}
 
 const files = [...walk(corpusDir), ...extras];
 const parsed = files.map((f) => parseCv(f, corpusDir));
@@ -404,6 +445,18 @@ for (const c of clusters) c.id = factId(c.employer, c.canonical);
 const employers = new Map();
 for (const c of clusters) {
   employers.set(c.employer, (employers.get(c.employer) ?? 0) + 1);
+}
+
+// An alias that matches nothing is a typo that silently does nothing, which is
+// exactly the failure this whole pass exists to remove.
+if (ALIASES.size) {
+  const canonical = new Set(ALIASES.values());
+  const unused = [...canonical].filter((name) => !employers.has(name));
+  console.log(`aliases applied:       ${ALIASES.size} -> ${canonical.size} canonical`);
+  if (unused.length) {
+    console.error(`alias targets that matched no employer: ${unused.join(', ')}`);
+    process.exit(65);
+  }
 }
 
 console.log(`threshold:             ${threshold}`);
