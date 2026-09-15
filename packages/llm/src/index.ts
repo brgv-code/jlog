@@ -35,6 +35,15 @@ export const extractedJobSchema = z
 
 export type ExtractedJob = z.infer<typeof extractedJobSchema>;
 
+/**
+ * For callers that validate the model's response themselves. `extractJSON`
+ * requires a schema, but a caller whose contract lives elsewhere (the pro
+ * tailoring agent checks its own shape) would otherwise have to restate that
+ * contract here just to satisfy the signature — and then keep two copies in
+ * step. This lets the JSON through and leaves the checking where it belongs.
+ */
+export const rawJsonSchema: z.ZodType<unknown> = z.unknown();
+
 export type LLMConfig = {
   provider: 'anthropic' | 'openai' | 'gemini' | 'ollama';
   apiKey?: string;

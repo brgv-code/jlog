@@ -1,3 +1,4 @@
+import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 
@@ -44,11 +45,29 @@ export const requirePro = createMiddleware(async (c) => {
 });
 
 /**
+ * A JSON-returning LLM call. The private impl's tailoring agent needs one, but
+ * the provider lives behind the user's encrypted config in `apps/api` and is
+ * wrapped in Langfuse tracing there, so the host injects it rather than the pro
+ * package rebuilding either. Declared in the stub because the two packages must
+ * present the same types, not just the same runtime symbols.
+ */
+export type TailorRequest = { name: string; system: string; user: string };
+export type TailorJson = (req: TailorRequest) => Promise<unknown>;
+
+/** What the host app supplies to the pro router. Ignored by this stub. */
+export type ProDeps = {
+  makeTailor?: (c: Context) => Promise<TailorJson | null>;
+};
+
+/**
  * Router mounted at `/api/pro`. In the stub every path returns 402, so the OSS
  * build exposes the pro surface as locked rather than missing. The private impl
- * provides the real routes (base-document CRUD, generate, compile).
+ * provides the real routes (document render/compile, and the tailoring agent).
+ *
+ * `deps` is accepted and ignored here: the stub never reaches an LLM, and a
+ * signature that differs from the impl's would break the swap.
  */
-export function createProRouter(): Hono {
+export function createProRouter(_deps: ProDeps = {}): Hono {
   const router = new Hono();
   router.all('*', (c) => c.json(PRO_REQUIRED_ERROR, 402));
   return router;
