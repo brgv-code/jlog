@@ -97,20 +97,22 @@ function readGroups(src, from, n) {
 
 /** Strip LaTeX markup down to the prose a human would read. */
 function toProse(latex) {
-  return latex
-    // Only an unescaped % opens a comment. `\%` is data, and stripping it turned
-    // "reducing manual effort by 60\%" into "...by 60\".
-    .replace(/(^|[^\\])%.*$/gm, '$1')
-    .replace(/\\href\{[^}]*\}\{([^}]*)\}/g, '$1')
-    .replace(/\\(emph|textbf|textit|texttt|underline)\{([^}]*)\}/g, '$2')
-    // Unescape specials to the character they stand for, before the generic
-    // command strip runs; deleting them dropped the % from every percentage.
-    .replace(/\\([&%$#_])/g, '$1')
-    .replace(/\\[a-zA-Z@]+\s*(\[[^\]]*\])?/g, ' ')
-    .replace(/[{}]/g, ' ')
-    .replace(/~/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    latex
+      // Only an unescaped % opens a comment. `\%` is data, and stripping it turned
+      // "reducing manual effort by 60\%" into "...by 60\".
+      .replace(/(^|[^\\])%.*$/gm, '$1')
+      .replace(/\\href\{[^}]*\}\{([^}]*)\}/g, '$1')
+      .replace(/\\(emph|textbf|textit|texttt|underline)\{([^}]*)\}/g, '$2')
+      // Unescape specials to the character they stand for, before the generic
+      // command strip runs; deleting them dropped the % from every percentage.
+      .replace(/\\([&%$#_])/g, '$1')
+      .replace(/\\[a-zA-Z@]+\s*(\[[^\]]*\])?/g, ' ')
+      .replace(/[{}]/g, ' ')
+      .replace(/~/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 /**
