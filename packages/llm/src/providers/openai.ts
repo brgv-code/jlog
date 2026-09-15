@@ -1,6 +1,6 @@
 import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
-import type { LLMProvider } from '../index';
+import type { ExtractOptions, LLMProvider } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
 
 interface OpenAICompletion {
@@ -10,7 +10,12 @@ interface OpenAICompletion {
 export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
   return {
     name: 'openai',
-    async extractJSON<T>(prompt: string, schema: z.ZodSchema<T>, content: string): Promise<T> {
+    async extractJSON<T>(
+      prompt: string,
+      schema: z.ZodSchema<T>,
+      content: string,
+      options?: ExtractOptions,
+    ): Promise<T> {
       let res: Response;
       try {
         res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -23,10 +28,10 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
           body: JSON.stringify({
             model,
             messages: [
-              { role: 'system', content: EXTRACT_JOB_SYSTEM_PROMPT },
+              { role: 'system', content: options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT },
               { role: 'user', content: `${prompt}\n\n${content}` },
             ],
-            max_tokens: 1024,
+            max_tokens: options?.maxTokens ?? 1024,
             response_format: { type: 'json_object' },
           }),
         });
