@@ -65,6 +65,10 @@ const ERROR_COPY: Record<string, { title: string; body: string }> = {
     title: 'Compile service unavailable',
     body: 'The PDF service is not configured on this deployment. The LaTeX above is still yours to download.',
   },
+  LLM_CALL_FAILED: {
+    title: 'The model could not be reached',
+    body: 'Your provider rejected the request. The reason it gave is below.',
+  },
   TAILORING_FAILED: {
     title: 'The model could not settle on a selection',
     body: 'It kept referencing facts that do not exist. What it got wrong is listed below.',
@@ -222,6 +226,11 @@ export function TailorCvDialog({
                   <p className="text-muted-foreground text-[13px] leading-relaxed">
                     {ERROR_COPY[error.code]?.body ?? error.message}
                   </p>
+                  {ERROR_COPY[error.code] && error.message ? (
+                    <p className="text-muted-foreground/70 pt-0.5 font-mono text-[11px] leading-relaxed break-words">
+                      {error.message}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               {error.corrections?.length ? (

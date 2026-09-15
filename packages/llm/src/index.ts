@@ -4,9 +4,26 @@ import { makeGeminiProvider } from './providers/gemini';
 import { makeOllamaProvider } from './providers/ollama';
 import { makeOpenAIProvider } from './providers/openai';
 
+/**
+ * Per-call overrides. Without these every caller inherits the job-extraction
+ * system prompt, which silently instructs the model to answer a different
+ * question than the one being asked.
+ */
+export type ExtractOptions = {
+  /** Replaces EXTRACT_JOB_SYSTEM_PROMPT. Omit to keep extraction behaviour. */
+  system?: string;
+  /** Output cap. Extraction needs very little; other tasks need more. */
+  maxTokens?: number;
+};
+
 export interface LLMProvider {
   name: 'anthropic' | 'openai' | 'gemini' | 'ollama';
-  extractJSON<T>(prompt: string, schema: z.ZodSchema<T>, content: string): Promise<T>;
+  extractJSON<T>(
+    prompt: string,
+    schema: z.ZodSchema<T>,
+    content: string,
+    options?: ExtractOptions,
+  ): Promise<T>;
 }
 
 export const extractedJobSchema = z

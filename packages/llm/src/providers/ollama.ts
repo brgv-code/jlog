@@ -1,6 +1,6 @@
 import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
-import type { LLMProvider } from '../index';
+import type { ExtractOptions, LLMProvider } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
 
 interface OllamaResponse {
@@ -14,7 +14,12 @@ export function makeOllamaProvider(
 ): LLMProvider {
   return {
     name: 'ollama',
-    async extractJSON<T>(prompt: string, schema: z.ZodSchema<T>, content: string): Promise<T> {
+    async extractJSON<T>(
+      prompt: string,
+      schema: z.ZodSchema<T>,
+      content: string,
+      options?: ExtractOptions,
+    ): Promise<T> {
       const url = `${ollamaUrl}/api/generate`;
 
       let res: Response;
@@ -25,7 +30,7 @@ export function makeOllamaProvider(
           headers: { 'content-type': 'application/json', ...extraHeaders },
           body: JSON.stringify({
             model,
-            prompt: `${EXTRACT_JOB_SYSTEM_PROMPT}\n\n${prompt}\n\n${content}`,
+            prompt: `${options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT}\n\n${prompt}\n\n${content}`,
             stream: false,
             format: 'json',
           }),

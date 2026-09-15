@@ -1,6 +1,6 @@
 import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
-import type { LLMProvider } from '../index';
+import type { ExtractOptions, LLMProvider } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
 
 interface GeminiResponse {
@@ -12,7 +12,12 @@ interface GeminiResponse {
 export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
   return {
     name: 'gemini',
-    async extractJSON<T>(prompt: string, schema: z.ZodSchema<T>, content: string): Promise<T> {
+    async extractJSON<T>(
+      prompt: string,
+      schema: z.ZodSchema<T>,
+      content: string,
+      options?: ExtractOptions,
+    ): Promise<T> {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       let res: Response;
@@ -24,7 +29,11 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
           body: JSON.stringify({
             contents: [
               {
-                parts: [{ text: `${EXTRACT_JOB_SYSTEM_PROMPT}\n\n${prompt}\n\n${content}` }],
+                parts: [
+                  {
+                    text: `${options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT}\n\n${prompt}\n\n${content}`,
+                  },
+                ],
               },
             ],
             generationConfig: { responseMimeType: 'application/json' },
