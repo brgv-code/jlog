@@ -21,6 +21,7 @@
  * within a single employer. That resolves verbatim reuse, which is the bulk of a
  * real corpus, and leaves genuinely-reworded pairs for an optional LLM pass.
  */
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, relative } from 'node:path';
 
@@ -286,6 +287,8 @@ function mergeCandidates(clusters, threshold, floor = 0.25) {
         pairs.push({
           score: Number(score.toFixed(2)),
           employer: a.employer,
+          idA: a.id,
+          idB: b.id,
           a: a.canonical,
           b: b.canonical,
         });
@@ -293,6 +296,77 @@ function mergeCandidates(clusters, threshold, floor = 0.25) {
     }
   }
   return pairs.sort((x, y) => y.score - x.score);
+}
+
+/**
+ * Deterministic id for a fact, so re-running the miner and re-importing upserts
+ * the same rows instead of duplicating them.
+ *
+ * Keyed on employer plus the canonical phrasing. Merging two clusters changes
+ * the canonical text and therefore the id, which is the known limit of this
+ * scheme: after a merge the superseded row has to be removed rather than being
+ * updated in place. Acceptable for a seeding import that runs a handful of
+ * times; it would not be acceptable for a live sync.
+ */
+function factId(employer, canonical) {
+  const key = `${employer}|${normalise(canonical)}`;
+  return `pf_${createHash('sha1').update(key).digest('hex').slice(0, 24)}`;
+}
+
+function variantHash(content) {
+  return createHash('sha1').update(normalise(content)).digest('hex').slice(0, 32);
+}
+
+/** A review sheet: what was found, and the calls a human still has to make. */
+function toMarkdown(clusters, candidates, meta) {
+  const lines = [];
+  lines.push('# CV corpus review');
+  lines.push('');
+  lines.push(
+    `Generated from \`${meta.corpusDir}\` — ${meta.cvCount} CVs, ${meta.bulletCount} bullets, ${clusters.length} candidate facts.`,
+  );
+  lines.push('');
+  lines.push('Two jobs here. Both are judgement calls the miner deliberately does not make.');
+  lines.push('');
+  lines.push('1. **Merge review** — pairs that look like one achievement but did not cluster.');
+  lines.push('   Tick the ones that are the same fact; each ticked line becomes a merge.');
+  lines.push('2. **Fact review** — read the canonical phrasings. Anything wrong, stale or');
+  lines.push('   overstated gets fixed or struck here, before it can reach a document.');
+  lines.push('');
+  lines.push('## 1. Merge candidates');
+  lines.push('');
+  lines.push('Ranked by similarity. Format: `- [ ] <keep-id> <- <merge-id>`.');
+  lines.push('');
+  for (const c of candidates) {
+    lines.push(`- [ ] \`${c.idA}\` <- \`${c.idB}\`  *(~${c.score}, ${c.employer})*`);
+    lines.push(`  - A: ${c.a}`);
+    lines.push(`  - B: ${c.b}`);
+  }
+  lines.push('');
+  lines.push('## 2. Candidate facts');
+  lines.push('');
+  const byEmployer = new Map();
+  for (const c of clusters) {
+    if (!byEmployer.has(c.employer)) byEmployer.set(c.employer, []);
+    byEmployer.get(c.employer).push(c);
+  }
+  for (const [employer, list] of byEmployer) {
+    lines.push(`### ${employer}`);
+    lines.push('');
+    for (const c of list) {
+      lines.push(`- \`${c.id}\` **${c.uses}x used**, ${c.distinctPhrasings} phrasing(s)`);
+      lines.push(`  - ${c.canonical}`);
+      if (c.distinctPhrasings > 1) {
+        const others = [...new Set(c.variants.map((v) => v.content))].filter(
+          (t) => t !== c.canonical,
+        );
+        for (const o of others.slice(0, 4)) lines.push(`  - *alt:* ${o}`);
+        if (others.length > 4) lines.push(`  - *(+${others.length - 4} more phrasings)*`);
+      }
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
 }
 
 // --- Main ----------------------------------------------------------------
@@ -325,6 +399,7 @@ const allBullets = parsed.flatMap((p) => p.bullets);
 const thrIdx = rest.indexOf('--threshold');
 const threshold = thrIdx === -1 ? DEFAULT_THRESHOLD : Number(rest[thrIdx + 1]);
 const clusters = cluster(allBullets, threshold);
+for (const c of clusters) c.id = factId(c.employer, c.canonical);
 
 const employers = new Map();
 for (const c of clusters) {
@@ -362,6 +437,7 @@ if (outPath) {
     generatedFrom: corpusDir,
     cvCount: files.length,
     facts: clusters.map((c) => ({
+      id: c.id,
       kind: 'bullet',
       employer: c.employer,
       roleTitle: c.roleTitle,
@@ -370,6 +446,7 @@ if (outPath) {
       uses: c.uses,
       variants: c.variants.map((v) => ({
         content: v.content,
+        contentHash: variantHash(v.content),
         source: v.source,
         sourceCompany: v.target.company,
         sourceRoleTitle: v.target.roleTitle,
@@ -387,4 +464,16 @@ if (outPath) {
   };
   writeFileSync(outPath, JSON.stringify(report, null, 2));
   console.log(`\nreport written: ${outPath}`);
+  const mdIdx = rest.indexOf('--markdown');
+  if (mdIdx !== -1 && rest[mdIdx + 1]) {
+    writeFileSync(
+      rest[mdIdx + 1],
+      toMarkdown(clusters, candidates, {
+        corpusDir,
+        cvCount: files.length,
+        bulletCount: allBullets.length,
+      }),
+    );
+    console.log(`review sheet written: ${rest[mdIdx + 1]}`);
+  }
 }
