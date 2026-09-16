@@ -1,6 +1,6 @@
 import { ArrowRightIcon, SparklesIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { type CvProfile, isProfileUsable, loadCvProfile } from '../../lib/cvProfile';
+import { type CvProfile, EMPTY_PROFILE, isProfileUsable, loadCvProfile } from '../../lib/cvProfile';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { TailorCvDialog } from './TailorCvDialog';
@@ -23,8 +23,13 @@ export function TailorCvCard({ applicationId, company, role, jobDescription }: P
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<CvProfile | null>(null);
 
-  // localStorage is not available during Astro's SSR pass.
-  useEffect(() => setProfile(loadCvProfile()), []);
+  // Fetched rather than read locally, and only in an effect: there is no
+  // session during Astro's SSR pass.
+  useEffect(() => {
+    loadCvProfile()
+      .then(setProfile)
+      .catch(() => setProfile(EMPTY_PROFILE));
+  }, []);
 
   const hasJd = (jobDescription ?? '').trim().length > 0;
   const hasProfile = profile !== null && isProfileUsable(profile);

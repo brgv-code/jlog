@@ -188,6 +188,40 @@ export const profileFactVariants = sqliteTable('profile_fact_variants', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+/**
+ * The non-claim half of a CV — name, contact, and the skills / education blocks
+ * the renderer puts around the facts.
+ *
+ * Its own table rather than a `user_documents` row: that one models a LaTeX
+ * template, this is the structured data a document is built from. Kept out of
+ * `profile_facts` on purpose — an email address is not a claim anyone needs to
+ * audit, and mixing the two would blunt the fact gate.
+ */
+export const cvProfiles = sqliteTable('cv_profiles', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  firstName: text('first_name').notNull().default(''),
+  lastName: text('last_name').notNull().default(''),
+  title: text('title').notNull().default(''),
+  address: text('address').notNull().default(''),
+  email: text('email').notNull().default(''),
+  homepage: text('homepage').notNull().default(''),
+  /** A filename shipped alongside the compile request, not the image itself. */
+  photo: text('photo').notNull().default(''),
+  socials: text('socials', { mode: 'json' })
+    .$type<{ network: string; handle: string }[]>()
+    .notNull()
+    .default([]),
+  summary: text('summary').notNull().default(''),
+  sections: text('sections', { mode: 'json' })
+    .$type<{ heading: string; items: { left: string; right: string }[] }[]>()
+    .notNull()
+    .default([]),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const events = sqliteTable('events', {
   id: text('id').primaryKey(),
   applicationId: text('application_id')

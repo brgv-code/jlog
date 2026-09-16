@@ -260,3 +260,34 @@ export const cvImportCommitSchema = z.object({
     )
     .max(50),
 });
+
+// --- CV profile (the non-claim half: name, contact, skills, education) ---
+
+export const cvProfileSchema = z.object({
+  firstName: z.string().max(100).default(''),
+  lastName: z.string().max(100).default(''),
+  title: z.string().max(200).default(''),
+  address: z.string().max(300).default(''),
+  email: z.string().max(200).default(''),
+  homepage: z.string().max(300).default(''),
+  /** A filename shipped with the compile request, not the image bytes. */
+  photo: z.string().max(300).default(''),
+  socials: z
+    .array(z.object({ network: z.string().max(50), handle: z.string().max(200) }))
+    .max(10)
+    .default([]),
+  summary: z.string().max(4000).default(''),
+  sections: z
+    .array(
+      z.object({
+        heading: z.string().max(100),
+        items: z
+          .array(z.object({ left: z.string().max(200), right: z.string().max(1000) }))
+          .max(50),
+      }),
+    )
+    .max(20)
+    .default([]),
+});
+
+export type CvProfileInput = z.infer<typeof cvProfileSchema>;

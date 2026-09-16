@@ -138,11 +138,16 @@ export function CvProfileForm() {
   const [profile, setProfile] = useState<CvProfile>(EMPTY_PROFILE);
   const [sections, setSections] = useState<SectionDraft[]>([]);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loaded = loadCvProfile();
-    setProfile(loaded);
-    setSections(toDrafts(loaded.sections));
+    loadCvProfile()
+      .then((loaded) => {
+        setProfile(loaded);
+        setSections(toDrafts(loaded.sections));
+      })
+      .catch(() => setError('Could not load your CV profile.'));
   }, []);
 
   function set<K extends keyof CvProfile>(key: K, value: CvProfile[K]) {
@@ -155,10 +160,19 @@ export function CvProfileForm() {
     setSaved(false);
   }
 
-  function save() {
-    saveCvProfile({ ...profile, sections: fromDrafts(sections) });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      await saveCvProfile({ ...profile, sections: fromDrafts(sections) });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      // Silence here would look exactly like a successful save.
+      setError('Could not save your CV profile.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -242,11 +256,13 @@ export function CvProfileForm() {
         </div>
 
         <div className="flex items-center gap-3 pt-1">
-          <Button size="sm" onClick={save}>
+          <Button size="sm" onClick={save} disabled={saving}>
             {saved ? <CheckIcon /> : null}
-            {saved ? 'Saved' : 'Save profile'}
+            {saving ? 'Saving…' : saved ? 'Saved' : 'Save profile'}
           </Button>
-          <span className="text-muted-foreground text-xs">Stored in this browser.</span>
+          <span className="text-muted-foreground text-xs">
+            {error ?? 'Stored on your account, not in this browser.'}
+          </span>
         </div>
       </CardContent>
     </Card>
