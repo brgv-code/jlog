@@ -1,0 +1,305 @@
+/**
+ * Paste a CV, see what was read out of it, tick what is true, import.
+ *
+ * The review step is the point. Facts are what tailoring is allowed to select
+ * from, so a parser that guessed a wrong employer or split a bullet badly has
+ * to be caught here — once imported, those words can end up in front of a
+ * hiring manager.
+ */
+import { CheckIcon, FileTextIcon, ImportIcon, Loader2Icon } from 'lucide-react';
+import { useState } from 'react';
+import { apiFetch } from '../../lib/api';
+import { type CvProfile, loadCvProfile, saveCvProfile } from '../../lib/cvProfile';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Separator } from '../ui/separator';
+
+type PreviewBullet = { text: string; factId: string; known: boolean };
+type PreviewRole = {
+  employer: string;
+  roleTitle: string;
+  dates: string;
+  location: string;
+  bullets: PreviewBullet[];
+};
+type Preview = {
+  format: 'latex' | 'markdown';
+  chrome: CvProfile;
+  roles: PreviewRole[];
+  unplaced: string[];
+  counts: { roles: number; bullets: number; known: number };
+};
+
+type ApiError = { error: { code: string; message: string } };
+
+const inputClass =
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/25';
+
+const PLACEHOLDER = `Paste your CV here — LaTeX (moderncv) or Markdown.
+
+# Ada Lovelace
+ada@example.com
+
+## Experience
+
+### Staff Engineer — Acme (2017 – 2021)
+
+- Cut p99 latency by 40% across the checkout path.`;
+
+export function ImportCvForm() {
+  const [source, setSource] = useState('');
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [imported, setImported] = useState<{ roles: number; bullets: number } | null>(null);
+  const [chromeApplied, setChromeApplied] = useState(false);
+
+  /** Identity for the ticks: a bullet is addressed by where it sits. */
+  const key = (roleIndex: number, bulletIndex: number) => `${roleIndex}:${bulletIndex}`;
+
+  async function runPreview() {
+    setBusy(true);
+    setError(null);
+    setImported(null);
+    setChromeApplied(false);
+    try {
+      const res = await apiFetch('/api/profile/import/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, format: 'auto' }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as ApiError | null;
+        setError(payload?.error?.message ?? `Could not read that CV (${res.status}).`);
+        return;
+      }
+      const parsed = (await res.json()) as Preview;
+      setPreview(parsed);
+      // Nothing is pre-unticked: what the parser found is the proposal, and the
+      // reviewer removes rather than hunts for what to add.
+      setSkipped(new Set());
+    } catch {
+      setError('Could not reach the API.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function commit() {
+    if (!preview) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const roles = preview.roles
+        .map((role, roleIndex) => ({
+          employer: role.employer,
+          roleTitle: role.roleTitle,
+          dates: role.dates,
+          location: role.location,
+          bullets: role.bullets
+            .filter((_, bulletIndex) => !skipped.has(key(roleIndex, bulletIndex)))
+            .map((b) => b.text),
+        }))
+        .filter((role) => role.employer && role.bullets.length);
+
+      const res = await apiFetch('/api/profile/import/commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roles }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as ApiError | null;
+        setError(payload?.error?.message ?? `Import failed (${res.status}).`);
+        return;
+      }
+      setImported((await res.json()) as { roles: number; bullets: number });
+      setPreview(null);
+      setSource('');
+    } catch {
+      setError('Could not reach the API.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The non-claim half goes to the profile form, which still owns it. */
+  function applyChrome() {
+    if (!preview) return;
+    const current = loadCvProfile();
+    const chrome = preview.chrome;
+    saveCvProfile({
+      ...current,
+      ...Object.fromEntries(
+        Object.entries(chrome).filter(([, v]) =>
+          Array.isArray(v) ? v.length > 0 : String(v ?? '').trim() !== '',
+        ),
+      ),
+    } as CvProfile);
+    setChromeApplied(true);
+  }
+
+  const selectedCount = preview
+    ? preview.roles.reduce(
+        (n, role, roleIndex) =>
+          n + role.bullets.filter((_, i) => !skipped.has(key(roleIndex, i))).length,
+        0,
+      )
+    : 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ImportIcon className="size-4" /> Import a CV
+        </CardTitle>
+        <CardDescription>
+          Paste a CV and jlog reads your roles and bullets out of it. Nothing is stored until you
+          have looked at what it found.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {!preview && (
+          <>
+            <textarea
+              className={`${inputClass} min-h-[180px] font-mono text-[12px] leading-relaxed`}
+              value={source}
+              placeholder={PLACEHOLDER}
+              onChange={(e) => setSource(e.target.value)}
+            />
+            <div className="flex items-center gap-3">
+              <Button onClick={runPreview} disabled={busy || !source.trim()}>
+                {busy ? <Loader2Icon className="animate-spin" /> : <FileTextIcon />} Read it
+              </Button>
+              {imported && (
+                <span className="text-[13px] text-muted-foreground">
+                  Imported {imported.bullets} bullet{imported.bullets === 1 ? '' : 's'} across{' '}
+                  {imported.roles} role{imported.roles === 1 ? '' : 's'}.
+                </span>
+              )}
+            </div>
+          </>
+        )}
+
+        {error && (
+          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
+            {error}
+          </p>
+        )}
+
+        {preview && (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
+              <span>
+                Read as {preview.format === 'latex' ? 'LaTeX' : 'Markdown'} — {preview.counts.roles}{' '}
+                role{preview.counts.roles === 1 ? '' : 's'}, {preview.counts.bullets} bullet
+                {preview.counts.bullets === 1 ? '' : 's'}.
+              </span>
+              {preview.counts.known > 0 && (
+                <span>{preview.counts.known} already in your profile.</span>
+              )}
+            </div>
+
+            {preview.chrome.firstName && (
+              <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-[13px]">
+                <span className="text-muted-foreground">
+                  Also found: {preview.chrome.firstName} {preview.chrome.lastName}
+                  {preview.chrome.email ? ` · ${preview.chrome.email}` : ''}
+                  {preview.chrome.sections.length
+                    ? ` · ${preview.chrome.sections.length} section${preview.chrome.sections.length === 1 ? '' : 's'}`
+                    : ''}
+                </span>
+                <Button variant="outline" size="sm" onClick={applyChrome} disabled={chromeApplied}>
+                  {chromeApplied ? <CheckIcon /> : null}
+                  {chromeApplied ? 'Filled in below' : 'Use for my profile'}
+                </Button>
+              </div>
+            )}
+
+            {preview.roles.map((role, roleIndex) => (
+              <div key={`${role.employer}-${role.dates}-${roleIndex}`} className="space-y-2">
+                <Separator />
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-[13px] font-medium">{role.roleTitle || 'Role'}</span>
+                  <span className="text-[13px] text-muted-foreground">
+                    at {role.employer || 'unknown employer'}
+                  </span>
+                  {role.dates && (
+                    <span className="text-[12px] text-muted-foreground/70">{role.dates}</span>
+                  )}
+                </div>
+                <ul className="space-y-1.5">
+                  {role.bullets.map((bullet, bulletIndex) => {
+                    const id = key(roleIndex, bulletIndex);
+                    const on = !skipped.has(id);
+                    return (
+                      <li key={bullet.factId || id}>
+                        <label className="flex cursor-pointer items-start gap-2.5">
+                          <input
+                            type="checkbox"
+                            className="mt-1 size-3.5 accent-primary"
+                            checked={on}
+                            onChange={() =>
+                              setSkipped((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(id)) next.delete(id);
+                                else next.add(id);
+                                return next;
+                              })
+                            }
+                          />
+                          <span
+                            className={`text-[13px] leading-relaxed ${on ? '' : 'text-muted-foreground/50 line-through'}`}
+                          >
+                            {bullet.text}
+                            {bullet.known && (
+                              <span className="ml-2 text-[11px] text-muted-foreground/70">
+                                already stored
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+
+            {preview.unplaced.length > 0 && (
+              <div className="space-y-1.5">
+                <Separator />
+                <p className="text-[12px] text-muted-foreground">
+                  These had no role above them, so they were not assigned to one:
+                </p>
+                <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
+                  {preview.unplaced.map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <Button onClick={commit} disabled={busy || selectedCount === 0}>
+                {busy ? <Loader2Icon className="animate-spin" /> : <CheckIcon />} Import{' '}
+                {selectedCount} bullet{selectedCount === 1 ? '' : 's'}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setPreview(null);
+                  setError(null);
+                }}
+                disabled={busy}
+              >
+                Back
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
