@@ -8,3 +8,5 @@ dist/
 !.env.example
 docs/*
 .dev.vars
+# Local D1 dumps. The migrations under packages/db are tracked; these are not.
+jlog-backup-*.sql
