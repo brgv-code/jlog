@@ -123,20 +123,29 @@ export function ImportCvForm() {
     }
   }
 
-  /** The non-claim half goes to the profile form, which still owns it. */
-  function applyChrome() {
+  /**
+   * The non-claim half goes to the CV profile, which still owns it. Only the
+   * fields the CV actually filled in are written, so importing a CV that omits
+   * a homepage does not erase the one already stored.
+   */
+  async function applyChrome() {
     if (!preview) return;
-    const current = loadCvProfile();
-    const chrome = preview.chrome;
-    saveCvProfile({
-      ...current,
-      ...Object.fromEntries(
-        Object.entries(chrome).filter(([, v]) =>
+    setBusy(true);
+    setError(null);
+    try {
+      const current = await loadCvProfile();
+      const found = Object.fromEntries(
+        Object.entries(preview.chrome).filter(([, v]) =>
           Array.isArray(v) ? v.length > 0 : String(v ?? '').trim() !== '',
         ),
-      ),
-    } as CvProfile);
-    setChromeApplied(true);
+      );
+      await saveCvProfile({ ...current, ...found } as CvProfile);
+      setChromeApplied(true);
+    } catch {
+      setError('Could not save those details to your profile.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   const selectedCount = preview
@@ -210,7 +219,12 @@ export function ImportCvForm() {
                     ? ` · ${preview.chrome.sections.length} section${preview.chrome.sections.length === 1 ? '' : 's'}`
                     : ''}
                 </span>
-                <Button variant="outline" size="sm" onClick={applyChrome} disabled={chromeApplied}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={applyChrome}
+                  disabled={chromeApplied || busy}
+                >
                   {chromeApplied ? <CheckIcon /> : null}
                   {chromeApplied ? 'Filled in below' : 'Use for my profile'}
                 </Button>

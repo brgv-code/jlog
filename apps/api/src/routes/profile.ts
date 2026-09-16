@@ -10,12 +10,13 @@
  * for documents sent to employers, so a parse that guessed wrong has to be
  * visible before it is stored, not after.
  */
-import { createDb, profileFactVariants, profileFacts } from '@jlog/db';
+import { createDb, cvProfiles, profileFactVariants, profileFacts } from '@jlog/db';
 import {
   HttpError,
   type ImportedCv,
   cvImportCommitSchema,
   cvImportPreviewSchema,
+  cvProfileSchema,
   detectCvFormat,
   factIdFor,
   parseLatexCv,
@@ -215,6 +216,59 @@ router.get('/facts', async (c) => {
       .filter((b) => !roles.some((r) => r.id === b.parentFactId))
       .map((b) => ({ id: b.id, text: b.canonical })),
   });
+});
+
+/**
+ * The CV profile: name, contact, and the blocks around the facts.
+ *
+ * Served empty rather than 404 when there is no row. A profile nobody has
+ * filled in yet is a valid state, and making the client special-case a missing
+ * one only invites it to render undefined into an input.
+ */
+router.get('/cv', async (c) => {
+  const session = requireSession(c);
+  const db = createDb(c.env.DB);
+
+  const [row] = await db.select().from(cvProfiles).where(eq(cvProfiles.userId, session.userId));
+
+  return c.json({
+    profile: {
+      firstName: row?.firstName ?? '',
+      lastName: row?.lastName ?? '',
+      title: row?.title ?? '',
+      address: row?.address ?? '',
+      email: row?.email ?? '',
+      homepage: row?.homepage ?? '',
+      photo: row?.photo ?? '',
+      socials: row?.socials ?? [],
+      summary: row?.summary ?? '',
+      sections: row?.sections ?? [],
+    },
+    // Whether anything has been stored, which is what tells the client that a
+    // browser-local profile is worth sending up rather than discarding.
+    stored: Boolean(row),
+  });
+});
+
+router.put('/cv', async (c) => {
+  const session = requireSession(c);
+  const body = await c.req.json().catch(() => {
+    throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+  });
+
+  const parsed = cvProfileSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+
+  const db = createDb(c.env.DB);
+  const now = new Date();
+  await db
+    .insert(cvProfiles)
+    .values({ userId: session.userId, ...parsed.data, createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({ target: cvProfiles.userId, set: { ...parsed.data, updatedAt: now } });
+
+  return c.json({ profile: parsed.data, stored: true });
 });
 
 export default router;
