@@ -1,6 +1,6 @@
 import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
-import type { LLMProvider } from '../index';
+import type { ExtractOptions, LLMProvider } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
 
 interface AnthropicMessage {
@@ -10,7 +10,12 @@ interface AnthropicMessage {
 export function makeAnthropicProvider(apiKey: string, model: string): LLMProvider {
   return {
     name: 'anthropic',
-    async extractJSON<T>(prompt: string, schema: z.ZodSchema<T>, content: string): Promise<T> {
+    async extractJSON<T>(
+      prompt: string,
+      schema: z.ZodSchema<T>,
+      content: string,
+      options?: ExtractOptions,
+    ): Promise<T> {
       let res: Response;
       try {
         res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -23,8 +28,8 @@ export function makeAnthropicProvider(apiKey: string, model: string): LLMProvide
           },
           body: JSON.stringify({
             model,
-            max_tokens: 1024,
-            system: EXTRACT_JOB_SYSTEM_PROMPT,
+            max_tokens: options?.maxTokens ?? 1024,
+            system: options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT,
             messages: [{ role: 'user', content: `${prompt}\n\n${content}` }],
           }),
         });

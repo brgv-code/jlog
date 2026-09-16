@@ -71,7 +71,13 @@ export async function makeTailor(c: Context<AppContext>): Promise<TailorJson | n
       input: { system: req.system, user: req.user },
     });
     try {
-      const result = await provider.extractJSON(req.system, rawJsonSchema, req.user);
+      // The system prompt must go in as the system prompt. Passed as `prompt`
+      // it lands in the user message behind EXTRACT_JOB_SYSTEM_PROMPT, which
+      // tells the model to answer with company/role/location instead.
+      const result = await provider.extractJSON('', rawJsonSchema, req.user, {
+        system: req.system,
+        maxTokens: 4096,
+      });
       generation?.end({ output: result });
       return result;
     } catch (e) {
