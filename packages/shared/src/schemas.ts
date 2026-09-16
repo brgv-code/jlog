@@ -230,3 +230,33 @@ export const createFactVariantSchema = z.object({
 export function normaliseVariantContent(content: string): string {
   return content.replace(/\s+/g, ' ').trim().toLowerCase();
 }
+
+// --- CV import (paste a CV, review what it found, then write facts) ---
+
+export const CV_IMPORT_FORMATS = ['latex', 'markdown', 'auto'] as const;
+export type CvImportFormat = (typeof CV_IMPORT_FORMATS)[number];
+
+export const cvImportPreviewSchema = z.object({
+  // 400k is a very long CV and still a small request; the cap exists so a
+  // pasted binary cannot be parsed line by line before it is rejected.
+  source: z.string().min(1).max(400_000),
+  format: z.enum(CV_IMPORT_FORMATS).default('auto'),
+});
+
+/**
+ * Only what the user ticked. The preview is not replayed here: the client sends
+ * back the rows it chose, so nothing can be written that was not on screen.
+ */
+export const cvImportCommitSchema = z.object({
+  roles: z
+    .array(
+      z.object({
+        employer: z.string().min(1).max(200),
+        roleTitle: z.string().max(200).default(''),
+        dates: z.string().max(64).default(''),
+        location: z.string().max(200).default(''),
+        bullets: z.array(z.string().min(1).max(2000)).max(200),
+      }),
+    )
+    .max(50),
+});

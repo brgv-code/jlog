@@ -9,6 +9,7 @@ import authRouter from './routes/auth';
 import eventsRouter from './routes/events';
 import extensionRouter from './routes/extension';
 import llmRouter, { extractRouter } from './routes/llm';
+import profileRouter from './routes/profile';
 import settingsRouter from './routes/settings';
 import statsRouter from './routes/stats';
 
@@ -68,6 +69,7 @@ app.route('/api/applications', applicationsRouter);
 app.route('/api/applications', eventsRouter);
 app.route('/api/stats', statsRouter);
 app.route('/api/settings', settingsRouter);
+app.route('/api/profile', profileRouter);
 app.route('/api/llm', llmRouter);
 app.route('/api/extract', extractRouter);
 app.route('/api/extension', extensionRouter);
