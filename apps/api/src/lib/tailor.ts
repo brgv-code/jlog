@@ -17,7 +17,15 @@ type AppContext = { Bindings: Env; Variables: Variables };
  * rather than in a second, parallel setup (ADR-004).
  */
 
-export async function makeTailor(c: Context<AppContext>): Promise<TailorJson | null> {
+/**
+ * The same provider, key handling and tracing, named for whatever is calling
+ * it. CV import needs a JSON-returning model call too, and a second copy of
+ * this wiring would be a second place for the encrypted-key handling to drift.
+ */
+export async function makeJsonCaller(
+  c: Context<AppContext>,
+  trace: { name: string; tags: string[] },
+): Promise<TailorJson | null> {
   const session = c.var.session;
   if (!session) return null;
 
@@ -54,18 +62,18 @@ export async function makeTailor(c: Context<AppContext>): Promise<TailorJson | n
 
   const provider = makeProvider(config);
   const langfuse = getLangfuse(c.env);
-  // One trace per request, spanning every attempt the agent makes. The retries
+  // One trace per request, spanning every attempt the caller makes. The retries
   // are the interesting part — a run that took three goes is worth seeing as
   // one story rather than three unrelated generations.
-  const trace = langfuse?.trace({
-    name: 'tailor-cv',
+  const span = langfuse?.trace({
+    name: trace.name,
     userId: session.userId,
     metadata: { provider: row.provider, model: row.model },
-    tags: ['tailoring', row.provider],
+    tags: [...trace.tags, row.provider],
   });
 
   return async (req: TailorRequest) => {
-    const generation = trace?.generation({
+    const generation = span?.generation({
       name: req.name,
       model: row.model,
       input: { system: req.system, user: req.user },
@@ -86,4 +94,8 @@ export async function makeTailor(c: Context<AppContext>): Promise<TailorJson | n
       throw e;
     }
   };
+}
+
+export function makeTailor(c: Context<AppContext>): Promise<TailorJson | null> {
+  return makeJsonCaller(c, { name: 'tailor-cv', tags: ['tailoring'] });
 }

@@ -233,7 +233,7 @@ export function normaliseVariantContent(content: string): string {
 
 // --- CV import (paste a CV, review what it found, then write facts) ---
 
-export const CV_IMPORT_FORMATS = ['latex', 'markdown', 'auto'] as const;
+export const CV_IMPORT_FORMATS = ['latex', 'markdown', 'text', 'auto'] as const;
 export type CvImportFormat = (typeof CV_IMPORT_FORMATS)[number];
 
 export const cvImportPreviewSchema = z.object({
