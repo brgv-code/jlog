@@ -122,7 +122,11 @@ export function TailorCvDialog({
         setError(payload?.error ?? { code: 'UNKNOWN', message: `Request failed (${res.status}).` });
         return;
       }
-      setResult((await res.json()) as TailorResponse);
+      const payload = (await res.json()) as TailorResponse;
+      // Rendering reduces and maps over `selected`. A response without it is a
+      // server bug, but reading it off undefined here throws during render and
+      // takes the whole dashboard down — a dialog cannot be worth that.
+      setResult({ ...payload, selected: payload.selected ?? [] });
     } catch {
       setError({ code: 'NETWORK', message: 'Could not reach the API.' });
     } finally {
