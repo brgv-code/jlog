@@ -11,13 +11,13 @@ import { normaliseDates } from './latex';
  */
 import { EMPTY_CHROME, type ImportedChrome, type ImportedCv, type ImportedRole } from './types';
 
-const EXPERIENCE = /^(experience|employment|work|work experience|professional experience)$/i;
-const SUMMARY = /^(summary|profile|about|objective)$/i;
+export const EXPERIENCE = /^(experience|employment|work|work experience|professional experience)$/i;
+export const SUMMARY = /^(summary|profile|about|objective)$/i;
 
-const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
-const URL = /\bhttps?:\/\/[^\s)|,]+|\b(?:www\.)[^\s)|,]+/;
+export const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
+export const URL = /\bhttps?:\/\/[^\s)|,]+|\b(?:www\.)[^\s)|,]+/;
 
-const SOCIALS = [
+export const SOCIALS = [
   { network: 'linkedin', re: /linkedin\.com\/in\/([\w-]+)/i },
   { network: 'github', re: /github\.com\/([\w-]+)/i },
   { network: 'twitter', re: /(?:twitter|x)\.com\/([\w-]+)/i },
@@ -36,10 +36,10 @@ function blocks(md: string): Block[] {
   return out;
 }
 
-const isBullet = (line: string) => /^\s*[-*+]\s+/.test(line);
-const bulletText = (line: string) => line.replace(/^\s*[-*+]\s+/, '').trim();
+export const isBullet = (line: string) => /^\s*[-*+]\s+/.test(line);
+export const bulletText = (line: string) => line.replace(/^\s*[-*+]\s+/, '').trim();
 /** Markdown emphasis and links carry no meaning once the text is a stored fact. */
-const plain = (s: string) =>
+export const plain = (s: string) =>
   s
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/[*_`]+/g, '')
@@ -52,7 +52,11 @@ const plain = (s: string) =>
  * remaining parts the one naming a seniority word is the title, else the first
  * is taken as the title — which is what review is for.
  */
-function parseRoleHeading(raw: string): { employer: string; roleTitle: string; dates: string } {
+export function parseRoleHeading(raw: string): {
+  employer: string;
+  roleTitle: string;
+  dates: string;
+} {
   let rest = plain(raw);
   let dates = '';
 
@@ -93,7 +97,7 @@ function parseRoleHeading(raw: string): { employer: string; roleTitle: string; d
 }
 
 /** "Languages: German, English" and "**Languages** — German" both split in two. */
-function parseItem(line: string): { left: string; right: string } {
+export function parseItem(line: string): { left: string; right: string } {
   const text = plain(bulletText(line));
   const split = text.match(/^([^:—–|]{1,40})\s*[:—–|]\s*(.+)$/);
   return split

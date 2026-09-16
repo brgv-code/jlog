@@ -12,16 +12,20 @@
  */
 import { createDb, cvProfiles, profileFactVariants, profileFacts } from '@jlog/db';
 import {
+  CV_STRUCTURE_SYSTEM,
   HttpError,
   type ImportedCv,
   cvImportCommitSchema,
   cvImportPreviewSchema,
   cvProfileSchema,
+  cvStructureSchema,
   detectCvFormat,
   factIdFor,
   parseLatexCv,
   parseMarkdownCv,
+  parseTextCv,
   roleFactIdFor,
+  toImportedCv,
   variantHashFor,
   variantIdFor,
 } from '@jlog/shared';
@@ -30,8 +34,43 @@ import type { BatchItem } from 'drizzle-orm/batch';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { requireSession } from '../lib/session';
+import { makeJsonCaller } from '../lib/tailor';
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/**
+ * Text out of a PDF has no structure to read, so a model sorts it when one is
+ * configured. It is a reading, not a rewrite: `toImportedCv` checks every
+ * bullet back against the source and drops anything the model reworded.
+ *
+ * A failure here falls through to the rules-based reader rather than stopping
+ * the import. A rough reading a human is about to review beats no reading, and
+ * the response says which one produced it.
+ */
+async function structureText(
+  c: Parameters<typeof makeJsonCaller>[0],
+  source: string,
+): Promise<{ cv: ImportedCv; readBy: 'model' | 'rules' }> {
+  const callJson = await makeJsonCaller(c, { name: 'import-cv', tags: ['cv-import'] });
+  if (!callJson) return { cv: parseTextCv(source), readBy: 'rules' };
+
+  try {
+    const raw = await callJson({
+      name: 'structure-cv-text',
+      system: CV_STRUCTURE_SYSTEM,
+      user: source,
+    });
+    const parsed = cvStructureSchema.safeParse(raw);
+    if (!parsed.success) return { cv: parseTextCv(source), readBy: 'rules' };
+    const cv = toImportedCv(parsed.data, source);
+    // A model that returned nothing usable is worse than the rules, which at
+    // least find the lines carrying dates.
+    if (!cv.roles.length) return { cv: parseTextCv(source), readBy: 'rules' };
+    return { cv, readBy: 'model' };
+  } catch {
+    return { cv: parseTextCv(source), readBy: 'rules' };
+  }
+}
 
 function parse(source: string, format: 'latex' | 'markdown'): ImportedCv {
   return format === 'latex' ? parseLatexCv(source) : parseMarkdownCv(source);
@@ -48,9 +87,14 @@ router.post('/import/preview', async (c) => {
     throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
   }
 
+  // 'text' is what a PDF becomes: extracted in the browser, so the file itself
+  // never leaves the machine unless its words are imported.
   const format =
     parsed.data.format === 'auto' ? detectCvFormat(parsed.data.source) : parsed.data.format;
-  const cv = parse(parsed.data.source, format);
+  const { cv, readBy } =
+    format === 'text'
+      ? await structureText(c, parsed.data.source)
+      : { cv: parse(parsed.data.source, format), readBy: 'rules' as const };
 
   // Which of these are already stored, so review can say "you have this" rather
   // than presenting a re-import as new work.
@@ -77,6 +121,7 @@ router.post('/import/preview', async (c) => {
 
   return c.json({
     format,
+    readBy,
     chrome: cv.chrome,
     roles,
     unplaced: cv.unplaced,

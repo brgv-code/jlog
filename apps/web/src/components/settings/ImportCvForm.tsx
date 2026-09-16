@@ -6,8 +6,8 @@
  * to be caught here — once imported, those words can end up in front of a
  * hiring manager.
  */
-import { CheckIcon, FileTextIcon, ImportIcon, Loader2Icon } from 'lucide-react';
-import { useState } from 'react';
+import { CheckIcon, FileTextIcon, ImportIcon, Loader2Icon, UploadIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { apiFetch } from '../../lib/api';
 import { type CvProfile, loadCvProfile, saveCvProfile } from '../../lib/cvProfile';
 import { Button } from '../ui/button';
@@ -23,7 +23,9 @@ type PreviewRole = {
   bullets: PreviewBullet[];
 };
 type Preview = {
-  format: 'latex' | 'markdown';
+  format: 'latex' | 'markdown' | 'text';
+  /** Whether a model sorted the text, or the structure rules did. */
+  readBy: 'model' | 'rules';
   chrome: CvProfile;
   roles: PreviewRole[];
   unplaced: string[];
@@ -54,11 +56,39 @@ export function ImportCvForm() {
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState<{ roles: number; bullets: number } | null>(null);
   const [chromeApplied, setChromeApplied] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * The text layer is pulled out here, in the browser. The PDF itself is never
+   * uploaded — only the words, and only once, to be structured and shown back.
+   * A scan has no text layer and cannot be read this way, which is said plainly
+   * rather than importing nothing and looking broken.
+   */
+  async function readPdf(file: File) {
+    setBusy(true);
+    setError(null);
+    try {
+      const { extractText, getDocumentProxy } = await import('unpdf');
+      const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
+      const { text } = await extractText(pdf, { mergePages: true });
+      const flat = Array.isArray(text) ? text.join('\n') : text;
+      if (!flat.trim()) {
+        setError('That PDF has no text in it — it is probably a scan. Paste the text instead.');
+        return;
+      }
+      setSource(flat);
+      await runPreview(flat, 'text');
+    } catch {
+      setError('Could not read that PDF.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   /** Identity for the ticks: a bullet is addressed by where it sits. */
   const key = (roleIndex: number, bulletIndex: number) => `${roleIndex}:${bulletIndex}`;
 
-  async function runPreview() {
+  async function runPreview(text: string = source, format: 'auto' | 'text' = 'auto') {
     setBusy(true);
     setError(null);
     setImported(null);
@@ -67,7 +97,7 @@ export function ImportCvForm() {
       const res = await apiFetch('/api/profile/import/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source, format: 'auto' }),
+        body: JSON.stringify({ source: text, format }),
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as ApiError | null;
@@ -163,8 +193,9 @@ export function ImportCvForm() {
           <ImportIcon className="size-4" /> Import a CV
         </CardTitle>
         <CardDescription>
-          Paste a CV and jlog reads your roles and bullets out of it. Nothing is stored until you
-          have looked at what it found.
+          Paste a CV — LaTeX or Markdown — or upload a PDF, and jlog reads your roles and bullets
+          out of it. A PDF is read in your browser; only the text is sent. Nothing is stored until
+          you have looked at what it found.
         </CardDescription>
       </CardHeader>
 
@@ -178,9 +209,24 @@ export function ImportCvForm() {
               onChange={(e) => setSource(e.target.value)}
             />
             <div className="flex items-center gap-3">
-              <Button onClick={runPreview} disabled={busy || !source.trim()}>
+              <Button onClick={() => runPreview()} disabled={busy || !source.trim()}>
                 {busy ? <Loader2Icon className="animate-spin" /> : <FileTextIcon />} Read it
               </Button>
+              <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
+                <UploadIcon /> Upload a PDF
+              </Button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // Cleared so picking the same file twice still fires.
+                  e.target.value = '';
+                  if (file) void readPdf(file);
+                }}
+              />
               {imported && (
                 <span className="text-[13px] text-muted-foreground">
                   Imported {imported.bullets} bullet{imported.bullets === 1 ? '' : 's'} across{' '}
@@ -201,8 +247,14 @@ export function ImportCvForm() {
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
               <span>
-                Read as {preview.format === 'latex' ? 'LaTeX' : 'Markdown'} — {preview.counts.roles}{' '}
-                role{preview.counts.roles === 1 ? '' : 's'}, {preview.counts.bullets} bullet
+                Read as{' '}
+                {preview.format === 'latex'
+                  ? 'LaTeX'
+                  : preview.format === 'text'
+                    ? `PDF text, sorted by ${preview.readBy === 'model' ? 'your model' : 'structure rules'}`
+                    : 'Markdown'}{' '}
+                — {preview.counts.roles} role{preview.counts.roles === 1 ? '' : 's'},{' '}
+                {preview.counts.bullets} bullet
                 {preview.counts.bullets === 1 ? '' : 's'}.
               </span>
               {preview.counts.known > 0 && (
@@ -285,7 +337,9 @@ export function ImportCvForm() {
               <div className="space-y-1.5">
                 <Separator />
                 <p className="text-[12px] text-muted-foreground">
-                  These had no role above them, so they were not assigned to one:
+                  {preview.readBy === 'model'
+                    ? 'Dropped — these came back reworded rather than copied from your CV:'
+                    : 'These had no role above them, so they were not assigned to one:'}
                 </p>
                 <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
                   {preview.unplaced.map((text) => (
