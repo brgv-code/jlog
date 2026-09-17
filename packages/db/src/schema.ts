@@ -152,6 +152,12 @@ export const cvSources = sqliteTable('cv_sources', {
   format: text('format').notNull(),
   label: text('label').notNull().default(''),
   content: text('content').notNull(),
+  /**
+   * The uploaded file in R2, when there was one. Null for a pasted CV — and for
+   * anything imported before files were kept — which is what makes the viewer's
+   * text fallback a supported state rather than an error path.
+   */
+  pdfKey: text('pdf_key'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 

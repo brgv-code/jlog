@@ -50,6 +50,12 @@ ada@example.com
 
 export function ImportCvForm() {
   const [source, setSource] = useState('');
+  /**
+   * The picked PDF, held until the facts are committed. It is uploaded only
+   * after that succeeds, so the tailoring view can show a generated line over
+   * the real page rather than over reflowed text.
+   */
+  const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -72,6 +78,7 @@ export function ImportCvForm() {
   async function readPdf(file: File) {
     setBusy(true);
     setError(null);
+    setFile(null);
     try {
       const { extractText, getDocumentProxy } = await import('unpdf');
       const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
@@ -82,6 +89,7 @@ export function ImportCvForm() {
         return;
       }
       setSource(flat);
+      setFile(file);
       await runPreview(flat, 'text');
     } catch {
       setError('Could not read that PDF.');
@@ -153,9 +161,33 @@ export function ImportCvForm() {
         setError(payload?.error?.message ?? `Import failed (${res.status}).`);
         return;
       }
-      setImported((await res.json()) as { roles: number; bullets: number; located: number });
+      const result = (await res.json()) as {
+        roles: number;
+        bullets: number;
+        located: number;
+        sourceId: string | null;
+      };
+
+      // After the facts, never instead of them. An upload that fails leaves an
+      // import that fully succeeded, and the viewer falls back to the text it
+      // already has — so this does not touch `error`, which would tell the user
+      // their import broke when it did not.
+      if (file && result.sourceId) {
+        try {
+          await apiFetch(`/api/profile/cv-source/file?sourceId=${result.sourceId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/pdf' },
+            body: await file.arrayBuffer(),
+          });
+        } catch {
+          // Nothing to say: the text citation still works.
+        }
+      }
+
+      setImported(result);
       setPreview(null);
       setSource('');
+      setFile(null);
     } catch {
       setError('Could not reach the API.');
     } finally {

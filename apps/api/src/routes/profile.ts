@@ -271,6 +271,9 @@ router.post('/import/commit', async (c) => {
   return c.json({
     roles: parsed.data.roles.length,
     bullets: bulletCount,
+    // The client uploads the file against this. Null when the import was a
+    // paste, which is also how the client knows not to try.
+    sourceId,
     // How much of what was imported can be cited back to the document. A low
     // number here is the honest signal that the reading drifted from the text.
     located: spans.filter(Boolean).length,
@@ -366,9 +369,115 @@ router.get('/cv-source', async (c) => {
       id: source.id,
       format: source.format,
       content: source.content,
+      // Whether `/cv-source/file` has anything to serve. The viewer renders the
+      // real pages when it does and falls back to the text when it does not, so
+      // this decides which of the two it asks for.
+      hasFile: Boolean(source.pdfKey),
       importedAt: source.createdAt.getTime(),
     },
     spans,
+  });
+});
+
+/** How large an uploaded CV may be. A CV past this is not a CV. */
+const MAX_CV_BYTES = 15_000_000;
+
+/**
+ * Attach the uploaded file to a source row.
+ *
+ * A separate request from the commit because the commit is JSON and this is
+ * bytes, and because the facts are the part that must not be lost: an import
+ * whose upload fails has still written everything it was asked to, and the
+ * viewer falls back to the text it already has.
+ *
+ * The key is scoped by user id as well as source id, so a key guessed from
+ * someone else's source id addresses an object that does not exist.
+ */
+router.put('/cv-source/file', async (c) => {
+  const session = requireSession(c);
+  const bucket = c.env.CV_FILES;
+  if (!bucket) {
+    return c.json(
+      { error: { code: 'STORAGE_NOT_CONFIGURED', message: 'No file storage on this deployment.' } },
+      503,
+    );
+  }
+
+  const sourceId = c.req.query('sourceId');
+  if (!sourceId) {
+    throw new HttpError(400, 'VALIDATION_ERROR', 'sourceId is required');
+  }
+  if (c.req.header('content-type') !== 'application/pdf') {
+    throw new HttpError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Only application/pdf is accepted');
+  }
+
+  const db = createDb(c.env.DB);
+  // Ownership is checked before anything is written: an unowned source id must
+  // be indistinguishable from one that does not exist.
+  const [source] = await db
+    .select({ id: cvSources.id })
+    .from(cvSources)
+    .where(and(eq(cvSources.id, sourceId), eq(cvSources.userId, session.userId)));
+  if (!source) {
+    throw new HttpError(404, 'NOT_FOUND', 'No such CV source');
+  }
+
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    throw new HttpError(400, 'VALIDATION_ERROR', 'Empty body');
+  }
+  if (body.byteLength > MAX_CV_BYTES) {
+    throw new HttpError(413, 'PAYLOAD_TOO_LARGE', 'That file is too large to store');
+  }
+
+  const key = `cv/${session.userId}/${sourceId}.pdf`;
+  await bucket.put(key, body, { httpMetadata: { contentType: 'application/pdf' } });
+  await db.update(cvSources).set({ pdfKey: key }).where(eq(cvSources.id, sourceId));
+
+  return c.json({ stored: true, bytes: body.byteLength });
+});
+
+/**
+ * The newest source's file, for the viewer to render.
+ *
+ * Streamed through the API rather than served from a public bucket URL: this is
+ * someone's CV, and a link that works without a session is a link that works for
+ * anyone who finds it.
+ */
+router.get('/cv-source/file', async (c) => {
+  const session = requireSession(c);
+  const bucket = c.env.CV_FILES;
+  if (!bucket) {
+    throw new HttpError(404, 'NOT_FOUND', 'No file storage on this deployment');
+  }
+
+  const db = createDb(c.env.DB);
+  const [source] = await db
+    .select({ pdfKey: cvSources.pdfKey })
+    .from(cvSources)
+    .where(eq(cvSources.userId, session.userId))
+    .orderBy(desc(cvSources.createdAt))
+    .limit(1);
+
+  if (!source?.pdfKey) {
+    throw new HttpError(404, 'NOT_FOUND', 'No stored file for your CV');
+  }
+
+  const object = await bucket.get(source.pdfKey);
+  if (!object) {
+    // The row says there is a file and the bucket disagrees. Reported as a
+    // missing file so the viewer falls back to the text, which is still true.
+    throw new HttpError(404, 'NOT_FOUND', 'The stored file is no longer there');
+  }
+
+  return new Response(object.body, {
+    headers: {
+      'content-type': 'application/pdf',
+      'content-length': String(object.size),
+      // It is addressed by "newest source", which changes on re-import, so it
+      // must not be cached across one.
+      'cache-control': 'private, no-store',
+    },
   });
 });
 

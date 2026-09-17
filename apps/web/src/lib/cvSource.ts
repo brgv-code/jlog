@@ -20,6 +20,12 @@ export type CvSpan = [start: number, end: number];
 
 export type CvDocument = {
   kind: 'imported' | 'facts';
+  /**
+   * Whether the original file is stored and can be rendered as pages. False for
+   * a pasted CV, and for anything imported before files were kept — the text
+   * view is the fallback, not an error.
+   */
+  hasFile: boolean;
   /** The whole document as text. Highlights are offsets into this string. */
   text: string;
   /** factId → where that fact's words sit in `text`. */
@@ -28,7 +34,13 @@ export type CvDocument = {
 };
 
 type SourceResponse = {
-  source: { id: string; format: string; content: string; importedAt: number } | null;
+  source: {
+    id: string;
+    format: string;
+    content: string;
+    hasFile?: boolean;
+    importedAt: number;
+  } | null;
   spans: Record<string, CvSpan>;
 };
 
@@ -74,7 +86,7 @@ function composeFromFacts(facts: FactsResponse): CvDocument {
     for (const orphan of facts.orphans) push(`• ${orphan.text}`, orphan.id);
   }
 
-  return { kind: 'facts', text, spans, importedAt: null };
+  return { kind: 'facts', hasFile: false, text, spans, importedAt: null };
 }
 
 /**
@@ -84,7 +96,13 @@ function composeFromFacts(facts: FactsResponse): CvDocument {
  * job — showing the generated CV — does not depend on it.
  */
 export async function loadCvDocument(): Promise<CvDocument> {
-  const empty: CvDocument = { kind: 'facts', text: '', spans: {}, importedAt: null };
+  const empty: CvDocument = {
+    kind: 'facts',
+    hasFile: false,
+    text: '',
+    spans: {},
+    importedAt: null,
+  };
   try {
     const res = await apiFetch('/api/profile/cv-source');
     if (res.ok) {
@@ -92,6 +110,7 @@ export async function loadCvDocument(): Promise<CvDocument> {
       if (payload.source) {
         return {
           kind: 'imported',
+          hasFile: Boolean(payload.source.hasFile),
           text: payload.source.content,
           spans: payload.spans ?? {},
           importedAt: payload.source.importedAt,

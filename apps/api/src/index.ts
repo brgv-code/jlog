@@ -15,6 +15,13 @@ import statsRouter from './routes/stats';
 
 export interface Env {
   DB: D1Database;
+  /**
+   * The imported CV files. Only bytes live here — everything the app queries
+   * about a CV is in D1, keyed by `cv_sources.pdf_key`. Optional so a
+   * deployment without the binding degrades to the text view rather than
+   * failing to boot.
+   */
+  CV_FILES?: R2Bucket;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
   SESSION_SECRET: string;

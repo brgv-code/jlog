@@ -1,0 +1,11 @@
+-- Keep the CV file itself, not only its words.
+--
+-- 0007 kept the extracted text so a generated line could be shown beside the
+-- line it was read from. Reflowed text is not the document though — the columns,
+-- fonts and spacing that make a CV recognisable as yours are gone, and a citation
+-- that lands on a text dump is harder to trust than one that lands on the page.
+--
+-- The bytes live in R2 (binding CV_FILES); this is the key to them. Null for a
+-- source that was pasted rather than uploaded, and for anything imported before
+-- this, so the viewer keeps the text page as its fallback rather than failing.
+ALTER TABLE `cv_sources` ADD COLUMN `pdf_key` text;
