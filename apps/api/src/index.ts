@@ -2,8 +2,10 @@ import { createProRouter } from '@jlog/pro';
 import { HttpError } from '@jlog/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { Tracing } from './lib/langfuse';
 import { makeTailor } from './lib/tailor';
 import { sessionMiddleware } from './middleware/session';
+import { tracingMiddleware } from './middleware/tracing';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
 import eventsRouter from './routes/events';
@@ -40,11 +42,16 @@ export interface Env {
   LANGFUSE_PUBLIC_KEY?: string;
   LANGFUSE_SECRET_KEY?: string;
   LANGFUSE_BASE_URL?: string;
+  // Which Langfuse environment these traces belong to. Separates a preview
+  // deployment's traces from production's inside one project.
+  LANGFUSE_TRACING_ENVIRONMENT?: string;
 }
 
 export type Variables = {
   // what is sessionID?
   session: { userId: string; sessionId: string } | null;
+  // Null whenever Langfuse isn't configured, which is the normal state locally.
+  tracing: Tracing | null;
 };
 // Hono wiring: CORS has to run before the session middleware and routes so a
 // disallowed origin is rejected before we ever touch cookies or the DB; the
@@ -71,6 +78,9 @@ app.use(
   }),
 );
 app.use('*', sessionMiddleware);
+// After the session middleware: a trace is only worth correlating if it can
+// carry the userId that middleware resolves.
+app.use('*', tracingMiddleware);
 app.route('/api/auth', authRouter);
 app.route('/api/applications', applicationsRouter);
 app.route('/api/applications', eventsRouter);

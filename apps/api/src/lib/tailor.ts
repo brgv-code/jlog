@@ -5,7 +5,6 @@ import { eq } from 'drizzle-orm';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../index';
 import { decrypt } from './encryption';
-import { getLangfuse } from './langfuse';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
@@ -61,23 +60,33 @@ export async function makeJsonCaller(
   };
 
   const provider = makeProvider(config);
-  const langfuse = getLangfuse(c.env);
   // One trace per request, spanning every attempt the caller makes. The retries
   // are the interesting part — a run that took three goes is worth seeing as
-  // one story rather than three unrelated generations.
-  const span = langfuse?.trace({
-    name: trace.name,
+  // one story rather than three unrelated generations. The tracing middleware
+  // closes the root, since this function returns long before the caller stops
+  // using what it returned.
+  const traced = c.var.tracing?.start({
+    traceName: trace.name,
     userId: session.userId,
-    metadata: { provider: row.provider, model: row.model },
     tags: [...trace.tags, row.provider],
+    metadata: { provider: row.provider, model: row.model },
   });
 
+  // What the root observation shows: the first attempt's prompt going in and
+  // the last successful attempt's answer coming out — the request's own story
+  // rather than any one retry's. Evaluators read the root, so leaving it empty
+  // would leave them nothing to score.
+  let rootHasInput = false;
+
   return async (req: TailorRequest) => {
-    const generation = span?.generation({
-      name: req.name,
+    const generation = traced?.generation(req.name, {
       model: row.model,
       input: { system: req.system, user: req.user },
     });
+    if (traced && !rootHasInput) {
+      traced.root.update({ input: { system: req.system, user: req.user } });
+      rootHasInput = true;
+    }
     try {
       // The system prompt must go in as the system prompt. Passed as `prompt`
       // it lands in the user message behind EXTRACT_JOB_SYSTEM_PROMPT, which
@@ -86,11 +95,12 @@ export async function makeJsonCaller(
         system: req.system,
         maxTokens: 4096,
       });
-      generation?.end({ output: result });
+      generation?.update({ output: result }).end();
+      traced?.root.update({ output: result });
       return result;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      generation?.end({ output: null, level: 'ERROR', statusMessage: message });
+      generation?.update({ output: null, level: 'ERROR', statusMessage: message }).end();
       throw e;
     }
   };

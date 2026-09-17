@@ -4,5 +4,7 @@ packages:
 allowBuilds:
   '@biomejs/biome': true
   esbuild: true
+  # Only its codegen CLI needs the build step; the OTLP exporter bundles fine without it.
+  protobufjs: false
   sharp: true
   workerd: true
