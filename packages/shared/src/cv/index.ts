@@ -4,3 +4,4 @@ export * from './markdown';
 export * from './types';
 export * from './text';
 export * from './structure';
+export * from './locate';

@@ -248,6 +248,13 @@ export const cvImportPreviewSchema = z.object({
  * back the rows it chose, so nothing can be written that was not on screen.
  */
 export const cvImportCommitSchema = z.object({
+  /**
+   * The document these roles were read out of, kept so a generated bullet can
+   * be shown beside the line it came from. Optional: an import from a client
+   * that does not send it still writes facts, they just have no source to cite.
+   */
+  source: z.string().max(400_000).optional(),
+  sourceFormat: z.enum(CV_IMPORT_FORMATS).optional(),
   roles: z
     .array(
       z.object({

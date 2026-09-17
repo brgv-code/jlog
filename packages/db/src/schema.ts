@@ -133,6 +133,29 @@ export const documents = sqliteTable('documents', {
 });
 
 /**
+ * The CV a user imported, kept verbatim.
+ *
+ * Import used to read a document and throw it away, which left every stored
+ * fact traceable to a row id and to nothing a human recognises. Keeping the
+ * text is what lets a generated bullet be shown beside the line of your own CV
+ * it came from — the claim the product makes, made visible instead of asserted.
+ *
+ * The file itself is still never uploaded: a PDF's text layer is extracted in
+ * the browser and only those words arrive here.
+ */
+export const cvSources = sqliteTable('cv_sources', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** How it was read: latex, markdown, or text (what a PDF becomes). */
+  format: text('format').notNull(),
+  label: text('label').notNull().default(''),
+  content: text('content').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
  * Structured career facts: the source of truth that tailoring selects from
  * (ADR-005). Core/public — this is the user's own CV data, and a self-hoster
  * needs it; the tailoring that consumes it is the paid part.
@@ -155,6 +178,15 @@ export const profileFacts = sqliteTable('profile_facts', {
   startDate: text('start_date'),
   endDate: text('end_date'),
   canonical: text('canonical').notNull(),
+  /**
+   * Where these words sit in the CV they were read out of: the source row, and
+   * a half-open character range into its `content`. Null for a fact imported
+   * before sources were kept, or one edited since — a citation with nothing to
+   * point at says so rather than pointing at the wrong line.
+   */
+  sourceId: text('source_id').references(() => cvSources.id, { onDelete: 'set null' }),
+  sourceStart: integer('source_start'),
+  sourceEnd: integer('source_end'),
   tags: text('tags', { mode: 'json' }).$type<string[]>(),
   status: text('status', { enum: ['active', 'parked', 'archived'] })
     .notNull()
