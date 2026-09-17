@@ -125,3 +125,36 @@ export async function loadCvDocument(): Promise<CvDocument> {
     return empty;
   }
 }
+
+/**
+ * Where a stored phrasing was written.
+ *
+ * Most facts never appear in the imported base CV — they were mined from the
+ * tailored CVs already sent, which is the whole reason the fact pool is bigger
+ * than the document. For those, "you wrote this for this role at this company"
+ * is the citation, and it is the one that is actually true.
+ */
+export type FactOrigins = {
+  variants: Record<
+    string,
+    { source: string | null; roleTitle: string | null; company: string | null }
+  >;
+  facts: Record<string, { uses: number; companies: string[] }>;
+};
+
+export const NO_ORIGINS: FactOrigins = { variants: {}, facts: {} };
+
+/**
+ * Never throws. Provenance enriches a citation; the view's main job — showing
+ * the generated CV — must not depend on it.
+ */
+export async function loadFactOrigins(): Promise<FactOrigins> {
+  try {
+    const res = await apiFetch('/api/profile/fact-origins');
+    if (!res.ok) return NO_ORIGINS;
+    const payload = (await res.json()) as Partial<FactOrigins>;
+    return { variants: payload.variants ?? {}, facts: payload.facts ?? {} };
+  } catch {
+    return NO_ORIGINS;
+  }
+}

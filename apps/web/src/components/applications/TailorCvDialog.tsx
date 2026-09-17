@@ -2,7 +2,13 @@ import { AlertTriangleIcon, FileTextIcon, SparklesIcon } from 'lucide-react';
 import { useState } from 'react';
 import { apiFetch } from '../../lib/api';
 import type { CvProfile } from '../../lib/cvProfile';
-import { type CvDocument, loadCvDocument } from '../../lib/cvSource';
+import {
+  type CvDocument,
+  type FactOrigins,
+  NO_ORIGINS,
+  loadCvDocument,
+  loadFactOrigins,
+} from '../../lib/cvSource';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Skeleton } from '../ui/skeleton';
@@ -63,6 +69,7 @@ export function TailorCvDialog({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TailorResponse | null>(null);
   const [cv, setCv] = useState<CvDocument | null>(null);
+  const [origins, setOrigins] = useState<FactOrigins>(NO_ORIGINS);
   const [error, setError] = useState<ApiError['error'] | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -92,13 +99,14 @@ export function TailorCvDialog({
       // The document is fetched alongside the generation, not after it: the
       // result is only worth showing next to what it is cited against, and
       // waiting for a second round trip would show it alone first.
-      const [res, cvDoc] = await Promise.all([
+      const [res, cvDoc, factOrigins] = await Promise.all([
         apiFetch('/api/pro/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         }),
         loadCvDocument(),
+        loadFactOrigins(),
       ]);
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as ApiError | null;
@@ -107,6 +115,7 @@ export function TailorCvDialog({
       }
       const payload = (await res.json()) as TailorResponse;
       setCv(cvDoc);
+      setOrigins(factOrigins);
       // Rendering reduces and maps over `selected`. A response without it is a
       // server bug, but reading it off undefined here throws during render and
       // takes the whole dashboard down — a dialog cannot be worth that.
@@ -188,6 +197,7 @@ export function TailorCvDialog({
               jobDescription={jobDescription}
               selected={result.selected}
               cv={cv}
+              origins={origins}
               {...(result.reasoning ? { reasoning: result.reasoning } : {})}
               attempts={result.attempts}
               onRegenerate={generate}

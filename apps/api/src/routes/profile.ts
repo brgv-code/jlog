@@ -482,6 +482,60 @@ router.get('/cv-source/file', async (c) => {
 });
 
 /**
+ * Where each stored phrasing was written, so a generated line can cite the
+ * application it came from.
+ *
+ * The base CV is not where most facts live. They are mined from every CV the
+ * owner has ever sent — a corpus of 67 tailored documents against a base
+ * holding 12 bullets — so a citation that can only point into the base document
+ * has nothing to say about the great majority of them. What it can say is true
+ * and specific: you wrote this line for this role, at this company.
+ *
+ * Returned as two maps rather than joined onto the facts, because the caller
+ * already has the fact ids from tailoring and needs only what it does not know.
+ */
+router.get('/fact-origins', async (c) => {
+  const session = requireSession(c);
+  const db = createDb(c.env.DB);
+
+  const rows = await db
+    .select({
+      id: profileFactVariants.id,
+      factId: profileFactVariants.factId,
+      source: profileFactVariants.source,
+      roleTitle: profileFactVariants.sourceRoleTitle,
+      company: profileFactVariants.sourceCompany,
+      createdAt: profileFactVariants.createdAt,
+    })
+    .from(profileFactVariants)
+    .where(eq(profileFactVariants.userId, session.userId));
+
+  const variants: Record<
+    string,
+    { source: string | null; roleTitle: string | null; company: string | null }
+  > = {};
+  /** Per fact: how many applications used it, and which companies they were for. */
+  const facts: Record<string, { uses: number; companies: string[] }> = {};
+
+  for (const row of rows) {
+    variants[row.id] = {
+      source: row.source,
+      roleTitle: row.roleTitle,
+      company: row.company,
+    };
+    const fact = facts[row.factId] ?? { uses: 0, companies: [] };
+    fact.uses++;
+    // Distinct, and capped: the evidence bar is one line, not a list of 40.
+    if (row.company && !fact.companies.includes(row.company) && fact.companies.length < 6) {
+      fact.companies.push(row.company);
+    }
+    facts[row.factId] = fact;
+  }
+
+  return c.json({ variants, facts });
+});
+
+/**
  * The CV profile: name, contact, and the blocks around the facts.
  *
  * Served empty rather than 404 when there is no row. A profile nobody has
