@@ -64,14 +64,17 @@ export function ImportCvForm() {
     roles: number;
     bullets: number;
     located: number;
+    /** Whether the file was stored too — 'n/a' when the CV was pasted. */
+    stored: 'yes' | 'no' | 'n/a';
   } | null>(null);
   const [chromeApplied, setChromeApplied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   /**
-   * The text layer is pulled out here, in the browser. The PDF itself is never
-   * uploaded — only the words, which are structured, shown back for review, and
-   * then kept with the facts so a generated CV can cite the lines it came from.
+   * The text layer is pulled out here, in the browser, so the review step can
+   * happen before anything is sent. The file follows only once the facts are
+   * committed — it is what the tailoring view renders pages from.
+   *
    * A scan has no text layer and cannot be read this way, which is said plainly
    * rather than importing nothing and looking broken.
    */
@@ -168,23 +171,30 @@ export function ImportCvForm() {
         sourceId: string | null;
       };
 
-      // After the facts, never instead of them. An upload that fails leaves an
-      // import that fully succeeded, and the viewer falls back to the text it
-      // already has — so this does not touch `error`, which would tell the user
-      // their import broke when it did not.
+      // After the facts, never instead of them: an upload that fails leaves an
+      // import that fully succeeded, so this must not set `error`, which would
+      // tell the user their import broke when it did not.
+      //
+      // It does have to SAY so, though. Swallowing it entirely is what made a
+      // deployment whose upload route did not exist yet look like a working
+      // import that quietly never rendered a page — the failure has to be
+      // visible at the moment it happens, not inferred later from a viewer
+      // showing text.
+      let stored: 'yes' | 'no' | 'n/a' = 'n/a';
       if (file && result.sourceId) {
         try {
-          await apiFetch(`/api/profile/cv-source/file?sourceId=${result.sourceId}`, {
+          const upload = await apiFetch(`/api/profile/cv-source/file?sourceId=${result.sourceId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/pdf' },
             body: await file.arrayBuffer(),
           });
+          stored = upload.ok ? 'yes' : 'no';
         } catch {
-          // Nothing to say: the text citation still works.
+          stored = 'no';
         }
       }
 
-      setImported(result);
+      setImported({ ...result, stored });
       setPreview(null);
       setSource('');
       setFile(null);
@@ -236,8 +246,8 @@ export function ImportCvForm() {
         </CardTitle>
         <CardDescription>
           Paste a CV — LaTeX or Markdown — or upload a PDF, and jlog reads your roles and bullets
-          out of it. A PDF is read in your browser; only the text is sent. Nothing is stored until
-          you have looked at what it found.
+          out of it. Nothing is stored until you have looked at what it found. A PDF is kept after
+          that, so a tailored CV can show each line on the page it came from.
         </CardDescription>
       </CardHeader>
 
@@ -280,6 +290,12 @@ export function ImportCvForm() {
                   {imported.located === imported.bullets
                     ? 'Each one can be traced back to a line of your CV.'
                     : `${imported.located} of them can be traced back to a line of your CV.`}
+                </span>
+              )}
+              {imported?.stored === 'no' && (
+                <span className="text-warning text-[13px]">
+                  Your facts were imported, but the PDF itself could not be stored — citations will
+                  show the extracted text rather than the page. Try importing the file again.
                 </span>
               )}
             </div>
