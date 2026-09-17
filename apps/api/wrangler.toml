@@ -8,7 +8,7 @@ WEB_ORIGIN = "https://jlog.bhargav.dev"
 COOKIE_DOMAIN = "production"
 # Not sensitive — the actual keys (LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY) are
 # set as secrets. Tracing is skipped entirely if those two aren't set (see
-# getLangfuse in lib/langfuse.ts), so this alone doesn't turn anything on.
+# getTracing in lib/langfuse.ts), so this alone doesn't turn anything on.
 LANGFUSE_BASE_URL = "https://cloud.langfuse.com"
 # Keeps a preview deployment's traces out of production's inside the same
 # Langfuse project. Unset locally, which lands traces in "default".
