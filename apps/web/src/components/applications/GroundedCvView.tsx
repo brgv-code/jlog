@@ -28,6 +28,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CvDocument, CvSpan } from '../../lib/cvSource';
 import { Button } from '../ui/button';
+import { PdfPaper } from './PdfPaper';
 
 type SelectedBullet = {
   factId: string;
@@ -139,7 +140,7 @@ function Paper({
 }: {
   text: string;
   span: CvSpan | null;
-  markRef: React.RefObject<HTMLElement>;
+  markRef: (el: HTMLElement | null) => void;
   empty: string;
 }) {
   if (!text.trim()) {
@@ -160,7 +161,7 @@ function Paper({
       <span className={dim}>{before}</span>
       {span && (
         <mark
-          ref={markRef as React.RefObject<HTMLElement>}
+          ref={markRef}
           // Cloned decoration so a passage that wraps is boxed line by line
           // rather than as one ragged rectangle spanning the gap.
           className="rounded-[3px] bg-[color:var(--cite-fill)] px-[3px] py-[1px] text-inherit shadow-[0_0_0_1px_var(--cite)] [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
@@ -200,11 +201,24 @@ export function GroundedCvView({
     y2: number;
   } | null>(null);
   const [stub, setStub] = useState<{ x: number; y: number } | null>(null);
+  /**
+   * The document has this fact, and the rendered page could not be made to
+   * point at it — a ligature or a soft hyphen the text layer spells differently
+   * from the extraction. Rare, and said out loud rather than shown as a claim
+   * with no highlight and no explanation.
+   */
+  const [pageMissed, setPageMissed] = useState(false);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const claimsRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const markRef = useRef<HTMLElement>(null);
+  /**
+   * State rather than a ref, because the passage can arrive after the render
+   * that selected it — the pages are fetched and rasterised asynchronously, and
+   * a ref would leave the connector drawn as a dead stub against a highlight
+   * that is now on screen.
+   */
+  const [markEl, setMarkEl] = useState<HTMLElement | null>(null);
   const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const claims = buildClaims(selected, cv);
@@ -214,6 +228,14 @@ export function GroundedCvView({
   const span: CvSpan | null =
     tab === 'cv' ? (claim?.cvSpan ?? null) : claim?.jd ? [claim.jd.start, claim.jd.end] : null;
   const docText = tab === 'cv' ? cv.text : jobDescription;
+  /**
+   * What to look for on the page: the words as they appear in the CV, taken
+   * from the stored span, not the line as generated. For a bullet that used a
+   * phrasing from an earlier application those two differ, and only one of them
+   * is on the page.
+   */
+  const cvWords = claim?.cvSpan ? cv.text.slice(claim.cvSpan[0], claim.cvSpan[1]) : null;
+  const showPages = tab === 'cv' && cv.hasFile;
   const accent = tab === 'cv' ? 'var(--color-cite-cv)' : 'var(--color-cite-jd)';
   const fill = tab === 'cv' ? 'var(--color-cite-cv-fill)' : 'var(--color-cite-jd-fill)';
 
@@ -234,7 +256,7 @@ export function GroundedCvView({
     const x1 = r.right - box.left;
     const y1 = r.top + r.height / 2 - box.top;
 
-    const mark = markRef.current;
+    const mark = markEl;
     const viewer = viewerRef.current;
     if (!mark || !viewer) {
       setArrow(null);
@@ -256,7 +278,7 @@ export function GroundedCvView({
       x2,
       y2,
     });
-  }, [sel]);
+  }, [sel, markEl]);
 
   // Layout has to settle before the passage can be measured, and the scroll it
   // triggers is what most of the redraws below are chasing.
@@ -265,9 +287,11 @@ export function GroundedCvView({
     return () => cancelAnimationFrame(frame);
   }, [draw]);
 
+  // Whenever the passage changes — including the first time the pages finish
+  // rendering — bring it into view.
   useEffect(() => {
-    markRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }, []);
+    markEl?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [markEl]);
 
   useEffect(() => {
     let frame = 0;
@@ -291,9 +315,6 @@ export function GroundedCvView({
   /** Selecting brings the passage into view; the arrow follows the scroll. */
   function select(index: number) {
     setSel(index);
-    requestAnimationFrame(() =>
-      markRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
-    );
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -481,16 +502,27 @@ export function GroundedCvView({
           </div>
 
           <div ref={viewerRef} className="min-h-0 flex-1 overflow-y-auto bg-background p-6">
-            <Paper
-              text={docText}
-              span={span}
-              markRef={markRef}
-              empty={
-                tab === 'cv'
-                  ? 'Nothing imported yet. Import your CV in Settings and generated lines will be shown against it.'
-                  : 'This application has no job description stored.'
-              }
-            />
+            {showPages ? (
+              <PdfPaper
+                highlight={cvWords}
+                markRef={setMarkEl}
+                onMatch={(found) => setPageMissed(Boolean(cvWords) && !found)}
+                // A file that will not open is not a reason to show nothing: the
+                // extracted text still carries the citation.
+                fallback={<Paper text={docText} span={span} markRef={setMarkEl} empty="" />}
+              />
+            ) : (
+              <Paper
+                text={docText}
+                span={span}
+                markRef={setMarkEl}
+                empty={
+                  tab === 'cv'
+                    ? 'Nothing imported yet. Import your CV in Settings and generated lines will be shown against it.'
+                    : 'This application has no job description stored.'
+                }
+              />
+            )}
           </div>
         </section>
 
@@ -571,6 +603,11 @@ export function GroundedCvView({
             : claim?.jd
               ? 'The line of the posting this answers is highlighted on the right. The claim itself still comes from your CV.'
               : 'The model did not tie this line to any single line of the posting.'}
+          {tab === 'cv' && pageMissed && (
+            <span className="text-muted-foreground/80 mt-0.5 block text-[11.5px]">
+              This line is in your CV but could not be located on the rendered page.
+            </span>
+          )}
           {claim?.jd && (
             <span className="mt-0.5 block text-[11.5px] text-[var(--color-cite-jd)]">
               Answers: “{claim.jd.text.replace(/\s+/g, ' ').trim()}”

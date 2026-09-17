@@ -21,6 +21,13 @@ database_name = "jlog"
 database_id = "8247e5bd-5d9d-4616-95cb-aa4cffee19ee"
 migrations_dir = "../../packages/db/migrations"
 
+# The imported CV file itself, so the tailoring view can show a generated line
+# over the page it came from rather than over a reflowed text dump. Only the
+# bytes live here; everything the app queries about a CV is in D1.
+[[r2_buckets]]
+binding = "CV_FILES"
+bucket_name = "jlog-cv-files"
+
 [observability]
 enabled = true
 head_sampling_rate = 1
