@@ -10,7 +10,7 @@
  * for documents sent to employers, so a parse that guessed wrong has to be
  * visible before it is stored, not after.
  */
-import { createDb, cvProfiles, profileFactVariants, profileFacts } from '@jlog/db';
+import { createDb, cvProfiles, cvSources, profileFactVariants, profileFacts } from '@jlog/db';
 import {
   CV_STRUCTURE_SYSTEM,
   HttpError,
@@ -21,6 +21,7 @@ import {
   cvStructureSchema,
   detectCvFormat,
   factIdFor,
+  locateAll,
   parseLatexCv,
   parseMarkdownCv,
   parseTextCv,
@@ -29,7 +30,7 @@ import {
   variantHashFor,
   variantIdFor,
 } from '@jlog/shared';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
@@ -149,6 +150,34 @@ router.post('/import/commit', async (c) => {
   const statements: BatchItem<'sqlite'>[] = [];
   let bulletCount = 0;
 
+  /**
+   * The document, kept, plus where in it each bullet was found.
+   *
+   * Located in commit order and with a cursor, so a line a CV repeats under two
+   * roles resolves to the second occurrence for the second role rather than
+   * both pointing at the first. A bullet that cannot be found — the model
+   * reworded it, or the tick list was edited — gets no span, and the tailoring
+   * view says the citation has no line instead of inventing one.
+   */
+  const source = parsed.data.source?.trim() ? parsed.data.source : null;
+  const sourceId = source ? `cvs_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}` : null;
+  const orderedBullets = parsed.data.roles.flatMap((role) => role.bullets);
+  const spans = source ? locateAll(source, orderedBullets) : [];
+  let spanCursor = 0;
+
+  if (source && sourceId) {
+    statements.push(
+      db.insert(cvSources).values({
+        id: sourceId,
+        userId: session.userId,
+        format: parsed.data.sourceFormat ?? 'text',
+        label: '',
+        content: source,
+        createdAt: now,
+      }),
+    );
+  }
+
   for (const role of parsed.data.roles) {
     const roleId = await roleFactIdFor(role.employer);
     statements.push(
@@ -179,6 +208,12 @@ router.post('/import/commit', async (c) => {
     for (const text of role.bullets) {
       const factId = await factIdFor(role.employer, text);
       const hash = await variantHashFor(text);
+      const span = spans[spanCursor++] ?? null;
+      const provenance = {
+        sourceId: span ? sourceId : null,
+        sourceStart: span ? span[0] : null,
+        sourceEnd: span ? span[1] : null,
+      };
       bulletCount++;
       statements.push(
         db
@@ -194,13 +229,17 @@ router.post('/import/commit', async (c) => {
             startDate: null,
             endDate: null,
             canonical: text,
+            ...provenance,
             status: 'active',
             createdAt: now,
             updatedAt: now,
           })
+          // Re-importing points the fact at the newer document. An old span
+          // into a source that no longer describes this CV is worse than no
+          // span: it would highlight a line the user has since rewritten.
           .onConflictDoUpdate({
             target: profileFacts.id,
-            set: { canonical: text, parentFactId: roleId, updatedAt: now },
+            set: { canonical: text, parentFactId: roleId, ...provenance, updatedAt: now },
           }),
         // The phrasing as written. The unique index over (user_id, content_hash)
         // is what makes a second import of the same CV a no-op.
@@ -229,7 +268,13 @@ router.post('/import/commit', async (c) => {
     await db.batch(statements as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
   }
 
-  return c.json({ roles: parsed.data.roles.length, bullets: bulletCount });
+  return c.json({
+    roles: parsed.data.roles.length,
+    bullets: bulletCount,
+    // How much of what was imported can be cited back to the document. A low
+    // number here is the honest signal that the reading drifted from the text.
+    located: spans.filter(Boolean).length,
+  });
 });
 
 /** What is stored now, shaped the way the review screen shows it. */
@@ -260,6 +305,70 @@ router.get('/facts', async (c) => {
     orphans: bullets
       .filter((b) => !roles.some((r) => r.id === b.parentFactId))
       .map((b) => ({ id: b.id, text: b.canonical })),
+  });
+});
+
+/**
+ * The imported CV, verbatim, with the character range each fact occupies in it.
+ *
+ * This is what makes a generated bullet citable to something a human
+ * recognises. The tailoring view renders `content` as the document and
+ * highlights `spans[factId]` for whichever bullet is selected, so the claim
+ * "every line comes from your own CV" is shown rather than asserted.
+ *
+ * The newest source wins. Re-importing a corrected CV re-points the facts at
+ * it, and an older document is kept only as history — citing into it would
+ * highlight lines the user has since rewritten.
+ *
+ * Served with `source: null` rather than 404 when nothing was ever imported:
+ * facts seeded by the corpus scripts, or imported before sources were kept, are
+ * a valid state the view degrades to instead of an error.
+ */
+router.get('/cv-source', async (c) => {
+  const session = requireSession(c);
+  const db = createDb(c.env.DB);
+
+  const [source] = await db
+    .select()
+    .from(cvSources)
+    .where(eq(cvSources.userId, session.userId))
+    .orderBy(desc(cvSources.createdAt))
+    .limit(1);
+
+  if (!source) return c.json({ source: null, spans: {} });
+
+  const rows = await db
+    .select({
+      id: profileFacts.id,
+      start: profileFacts.sourceStart,
+      end: profileFacts.sourceEnd,
+    })
+    .from(profileFacts)
+    .where(
+      and(
+        eq(profileFacts.userId, session.userId),
+        eq(profileFacts.sourceId, source.id),
+        isNotNull(profileFacts.sourceStart),
+      ),
+    );
+
+  const spans: Record<string, [number, number]> = {};
+  for (const row of rows) {
+    // Belt and braces against a span that outlived an edit to the document:
+    // an out-of-range range would highlight nothing and dim everything.
+    if (row.start === null || row.end === null) continue;
+    if (row.start < 0 || row.end > source.content.length || row.start >= row.end) continue;
+    spans[row.id] = [row.start, row.end];
+  }
+
+  return c.json({
+    source: {
+      id: source.id,
+      format: source.format,
+      content: source.content,
+      importedAt: source.createdAt.getTime(),
+    },
+    spans,
   });
 });
 

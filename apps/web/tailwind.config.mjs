@@ -71,12 +71,18 @@ export default {
         shimmer: {
           '100%': { transform: 'translateX(100%)' },
         },
+        // The citation connector. A line that flows toward its source reads as
+        // "this came from there" without a legend explaining it.
+        dash: {
+          to: { strokeDashoffset: '-13' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-up': 'fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both',
         shimmer: 'shimmer 1.6s infinite',
+        dash: 'dash 0.9s linear infinite',
       },
     },
   },

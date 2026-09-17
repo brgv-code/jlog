@@ -21,6 +21,29 @@
   --color-info: #60a5fa;
   --color-error: #ff453a;
 
+  /*
+   * Citation accents: which document a generated line was traced back to.
+   * Teal is the base CV, ochre the job description, and the pairing carries
+   * meaning — a highlight, its arrow and its tab all take the same colour, so
+   * "where did this come from" is answerable without reading anything.
+   *
+   * Brighter here than in light mode: the same teal that reads as ink on paper
+   * disappears against a dark surface.
+   */
+  --color-cite-cv: #4fd1c5;
+  --color-cite-cv-fill: rgba(79, 209, 197, 0.16);
+  --color-cite-jd: #e0a33a;
+  --color-cite-jd-fill: rgba(224, 163, 58, 0.18);
+
+  /*
+   * The page a source document is rendered on. Distinct from --color-surface
+   * on purpose: a panel is part of the app, a page is a thing the app is
+   * showing you, and the difference is what makes a citation feel like it
+   * points at a document rather than at more UI.
+   */
+  --color-paper: #1b1b21;
+  --color-paper-ink: #dcdce4;
+
   /* Typography */
   --font-sans: "Geist", "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
@@ -76,6 +99,15 @@
   --color-text-secondary: #555568;
   --color-text-tertiary: #888898;
   --color-text-muted: #888898;
+
+  --color-paper: #fffffe;
+  --color-paper-ink: #1c1b17;
+
+  /* On paper, the values from the citation design boards. */
+  --color-cite-cv: #0e6b63;
+  --color-cite-cv-fill: rgba(14, 107, 99, 0.12);
+  --color-cite-jd: #9a5b06;
+  --color-cite-jd-fill: rgba(154, 91, 6, 0.14);
 }
 
 /* Global base styles */

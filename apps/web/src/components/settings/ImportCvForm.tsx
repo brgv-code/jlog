@@ -54,13 +54,18 @@ export function ImportCvForm() {
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imported, setImported] = useState<{ roles: number; bullets: number } | null>(null);
+  const [imported, setImported] = useState<{
+    roles: number;
+    bullets: number;
+    located: number;
+  } | null>(null);
   const [chromeApplied, setChromeApplied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   /**
    * The text layer is pulled out here, in the browser. The PDF itself is never
-   * uploaded — only the words, and only once, to be structured and shown back.
+   * uploaded — only the words, which are structured, shown back for review, and
+   * then kept with the facts so a generated CV can cite the lines it came from.
    * A scan has no text layer and cannot be read this way, which is said plainly
    * rather than importing nothing and looking broken.
    */
@@ -133,17 +138,22 @@ export function ImportCvForm() {
         }))
         .filter((role) => role.employer && role.bullets.length);
 
+      // The document travels with the facts. Tailoring can then show a
+      // generated line beside the passage of this CV it was read from, which
+      // is the difference between claiming the output is grounded and showing
+      // it. Sent as it was parsed, so the offsets the server computes land on
+      // the text the reviewer just saw.
       const res = await apiFetch('/api/profile/import/commit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roles }),
+        body: JSON.stringify({ roles, source, sourceFormat: preview.format }),
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as ApiError | null;
         setError(payload?.error?.message ?? `Import failed (${res.status}).`);
         return;
       }
-      setImported((await res.json()) as { roles: number; bullets: number });
+      setImported((await res.json()) as { roles: number; bullets: number; located: number });
       setPreview(null);
       setSource('');
     } catch {
@@ -230,7 +240,14 @@ export function ImportCvForm() {
               {imported && (
                 <span className="text-[13px] text-muted-foreground">
                   Imported {imported.bullets} bullet{imported.bullets === 1 ? '' : 's'} across{' '}
-                  {imported.roles} role{imported.roles === 1 ? '' : 's'}.
+                  {imported.roles} role{imported.roles === 1 ? '' : 's'}.{' '}
+                  {/* Said out loud, because it is what tailoring can cite. A
+                      number short of the total means the reading drifted from
+                      the document and those lines will have nothing to point
+                      at. */}
+                  {imported.located === imported.bullets
+                    ? 'Each one can be traced back to a line of your CV.'
+                    : `${imported.located} of them can be traced back to a line of your CV.`}
                 </span>
               )}
             </div>
