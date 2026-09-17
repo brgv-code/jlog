@@ -5,7 +5,6 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { decrypt, encrypt } from '../lib/encryption';
-import { getLangfuse } from '../lib/langfuse';
 import { requireSession } from '../lib/session';
 
 type AppContext = { Bindings: Env; Variables: Variables };
@@ -149,16 +148,19 @@ extractRouter.post('/', async (c) => {
   };
 
   const content = html.slice(0, 6000);
-  const langfuse = getLangfuse(c.env);
-  const trace = langfuse?.trace({
-    name: 'extract-job',
-    userId: session.userId,
-    input: { url: parsed.data.url, content },
-    metadata: { provider: row.provider, model: row.model },
-    tags: ['extraction', row.provider],
-  });
-  const generation = trace?.generation({
-    name: 'extract-job-llm-call',
+  // The root observation carries the request's overall input and output; the
+  // generation under it carries what the model was actually handed. The
+  // tracing middleware ends both and exports them.
+  const traced = c.var.tracing?.start(
+    {
+      traceName: 'extract-job',
+      userId: session.userId,
+      tags: ['extraction', row.provider],
+      metadata: { provider: row.provider, model: row.model },
+    },
+    { url: parsed.data.url, content },
+  );
+  const generation = traced?.generation('extract-job-llm-call', {
     model: row.model,
     input: content,
   });
@@ -170,10 +172,10 @@ extractRouter.post('/', async (c) => {
       content,
     );
 
-    generation?.end({ output: result });
+    generation?.update({ output: result }).end();
 
     if (!result.company || !result.role) {
-      trace?.update({ output: result, metadata: { extractionFailed: true } });
+      traced?.root.update({ output: result, metadata: { extractionFailed: true } });
       return c.json(
         {
           error: {
@@ -186,20 +188,16 @@ extractRouter.post('/', async (c) => {
       );
     }
 
-    trace?.update({ output: result });
+    traced?.root.update({ output: result });
     return c.json(result);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    generation?.end({ output: null, level: 'ERROR', statusMessage: message });
-    trace?.update({ output: null, metadata: { error: message } });
+    generation?.update({ output: null, level: 'ERROR', statusMessage: message }).end();
+    traced?.root.update({ output: null, level: 'ERROR', statusMessage: message });
 
     if (e instanceof LLMError) {
       return c.json({ error: { code: 'EXTRACTION_FAILED', message: e.message } }, 422);
     }
     throw e;
-  } finally {
-    // Workers tear down the isolate right after the response is sent, so the
-    // background flush has to be handed to waitUntil to actually complete.
-    if (langfuse) c.executionCtx.waitUntil(langfuse.flushAsync());
   }
 });
