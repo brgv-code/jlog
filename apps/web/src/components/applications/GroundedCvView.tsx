@@ -113,8 +113,21 @@ type Claim = {
   provenance: string;
 };
 
-/** "Senior PM at Acme", or as much of it as was recorded. */
-function wrote(origin: { roleTitle: string | null; company: string | null }): string | null {
+/**
+ * "Senior PM at Acme" — the application this phrasing was written for.
+ *
+ * Null for a phrasing that came from CV import, because there the recorded
+ * company is the EMPLOYER the bullet sits under rather than anywhere it was
+ * sent. Same two columns, opposite meaning, and saying "you wrote this for
+ * App Developer at Foundamental" about a job someone held would be worse than
+ * saying nothing.
+ */
+function wrote(origin: {
+  source: string | null;
+  roleTitle: string | null;
+  company: string | null;
+}): string | null {
+  if (origin.source === null || origin.source === 'import') return null;
   const where = [origin.roleTitle, origin.company].filter(Boolean).join(' at ');
   return where || null;
 }
@@ -147,9 +160,11 @@ function buildClaims(selected: SelectedRole[], cv: CvDocument, origins: FactOrig
           : 'These are the words in your CV, selected for this posting.'
         : wroteFor
           ? `You wrote this for ${wroteFor}.`
-          : fact?.companies.length
-            ? `You have used this claim in applications to ${fact.companies.slice(0, 3).join(', ')}.`
-            : 'From your stored facts. Nothing recorded which document this wording came from.';
+          : origin?.source === 'import'
+            ? 'From the CV you imported, though these exact words are not in the text that was read out of it.'
+            : fact?.companies.length
+              ? `You have used this claim in applications to ${fact.companies.slice(0, 3).join(', ')}.`
+              : 'From your stored facts. Nothing recorded which document this wording came from.';
 
       return {
         key: `${bullet.factId}:${bullet.variantId ?? ''}:${roleIndex}:${i}`,

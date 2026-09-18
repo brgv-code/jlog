@@ -524,10 +524,19 @@ router.get('/fact-origins', async (c) => {
       company: row.company,
     };
     const fact = facts[row.factId] ?? { uses: 0, companies: [] };
-    fact.uses++;
-    // Distinct, and capped: the evidence bar is one line, not a list of 40.
-    if (row.company && !fact.companies.includes(row.company) && fact.companies.length < 6) {
-      fact.companies.push(row.company);
+    // `source_company` means two different things depending on where the
+    // phrasing came from. On a mined corpus CV it is the company the document
+    // was sent TO. On one written by CV import it is the EMPLOYER the bullet
+    // sits under — your own job history. Only the first is an application, so
+    // only the first may be counted as one; reading them alike would tell
+    // someone they had applied to a company they worked at.
+    const isApplication = row.source !== null && row.source !== 'import';
+    if (isApplication) {
+      fact.uses++;
+      // Distinct, and capped: the evidence bar is one line, not a list of 40.
+      if (row.company && !fact.companies.includes(row.company) && fact.companies.length < 6) {
+        fact.companies.push(row.company);
+      }
     }
     facts[row.factId] = fact;
   }

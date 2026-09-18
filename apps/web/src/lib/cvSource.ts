@@ -135,10 +135,16 @@ export async function loadCvDocument(): Promise<CvDocument> {
  * is the citation, and it is the one that is actually true.
  */
 export type FactOrigins = {
+  /**
+   * `source` is the document the phrasing came from: a corpus CV's filename, or
+   * 'import'. It matters, because `company` means the company applied TO for the
+   * first and the EMPLOYER for the second.
+   */
   variants: Record<
     string,
     { source: string | null; roleTitle: string | null; company: string | null }
   >;
+  /** Per fact: applications that used it. Import-sourced phrasings excluded. */
   facts: Record<string, { uses: number; companies: string[] }>;
 };
 
