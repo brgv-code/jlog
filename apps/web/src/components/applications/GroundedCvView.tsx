@@ -131,7 +131,16 @@ function buildClaims(selected: SelectedRole[], cv: CvDocument, origins: FactOrig
       // page is the strongest because it can be shown; naming the application
       // is next; "it is in your profile" is what is left when nothing recorded
       // where the words came from, and saying that plainly beats implying more.
-      const grounding: Grounding = cvSpan ? 'page' : wroteFor ? 'history' : 'stored';
+      // A bullet used in its own canonical wording carries no variantId, but the
+      // fact behind it still has phrasings, and every one of those records the
+      // application it was written for. That is provenance too — weaker than
+      // naming the exact document, stronger than "it is in your profile" — so
+      // it counts as history rather than falling to the bottom state.
+      const grounding: Grounding = cvSpan
+        ? 'page'
+        : wroteFor || fact?.companies.length
+          ? 'history'
+          : 'stored';
       const provenance = cvSpan
         ? bullet.variantId
           ? 'The highlighted line is this fact in your CV. The wording here is one you used in an earlier application.'
@@ -139,7 +148,7 @@ function buildClaims(selected: SelectedRole[], cv: CvDocument, origins: FactOrig
         : wroteFor
           ? `You wrote this for ${wroteFor}.`
           : fact?.companies.length
-            ? `From your stored facts — used in applications to ${fact.companies.slice(0, 3).join(', ')}.`
+            ? `You have used this claim in applications to ${fact.companies.slice(0, 3).join(', ')}.`
             : 'From your stored facts. Nothing recorded which document this wording came from.';
 
       return {
