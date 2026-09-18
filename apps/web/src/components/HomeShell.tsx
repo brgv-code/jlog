@@ -1,0 +1,422 @@
+import type { ApplicationStatus } from '@jlog/shared';
+import {
+  AlertCircleIcon,
+  ArrowRightIcon,
+  BriefcaseIcon,
+  HomeIcon,
+  MessagesSquareIcon,
+  SendIcon,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
+import { Sidebar } from './Sidebar';
+import { BarList } from './charts/BarList';
+import { Columns } from './charts/Columns';
+import { TrendChart } from './charts/TrendChart';
+import { EmptyState } from './ui/EmptyState';
+import { Spinner } from './ui/Spinner';
+import { Button } from './ui/button';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+}
+
+type AuthState =
+  | { status: 'loading' }
+  | { status: 'authenticated'; user: User }
+  | { status: 'unauthenticated' };
+
+interface Overview {
+  attention: { ghosted: number; awaiting: number; interviewing: number };
+  funnel: { status: ApplicationStatus; count: number }[];
+  sources: { source: string; count: number }[];
+  overTime: { week: string; count: number }[];
+  responseTime: { medianDays: number | null; buckets: { label: string; count: number }[] };
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  linkedin: 'LinkedIn',
+  ashby: 'Ashby',
+  ashbyhq: 'Ashby',
+  greenhouse: 'Greenhouse',
+  lever: 'Lever',
+  wellfound: 'Wellfound',
+  ycombinator: 'Y Combinator',
+  personio: 'Personio',
+  workday: 'Workday',
+  smartrecruiters: 'SmartRecruiters',
+  jobvite: 'Jobvite',
+  icims: 'iCIMS',
+  bamboohr: 'BambooHR',
+  generic: 'AI extracted',
+  manual: 'Manual',
+};
+
+/** "2026-38" → "Sep". Only the ends of the axis get labelled, so month is enough. */
+function weekLabel(key: string): string {
+  const [year, week] = key.split('-').map(Number);
+  if (year == null || week == null) return '';
+  const d = new Date(Date.UTC(year, 0, 1 + week * 7));
+  return d.toLocaleDateString('en-US', { month: 'short' });
+}
+
+export default function HomeShell() {
+  const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
+  const [data, setData] = useState<Overview | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch('/api/auth/me')
+      .then(async (res) => {
+        if (!res.ok) {
+          setAuth({ status: 'unauthenticated' });
+          return;
+        }
+        const body = (await res.json()) as { user: User };
+        setAuth({ status: 'authenticated', user: body.user });
+      })
+      .catch(() => setAuth({ status: 'unauthenticated' }));
+  }, []);
+
+  useEffect(() => {
+    if (auth.status === 'unauthenticated') window.location.href = '/login';
+  }, [auth.status]);
+
+  useEffect(() => {
+    if (auth.status !== 'authenticated') return;
+    apiFetch('/api/stats/overview')
+      .then(async (res) => {
+        if (!res.ok) return;
+        setData((await res.json()) as Overview);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [auth.status]);
+
+  async function handleSignOut() {
+    await apiFetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
+  if (auth.status === 'loading') {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'var(--color-bg)',
+        }}
+      >
+        <Spinner />
+      </div>
+    );
+  }
+  if (auth.status === 'unauthenticated') return null;
+
+  const total = data?.funnel.reduce((n, f) => n + f.count, 0) ?? 0;
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        backgroundColor: 'var(--color-bg)',
+        fontFamily: 'var(--font-sans)',
+        color: 'var(--color-text-primary)',
+      }}
+    >
+      <Sidebar user={auth.user} active="home" onSignOut={handleSignOut} />
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <header
+          style={{
+            height: '56px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 var(--space-8)',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              fontSize: 'var(--text-sm)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            <HomeIcon size={14} strokeWidth={1.75} style={{ color: 'var(--color-icon-home)' }} />
+            Home
+          </span>
+          <Button size="sm" variant="outline" asChild>
+            <a href="/applications">
+              All applications
+              <ArrowRightIcon size={14} strokeWidth={2} />
+            </a>
+          </Button>
+        </header>
+
+        {loading ? (
+          <div style={{ padding: 'var(--space-16)', display: 'flex', justifyContent: 'center' }}>
+            <Spinner />
+          </div>
+        ) : total === 0 ? (
+          /* Rule 7: a cold account gets a way in, not seven zeroes and four
+             empty charts. */
+          <EmptyState
+            icon={<BriefcaseIcon size={22} strokeWidth={1.5} />}
+            title="Nothing tracked yet"
+            description="Add your first application, or install the Chrome extension and jlog will capture them from LinkedIn, Greenhouse and Ashby as you apply."
+            action={
+              <Button size="sm" asChild>
+                <a href="/applications">Add an application</a>
+              </Button>
+            }
+          />
+        ) : (
+          <main style={{ padding: '0 var(--space-8) var(--space-16)', width: '100%' }}>
+            <AttentionStrip attention={data?.attention} />
+
+            <Panel
+              title="Applications added"
+              caption="Last 26 weeks"
+              value={String(total)}
+              valueCaption="total"
+            >
+              <TrendChart
+                points={(data?.overTime ?? []).map((w) => ({
+                  label: weekLabel(w.week),
+                  value: w.count,
+                }))}
+                unit="added"
+              />
+            </Panel>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: 'var(--space-12)',
+              }}
+            >
+              <Panel title="Pipeline" caption="Where everything stands">
+                <BarList
+                  rows={(data?.funnel ?? []).map((f) => ({
+                    label: f.status.charAt(0).toUpperCase() + f.status.slice(1),
+                    value: f.count,
+                    dot: `var(--color-status-${f.status})`,
+                    href: `/applications?status=${f.status}`,
+                  }))}
+                />
+              </Panel>
+
+              <Panel title="Where they came from" caption="By source">
+                <BarList
+                  rows={(data?.sources ?? []).slice(0, 7).map((s) => ({
+                    label: SOURCE_LABELS[s.source] ?? s.source,
+                    value: s.count,
+                  }))}
+                />
+              </Panel>
+            </div>
+
+            <Panel
+              title="How long replies take"
+              caption="From applied to first response"
+              value={
+                data?.responseTime.medianDays != null ? `${data.responseTime.medianDays}d` : '—'
+              }
+              valueCaption="median"
+            >
+              {data?.responseTime.buckets.some((b) => b.count > 0) ? (
+                // Capped, not full-bleed. Five 24px columns spread over 1200px
+                // are five lonely marks; the shape of a distribution only reads
+                // when the bars are near each other.
+                <div style={{ maxWidth: '520px' }}>
+                  <Columns
+                    columns={data.responseTime.buckets.map((b) => ({
+                      label: b.label,
+                      value: b.count,
+                    }))}
+                  />
+                </div>
+              ) : (
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>
+                  No replies recorded yet. This fills in as applications move out of Applied.
+                </p>
+              )}
+            </Panel>
+          </main>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  caption,
+  value,
+  valueCaption,
+  children,
+}: {
+  title: string;
+  caption?: string;
+  value?: string;
+  valueCaption?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      style={{
+        paddingTop: 'var(--space-8)',
+        paddingBottom: 'var(--space-8)',
+        display: 'grid',
+        gap: 'var(--space-6)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: 'var(--space-4)',
+        }}
+      >
+        <div style={{ display: 'grid', gap: '2px' }}>
+          <h2
+            style={{
+              fontSize: 'var(--text-sm)',
+              fontWeight: 600,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {title}
+          </h2>
+          {caption && (
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
+              {caption}
+            </p>
+          )}
+        </div>
+        {value && (
+          <div style={{ textAlign: 'right' }}>
+            <div
+              style={{
+                fontSize: 'var(--text-2xl)',
+                fontWeight: 500,
+                letterSpacing: '-0.02em',
+                lineHeight: 1,
+              }}
+            >
+              {value}
+            </div>
+            {valueCaption && (
+              <div
+                style={{
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.07em',
+                  color: 'var(--color-text-tertiary)',
+                  marginTop: '4px',
+                }}
+              >
+                {valueCaption}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AttentionStrip({ attention }: { attention: Overview['attention'] | undefined }) {
+  const tiles = [
+    {
+      label: 'Ghosted',
+      hint: 'Applied over 14 days ago, still silent',
+      value: attention?.ghosted ?? 0,
+      Icon: AlertCircleIcon,
+      tone: 'var(--color-warning)',
+      href: '/applications?view=ghosted',
+    },
+    {
+      label: 'Awaiting response',
+      hint: 'Applied within the last 14 days',
+      value: attention?.awaiting ?? 0,
+      Icon: SendIcon,
+      tone: 'var(--color-text-tertiary)',
+      href: '/applications?status=applied',
+    },
+    {
+      label: 'In interview',
+      hint: 'Conversations currently open',
+      value: attention?.interviewing ?? 0,
+      Icon: MessagesSquareIcon,
+      tone: 'var(--color-status-interviewing)',
+      href: '/applications?status=interviewing',
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: 'var(--space-4)',
+        paddingTop: 'var(--space-2)',
+        paddingBottom: 'var(--space-8)',
+        borderBottom: '1px solid var(--color-border)',
+      }}
+    >
+      {tiles.map(({ label, hint, value, Icon, tone, href }) => (
+        <a
+          key={label}
+          href={href}
+          style={{
+            display: 'grid',
+            gap: 'var(--space-2)',
+            padding: 'var(--space-4) var(--space-5)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)',
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            <Icon size={13} strokeWidth={1.75} style={{ color: tone }} />
+            {label}
+          </span>
+          <span
+            style={{
+              fontSize: 'var(--text-3xl)',
+              fontWeight: 500,
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+            }}
+          >
+            {value}
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{hint}</span>
+        </a>
+      ))}
+    </div>
+  );
+}

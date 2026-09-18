@@ -7,7 +7,6 @@ import { Sidebar } from './Sidebar';
 import { AddApplicationDialog } from './applications/AddApplicationDialog';
 import { ApplicationDetail } from './applications/ApplicationDetail';
 import { ApplicationsTable } from './applications/ApplicationsTable';
-import { StatsStrip } from './applications/StatsStrip';
 import { Spinner } from './ui/Spinner';
 import { Button } from './ui/button';
 
@@ -47,17 +46,32 @@ const STATUS_TABS: { label: string; value: ApplicationStatus | 'all' }[] = [
   })),
 ];
 
-export default function DashboardShell() {
+export default function ApplicationsShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const [applications, setApplications] = useState<Application[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
+  // Home links here with a filter already chosen, so the tile you clicked and
+  // the list you land on agree.
+  const [view, setView] = useState<'all' | 'ghosted'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState<SortField>('createdAt');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    if (status && (APPLICATION_STATUSES as readonly string[]).includes(status)) {
+      setStatusFilter(status as ApplicationStatus);
+    }
+    if (params.get('view') === 'ghosted') {
+      setStatusFilter('applied');
+      setView('ghosted');
+    }
+  }, []);
 
   // Auth check
   useEffect(() => {
@@ -155,6 +169,13 @@ export default function DashboardShell() {
 
   const { user } = auth;
 
+  const GHOSTED_AFTER_DAYS = 14;
+  const cutoff = Date.now() - GHOSTED_AFTER_DAYS * 24 * 60 * 60 * 1000;
+  const visible =
+    view === 'ghosted'
+      ? applications.filter((a) => a.appliedAt != null && Date.parse(a.appliedAt) < cutoff)
+      : applications;
+
   return (
     <div
       style={{
@@ -209,8 +230,6 @@ export default function DashboardShell() {
           )}
         </header>
 
-        {!selectedId && <StatsStrip />}
-
         {selectedId ? (
           <main style={{ flex: 1, maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
             <ApplicationDetail
@@ -249,7 +268,10 @@ export default function DashboardShell() {
                     <button
                       key={tab.value}
                       type="button"
-                      onClick={() => setStatusFilter(tab.value)}
+                      onClick={() => {
+                        setStatusFilter(tab.value);
+                        setView('all');
+                      }}
                       style={{
                         background: active ? 'var(--color-surface-active)' : 'none',
                         border: 'none',
@@ -324,15 +346,16 @@ export default function DashboardShell() {
             </div>
 
             <ApplicationsTable
-              applications={applications}
+              applications={visible}
               onRowClick={(id) => setSelectedId(id)}
               selectedId={selectedId ?? undefined}
               onStatusChange={handleStatusChange}
               onAddClick={() => setShowAddDialog(true)}
-              isFiltered={statusFilter !== 'all' || debouncedQuery !== ''}
+              isFiltered={statusFilter !== 'all' || debouncedQuery !== '' || view === 'ghosted'}
               onClearFilters={() => {
                 setStatusFilter('all');
                 setSearchQuery('');
+                setView('all');
               }}
             />
           </main>

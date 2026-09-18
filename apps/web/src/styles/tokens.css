@@ -74,6 +74,25 @@
    * greyscale chrome: each destination keeps one hue, so the sidebar is
    * navigable by colour before you have read a word of it.
    */
+  /*
+   * Charts.
+   *
+   * One chart carries the accent — the trend line, where the shape is the
+   * point. Every bar and column is neutral ink. Rendered the other way round,
+   * with all four charts in accent blue, the page came out a wall of saturated
+   * colour: decoration rather than signal, and the opposite of what the rest of
+   * the app does.
+   *
+   * The status palette is deliberately not used for bar fills either. Offer and
+   * rejected sit at ΔE 4.2 under deuteranopia — fine on a labelled pill, and
+   * misleading when bar length is what is being compared. Status colour rides a
+   * dot beside the label instead.
+   */
+  --color-chart-mark: #2563eb;
+  --color-chart-bar: #52525b;
+  --color-chart-grid: #ededf0;
+
+  --color-icon-home: #0e6b63;
   --color-icon-applications: #2563eb;
   --color-icon-documents: #0e6b63;
   --color-icon-settings: #7c3aed;
@@ -192,6 +211,11 @@
   --color-error: #f87171;
   --color-info: #60a5fa;
 
+  --color-chart-mark: #60a5fa;
+  --color-chart-bar: #9c9ca8;
+  --color-chart-grid: #232329;
+
+  --color-icon-home: #4fd1c5;
   --color-icon-applications: #60a5fa;
   --color-icon-documents: #4fd1c5;
   --color-icon-settings: #a78bfa;
@@ -231,6 +255,22 @@ html {
 
 body {
   min-height: 100vh;
+}
+
+/*
+ * Company monogram. The hue comes from the company name via --mono-h set
+ * inline, so the same employer keeps the same colour everywhere without a
+ * lookup table — and the wash is soft enough that forty of them in a column
+ * read as texture rather than as forty competing signals.
+ */
+.jlog-monogram {
+  background-color: hsl(var(--mono-h) 46% 91%);
+  color: hsl(var(--mono-h) 42% 32%);
+}
+
+[data-theme="dark"] .jlog-monogram {
+  background-color: hsl(var(--mono-h) 24% 17%);
+  color: hsl(var(--mono-h) 46% 72%);
 }
 
 /*

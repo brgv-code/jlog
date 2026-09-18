@@ -206,12 +206,18 @@ export default function SettingsShell() {
           </span>
         </header>
 
+        {/*
+          Centred, not left-hugged. A 680px column pinned to the left edge of a
+          1200px area leaves half the screen empty on the right and reads as a
+          layout that failed rather than one that chose.
+        */}
         <main
           style={{
             flex: 1,
             padding: 'var(--space-6) var(--space-8) var(--space-16)',
-            maxWidth: '680px',
+            maxWidth: '760px',
             width: '100%',
+            margin: '0 auto',
           }}
         >
           {/* Profile */}
