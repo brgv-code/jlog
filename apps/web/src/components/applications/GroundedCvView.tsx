@@ -132,39 +132,69 @@ function wrote(origin: {
   return where || null;
 }
 
+/**
+ * The one decision about where a line came from.
+ *
+ * Label and sentence are produced together on purpose. Deriving them from two
+ * separate conditions let them disagree — a phrasing taken from the imported CV
+ * could be labelled "from an application you sent" while the sentence below it
+ * said otherwise — and a citation that contradicts itself is worse than a vague
+ * one. Branches are ordered by how specific the answer is: the page that can be
+ * shown, then the application that can be named, then the applications the
+ * claim has appeared in, then the document the wording came from, then nothing.
+ */
+function cite(
+  cvSpan: CvSpan | null,
+  variantId: string | undefined,
+  origin: FactOrigins['variants'][string] | undefined,
+  fact: FactOrigins['facts'][string] | undefined,
+): { grounding: Grounding; provenance: string } {
+  if (cvSpan) {
+    return {
+      grounding: 'page',
+      provenance: variantId
+        ? 'The highlighted line is this fact in your CV. The wording here is one you used in an earlier application.'
+        : 'These are the words in your CV, selected for this posting.',
+    };
+  }
+
+  const wroteFor = origin ? wrote(origin) : null;
+  if (wroteFor) {
+    return { grounding: 'history', provenance: `You wrote this for ${wroteFor}.` };
+  }
+
+  if (fact?.companies.length) {
+    return {
+      grounding: 'history',
+      provenance: `You have used this claim in applications to ${fact.companies.slice(0, 3).join(', ')}.`,
+    };
+  }
+
+  if (origin?.source === 'import') {
+    return {
+      grounding: 'stored',
+      provenance:
+        'From the CV you imported, though these exact words could not be found in the text read out of it.',
+    };
+  }
+
+  return {
+    grounding: 'stored',
+    provenance: 'From your stored facts. Nothing recorded which document this wording came from.',
+  };
+}
+
 function buildClaims(selected: SelectedRole[], cv: CvDocument, origins: FactOrigins): Claim[] {
   return selected.flatMap((role, roleIndex) =>
     role.bullets.map((bullet, i) => {
       const cvSpan = cv.spans[bullet.factId] ?? null;
       const origin = bullet.variantId ? origins.variants[bullet.variantId] : undefined;
-      const wroteFor = origin ? wrote(origin) : null;
-      const fact = origins.facts[bullet.factId];
-
-      // Ordered by how specific the answer is, not by how good it sounds. The
-      // page is the strongest because it can be shown; naming the application
-      // is next; "it is in your profile" is what is left when nothing recorded
-      // where the words came from, and saying that plainly beats implying more.
-      // A bullet used in its own canonical wording carries no variantId, but the
-      // fact behind it still has phrasings, and every one of those records the
-      // application it was written for. That is provenance too — weaker than
-      // naming the exact document, stronger than "it is in your profile" — so
-      // it counts as history rather than falling to the bottom state.
-      const grounding: Grounding = cvSpan
-        ? 'page'
-        : wroteFor || fact?.companies.length
-          ? 'history'
-          : 'stored';
-      const provenance = cvSpan
-        ? bullet.variantId
-          ? 'The highlighted line is this fact in your CV. The wording here is one you used in an earlier application.'
-          : 'These are the words in your CV, selected for this posting.'
-        : wroteFor
-          ? `You wrote this for ${wroteFor}.`
-          : origin?.source === 'import'
-            ? 'From the CV you imported, though these exact words are not in the text that was read out of it.'
-            : fact?.companies.length
-              ? `You have used this claim in applications to ${fact.companies.slice(0, 3).join(', ')}.`
-              : 'From your stored facts. Nothing recorded which document this wording came from.';
+      const { grounding, provenance } = cite(
+        cvSpan,
+        bullet.variantId,
+        origin,
+        origins.facts[bullet.factId],
+      );
 
       return {
         key: `${bullet.factId}:${bullet.variantId ?? ''}:${roleIndex}:${i}`,
