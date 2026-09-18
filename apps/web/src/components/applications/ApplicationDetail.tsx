@@ -583,10 +583,10 @@ export function ApplicationDetail({
                 onClick={() => sendFollowUp('email')}
                 disabled={followUpLogging}
                 style={{
-                  backgroundColor: 'var(--color-accent)',
+                  backgroundColor: 'var(--color-primary)',
                   border: 'none',
                   borderRadius: 'var(--radius-md)',
-                  color: '#fff',
+                  color: 'var(--color-primary-fg)',
                   fontSize: 'var(--text-xs)',
                   padding: '6px 14px',
                   cursor: 'pointer',
@@ -599,10 +599,10 @@ export function ApplicationDetail({
                 onClick={() => sendFollowUp('whatsapp')}
                 disabled={followUpLogging}
                 style={{
-                  backgroundColor: '#25D366',
-                  border: 'none',
+                  background: 'none',
+                  border: '1px solid var(--color-border)',
                   borderRadius: 'var(--radius-md)',
-                  color: '#fff',
+                  color: 'var(--color-text-secondary)',
                   fontSize: 'var(--text-xs)',
                   padding: '6px 14px',
                   cursor: 'pointer',
@@ -652,7 +652,7 @@ export function ApplicationDetail({
             background: 'none',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-md)',
-            color: deleteConfirm ? '#F87171' : 'var(--color-text-secondary)',
+            color: deleteConfirm ? 'var(--color-danger)' : 'var(--color-text-secondary)',
             fontSize: 'var(--text-xs)',
             padding: '4px 12px',
             cursor: 'pointer',

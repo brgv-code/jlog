@@ -1,9 +1,13 @@
+import { SettingsIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { Sidebar } from './Sidebar';
 import { CvProfileForm } from './settings/CvProfileForm';
 import { ImportCvForm } from './settings/ImportCvForm';
 import { LLMConfigForm } from './settings/LLMConfigForm';
 import { Spinner } from './ui/Spinner';
+import { ThemeSegmented } from './ui/ThemeSegmented';
+import { Button } from './ui/button';
 
 interface User {
   id: string;
@@ -17,20 +21,6 @@ type AuthState =
   | { status: 'authenticated'; user: User }
   | { status: 'unauthenticated' };
 
-type Theme = 'dark' | 'light';
-
-const THEME_KEY = 'jlog_theme';
-
-function readTheme(): Theme {
-  if (typeof localStorage === 'undefined') return 'dark';
-  return (localStorage.getItem(THEME_KEY) as Theme | null) ?? 'dark';
-}
-
-function applyTheme(theme: Theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem(THEME_KEY, theme);
-}
-
 type ExtensionTokenState =
   | { status: 'idle' }
   | { status: 'loading' }
@@ -39,15 +29,10 @@ type ExtensionTokenState =
 
 export default function SettingsShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
-  const [theme, setTheme] = useState<Theme>('dark');
   const [extToken, setExtToken] = useState<ExtensionTokenState>({ status: 'idle' });
   const [analyticsOptIn, setAnalyticsOptIn] = useState(false);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const tokenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setTheme(readTheme());
-  }, []);
 
   useEffect(() => {
     apiFetch('/api/auth/me')
@@ -91,9 +76,9 @@ export default function SettingsShell() {
     }).catch(() => setAnalyticsOptIn(!val));
   }
 
-  function toggleTheme(next: Theme) {
-    setTheme(next);
-    applyTheme(next);
+  async function handleSignOut() {
+    await apiFetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
   }
 
   function generateExtensionToken() {
@@ -139,251 +124,165 @@ export default function SettingsShell() {
 
   const { user } = auth;
 
-  const sectionHeadingStyle = {
-    fontSize: 'var(--text-xs)',
+  /*
+   * Sections are separated by a hairline and a lot of air, not by cards.
+   *
+   * The old settings page was a stack of bordered, filled boxes, which on a
+   * light ground reads as six competing panels. "Space before ornament"
+   * (rule 1): drop the box, keep the gap, and the hierarchy comes from the
+   * heading instead of from a border.
+   */
+  const sectionStyle = {
+    display: 'grid',
+    gap: 'var(--space-4)',
+    paddingBottom: 'var(--space-10)',
+    marginBottom: 'var(--space-10)',
+    borderBottom: '1px solid var(--color-border)',
+  } as const;
+
+  const headingStyle = {
+    fontSize: 'var(--text-sm)',
     fontWeight: 600,
+    color: 'var(--color-text-primary)',
+    letterSpacing: '-0.01em',
+  } as const;
+
+  const helpStyle = {
+    fontSize: 'var(--text-sm)',
     color: 'var(--color-text-secondary)',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.06em',
-    marginBottom: 'var(--space-4)',
-  };
+    lineHeight: 1.6,
+    maxWidth: '62ch',
+  } as const;
 
-  const cardStyle = {
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-lg)',
-    padding: 'var(--space-6)',
-    marginBottom: 'var(--space-6)',
-  };
+  const fieldLabelStyle = {
+    fontSize: 'var(--text-xs)',
+    color: 'var(--color-text-secondary)',
+  } as const;
 
-  const toggleBtnStyle = (active: boolean) =>
-    ({
-      background: active ? 'var(--color-accent)' : 'var(--color-surface-raised)',
-      border: active ? 'none' : '1px solid var(--color-border)',
-      borderRadius: 'var(--radius-md)',
-      color: active ? '#fff' : 'var(--color-text-secondary)',
-      fontSize: 'var(--text-sm)',
-      padding: '6px 16px',
-      cursor: 'pointer',
-      fontFamily: 'var(--font-sans)',
-    }) as const;
+  /* Mono means "this is a value you copy" (rule 8). */
+  const valueStyle = {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--text-sm)',
+    color: 'var(--color-text-primary)',
+  } as const;
 
   return (
     <div
       style={{
+        display: 'flex',
         minHeight: '100vh',
         backgroundColor: 'var(--color-bg)',
         fontFamily: 'var(--font-sans)',
         color: 'var(--color-text-primary)',
       }}
     >
-      {/* Top bar */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-8)',
-          height: '56px',
-          borderBottom: '1px solid var(--color-border)',
-          backgroundColor: 'var(--color-surface)',
-        }}
-      >
-        <a
-          href="/dashboard"
+      <Sidebar user={user} active="settings" onSignOut={handleSignOut} />
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <header
           style={{
-            fontWeight: 700,
-            fontSize: 'var(--text-lg)',
-            letterSpacing: '-0.02em',
-            color: 'var(--color-text-primary)',
-            textDecoration: 'none',
+            height: '56px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 var(--space-8)',
           }}
         >
-          jlog
-        </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <a
-            href="/dashboard"
+          <span
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
               fontSize: 'var(--text-sm)',
               color: 'var(--color-text-secondary)',
-              textDecoration: 'none',
             }}
           >
-            Dashboard
-          </a>
-        </div>
-      </header>
+            <SettingsIcon
+              size={14}
+              strokeWidth={1.75}
+              style={{ color: 'var(--color-icon-settings)' }}
+            />
+            Settings
+          </span>
+        </header>
 
-      <main
-        style={{
-          padding: 'var(--space-8)',
-          maxWidth: '640px',
-          margin: '0 auto',
-        }}
-      >
-        <h1
+        <main
           style={{
-            fontSize: 'var(--text-2xl)',
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-            marginBottom: 'var(--space-8)',
+            flex: 1,
+            padding: 'var(--space-6) var(--space-8) var(--space-16)',
+            maxWidth: '680px',
+            width: '100%',
           }}
         >
-          Settings
-        </h1>
-
-        {/* Profile section */}
-        <section style={{ marginBottom: 'var(--space-8)' }}>
-          <p style={sectionHeadingStyle}>Profile</p>
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.name}
-                  width={48}
-                  height={48}
-                  style={{ borderRadius: '50%', display: 'block' }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--color-surface-raised)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 'var(--text-lg)',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div>
-                <div
-                  style={{
-                    fontSize: 'var(--text-base)',
-                    fontWeight: 600,
-                    color: 'var(--color-text-primary)',
-                  }}
-                >
-                  {user.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--color-text-secondary)',
-                    marginTop: '2px',
-                  }}
-                >
-                  {user.email}
-                </div>
-                <div
-                  style={{
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--color-text-tertiary)',
-                    marginTop: 'var(--space-1)',
-                  }}
-                >
-                  Managed via GitHub
-                </div>
+          {/* Profile */}
+          <section style={sectionStyle}>
+            <p style={headingStyle}>Profile</p>
+            <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+              <div style={{ display: 'grid', gap: 'var(--space-1)' }}>
+                <span style={fieldLabelStyle}>Name</span>
+                <span style={{ fontSize: 'var(--text-sm)' }}>{user.name}</span>
               </div>
+              <div style={{ display: 'grid', gap: 'var(--space-1)' }}>
+                <span style={fieldLabelStyle}>Email</span>
+                <span style={valueStyle}>{user.email}</span>
+              </div>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
+                Managed via GitHub.
+              </p>
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* Theme section */}
-        <section style={{ marginBottom: 'var(--space-8)' }}>
-          <p style={sectionHeadingStyle}>Appearance</p>
-          <div style={cardStyle}>
-            <p
-              style={{
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text-secondary)',
-                marginBottom: 'var(--space-4)',
-              }}
-            >
-              Choose how jlog looks in your browser.
-            </p>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <button
-                type="button"
-                style={toggleBtnStyle(theme === 'dark')}
-                onClick={() => toggleTheme('dark')}
-              >
-                Dark
-              </button>
-              <button
-                type="button"
-                style={toggleBtnStyle(theme === 'light')}
-                onClick={() => toggleTheme('light')}
-              >
-                Light
-              </button>
+          {/* Appearance */}
+          <section style={sectionStyle}>
+            <p style={headingStyle}>Appearance</p>
+            <p style={helpStyle}>Choose how jlog looks in your browser.</p>
+            <div>
+              <ThemeSegmented />
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* LLM Provider section */}
-        <section style={{ marginBottom: 'var(--space-8)' }}>
-          <p style={sectionHeadingStyle}>LLM Provider</p>
-          <div style={cardStyle}>
-            <p
-              style={{
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text-secondary)',
-                marginBottom: 'var(--space-4)',
-              }}
-            >
-              Choose the AI provider used to extract job details from postings. API keys are
-              encrypted at rest using AES-GCM.
+          {/* LLM provider */}
+          <section style={sectionStyle}>
+            <p style={headingStyle}>LLM provider</p>
+            <p style={helpStyle}>
+              The model used to extract job details from postings. API keys are encrypted at rest
+              with AES-GCM and are never sent anywhere but the provider you pick.
             </p>
             <LLMConfigForm />
-          </div>
-        </section>
+          </section>
 
-        {/* CV profile — the non-claim half of a generated CV, and the import
-            that fills both halves from a CV you already have */}
-        <section style={{ marginBottom: 'var(--space-8)' }}>
-          <p style={sectionHeadingStyle}>CV</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <ImportCvForm />
-            <CvProfileForm />
-          </div>
-        </section>
+          {/* CV profile — the non-claim half of a generated CV, and the import
+              that fills both halves from a CV you already have */}
+          <section style={sectionStyle}>
+            <p style={headingStyle}>CV</p>
+            <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+              <ImportCvForm />
+              <CvProfileForm />
+            </div>
+          </section>
 
-        {/* Analytics opt-in section */}
-        <section style={{ marginBottom: 'var(--space-8)' }}>
-          <p style={sectionHeadingStyle}>Analytics</p>
-          <div style={cardStyle}>
-            <p
-              style={{
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text-secondary)',
-                marginBottom: 'var(--space-4)',
-                lineHeight: 1.6,
-              }}
-            >
-              Help improve jlog by sharing anonymized data — response rates, time-to-offer, ghosting
-              patterns. No company names, no personal details. Your data helps other job seekers
-              understand the market.
+          {/* Analytics */}
+          <section style={sectionStyle}>
+            <p style={headingStyle}>Analytics</p>
+            <p style={helpStyle}>
+              Share anonymized data — response rates, time-to-offer, ghosting patterns. No company
+              names, no personal details. It is what lets jlog tell other job seekers what the
+              market is actually doing.
             </p>
             {analyticsLoading ? null : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={analyticsOptIn}
                   onClick={() => toggleAnalyticsOptIn(!analyticsOptIn)}
                   style={{
-                    width: '40px',
+                    width: '38px',
                     height: '22px',
                     borderRadius: 'var(--radius-full)',
-                    border: 'none',
+                    border: analyticsOptIn ? 'none' : '1px solid var(--color-border-strong)',
                     backgroundColor: analyticsOptIn
-                      ? 'var(--color-accent)'
+                      ? 'var(--color-primary)'
                       : 'var(--color-surface-raised)',
                     cursor: 'pointer',
                     position: 'relative',
@@ -396,11 +295,13 @@ export default function SettingsShell() {
                     style={{
                       position: 'absolute',
                       top: '3px',
-                      left: analyticsOptIn ? '21px' : '3px',
-                      width: '16px',
-                      height: '16px',
+                      left: analyticsOptIn ? '19px' : '3px',
+                      width: '14px',
+                      height: '14px',
                       borderRadius: '50%',
-                      backgroundColor: '#fff',
+                      backgroundColor: analyticsOptIn
+                        ? 'var(--color-primary-fg)'
+                        : 'var(--color-text-tertiary)',
                       transition: 'left var(--transition-fast)',
                     }}
                   />
@@ -410,73 +311,38 @@ export default function SettingsShell() {
                 </span>
               </div>
             )}
-          </div>
-        </section>
+          </section>
 
-        {/* Extension section */}
-        <section>
-          <p style={sectionHeadingStyle}>Chrome Extension</p>
-          <div style={cardStyle}>
-            <p
-              style={{
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text-secondary)',
-                marginBottom: 'var(--space-4)',
-              }}
-            >
-              Generate a token to connect the jlog Chrome extension to your account. The token
-              expires after 24 hours.
+          {/* Chrome extension */}
+          <section style={{ ...sectionStyle, borderBottom: 'none', marginBottom: 0 }}>
+            <p style={headingStyle}>Chrome extension</p>
+            {/* Consequence-first microcopy, at the point the decision is made. */}
+            <p style={helpStyle}>
+              A token connects the jlog extension to this account. It is shown once, expires after
+              24 hours, and anyone holding it can add applications as you.
             </p>
 
             {extToken.status === 'idle' && (
-              <button
-                type="button"
-                onClick={generateExtensionToken}
-                style={{
-                  background: 'var(--color-accent)',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  color: '#fff',
-                  fontSize: 'var(--text-sm)',
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
-                Generate token
-              </button>
+              <div>
+                <Button size="sm" onClick={generateExtensionToken}>
+                  Generate token
+                </Button>
+              </div>
             )}
 
             {extToken.status === 'loading' && <Spinner size={16} />}
 
             {extToken.status === 'shown' && (
-              <div>
-                <p
-                  style={{
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--color-danger)',
-                    marginBottom: 'var(--space-2)',
-                    fontWeight: 600,
-                  }}
-                >
-                  This token is shown once. Save it to your extension popup.
-                </p>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-2)',
-                    marginBottom: 'var(--space-3)',
-                  }}
-                >
+              <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                   <code
                     style={{
                       flex: 1,
-                      background: 'var(--color-surface-raised)',
+                      background: 'var(--color-surface)',
                       border: '1px solid var(--color-border)',
                       borderRadius: 'var(--radius-md)',
                       padding: '8px 10px',
-                      fontFamily: "'SF Mono', 'Fira Code', monospace",
+                      fontFamily: 'var(--font-mono)',
                       fontSize: 'var(--text-xs)',
                       color: 'var(--color-text-primary)',
                       wordBreak: 'break-all',
@@ -485,67 +351,29 @@ export default function SettingsShell() {
                   >
                     {extToken.token}
                   </code>
-                  <button
-                    type="button"
-                    onClick={() => copyToken(extToken.token)}
-                    style={{
-                      background: 'var(--color-surface-raised)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)',
-                      color: 'var(--color-text-secondary)',
-                      fontSize: 'var(--text-xs)',
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      fontFamily: 'var(--font-sans)',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => copyToken(extToken.token)}>
                     Copy
-                  </button>
+                  </Button>
                 </div>
-                <p
-                  style={{
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--color-text-tertiary)',
-                  }}
-                >
-                  Token hides automatically after 60 seconds.
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
+                  Shown once. Hides automatically after 60 seconds.
                 </p>
               </div>
             )}
 
             {extToken.status === 'hidden' && (
-              <div>
-                <p
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--color-text-secondary)',
-                    marginBottom: 'var(--space-3)',
-                  }}
-                >
+              <div style={{ display: 'grid', gap: 'var(--space-3)', justifyItems: 'start' }}>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
                   Token generated — paste it into the extension popup.
                 </p>
-                <button
-                  type="button"
-                  onClick={generateExtensionToken}
-                  style={{
-                    background: 'var(--color-surface-raised)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'var(--color-text-secondary)',
-                    fontSize: 'var(--text-sm)',
-                    padding: '6px 14px',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font-sans)',
-                  }}
-                >
+                <Button variant="outline" size="sm" onClick={generateExtensionToken}>
                   Generate new token
-                </button>
+                </Button>
               </div>
             )}
-          </div>
-        </section>
-      </main>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

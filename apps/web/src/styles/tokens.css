@@ -1,39 +1,94 @@
-/* Design tokens for jlog — dark-first theme */
+/*
+ * Design tokens for jlog — light-first.
+ *
+ * Direction and rules: apps/web/DESIGN.md. The short version: minimal chrome,
+ * generous negative space, greyscale by default, and colour spent only where
+ * it carries meaning — application status, and the nav icons.
+ *
+ * Light is :root because that is what jlog is now. Dark is an override, kept
+ * complete rather than approximate: a text-heavy app that is unusable at night
+ * is not a saving.
+ */
 :root {
-  /* Colors */
-  --color-bg: #0d0d10;
-  --color-surface: #16161a;
-  --color-surface-raised: #1e1e24;
-  --color-surface-hover: rgba(255, 255, 255, 0.03);
-  --color-surface-active: #1e1e24;
-  --color-border: #2a2a32;
-  --color-border-strong: #3a3a46;
-  --color-text-primary: #e8e8f0;
-  --color-text-secondary: #9090a8;
-  --color-text-tertiary: #5a5a70;
-  --color-text-muted: #5a5a70;
-  --color-accent: #5e6ad2;
-  --color-accent-hover: #4f58c4;
-  --color-accent-active: #4a52c4;
-  --color-success: #30d158;
-  --color-warning: #ffd60a;
-  --color-danger: #ff453a;
-  --color-info: #60a5fa;
-  --color-error: #ff453a;
+  /*
+   * Two neutrals, not a ramp. Content is white and chrome is off-white, and
+   * the boundary between them is a hairline rather than a shadow. Everything
+   * that looks like depth in this design is actually a 1px border.
+   */
+  --color-bg: #ffffff;
+  --color-surface: #fafafa;
+  --color-surface-raised: #f4f4f5;
+  --color-surface-hover: rgba(0, 0, 0, 0.035);
+  --color-surface-active: #ececee;
+  --color-overlay: rgba(24, 24, 27, 0.32);
+  --color-border: #e8e8ea;
+  --color-border-strong: #d4d4d8;
+
+  /* Three steps of text, and no more. A fourth is always someone avoiding a
+     layout decision. */
+  --color-text-primary: #18181b;
+  --color-text-secondary: #6f6f78;
+  --color-text-tertiary: #a1a1aa;
+  --color-text-muted: #a1a1aa;
+
+  /*
+   * --color-primary is the black of the one primary action on a screen, and is
+   * deliberately NOT --color-accent. Making the accent do both jobs is what
+   * turns a quiet UI into a blue one: every button becomes an advertisement.
+   */
+  --color-primary: #18181b;
+  --color-primary-hover: #000000;
+  --color-primary-fg: #ffffff;
+
+  /* The single accent: links, focus rings, and selection. One blue, used
+     sparingly, is the whole colour budget for chrome. */
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-active: #1e40af;
+  --color-accent-subtle: #eff4ff;
+
+  /*
+   * Status — the one flow that earns a palette (rule 3).
+   *
+   * These are ink values: they are set as text on a 10% wash of themselves, so
+   * each must clear 4.5:1 against white on its own. That rules out the cheerful
+   * 400-level greens and ambers, which is why interviewing is a burnt amber
+   * rather than yellow — yellow cannot be read on white at any weight.
+   */
+  --color-status-saved: #2563eb;
+  --color-status-applied: #52525b;
+  --color-status-interviewing: #b45309;
+  --color-status-offer: #15803d;
+  --color-status-rejected: #b91c1c;
+  --color-status-withdrawn: #8b8b93;
+
+  /* Generic semantic aliases, same ink rules. */
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+  --color-error: #b91c1c;
+  --color-info: #2563eb;
+
+  /*
+   * Nav and section icons. The one deliberate break from an otherwise
+   * greyscale chrome: each destination keeps one hue, so the sidebar is
+   * navigable by colour before you have read a word of it.
+   */
+  --color-icon-applications: #2563eb;
+  --color-icon-documents: #0e6b63;
+  --color-icon-settings: #7c3aed;
+  --color-icon-docs: #b45309;
 
   /*
    * Citation accents: which document a generated line was traced back to.
    * Teal is the base CV, ochre the job description, and the pairing carries
    * meaning — a highlight, its arrow and its tab all take the same colour, so
    * "where did this come from" is answerable without reading anything.
-   *
-   * Brighter here than in light mode: the same teal that reads as ink on paper
-   * disappears against a dark surface.
    */
-  --color-cite-cv: #4fd1c5;
-  --color-cite-cv-fill: rgba(79, 209, 197, 0.16);
-  --color-cite-jd: #e0a33a;
-  --color-cite-jd-fill: rgba(224, 163, 58, 0.18);
+  --color-cite-cv: #0e6b63;
+  --color-cite-cv-fill: rgba(14, 107, 99, 0.12);
+  --color-cite-jd: #9a5b06;
+  --color-cite-jd-fill: rgba(154, 91, 6, 0.14);
 
   /*
    * The page a source document is rendered on. Distinct from --color-surface
@@ -41,8 +96,8 @@
    * showing you, and the difference is what makes a citation feel like it
    * points at a document rather than at more UI.
    */
-  --color-paper: #1b1b21;
-  --color-paper-ink: #dcdce4;
+  --color-paper: #fffffe;
+  --color-paper-ink: #1c1b17;
 
   /* Typography */
   --font-sans: "Geist", "Inter", system-ui, -apple-system, sans-serif;
@@ -63,6 +118,7 @@
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
   --space-10: 2.5rem;
@@ -71,43 +127,89 @@
 
   /* Border radius */
   --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+  /*
+   * Barely-there shadows. On white, a shadow heavy enough to notice reads as a
+   * bug; lift comes from the border. Only genuinely floating things — popovers,
+   * dialogs — get more than a hairline.
+   */
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.05);
+  --shadow-md: 0 4px 12px rgba(24, 24, 27, 0.08);
+  --shadow-lg: 0 12px 32px rgba(24, 24, 27, 0.12);
 
   /* Transitions */
   --transition-fast: 150ms ease-out;
   --transition-base: 200ms ease;
 }
 
-/* Light theme overrides */
-[data-theme="light"] {
-  --color-bg: #f4f4f6;
-  --color-surface: #ffffff;
-  --color-surface-raised: #f0f0f4;
-  --color-surface-hover: rgba(0, 0, 0, 0.03);
-  --color-surface-active: #e8e8ec;
-  --color-border: #d8d8e0;
-  --color-border-strong: #c0c0cc;
-  --color-text-primary: #111118;
-  --color-text-secondary: #555568;
-  --color-text-tertiary: #888898;
-  --color-text-muted: #888898;
+/*
+ * Dark theme.
+ *
+ * Not the old dark theme recoloured: the same structure with the two neutrals
+ * inverted, so chrome stays a step away from content in the same direction.
+ * Status inks move up to the 400 level because an ink tuned for white
+ * disappears against near-black.
+ */
+[data-theme="dark"] {
+  --color-bg: #0d0d10;
+  --color-surface: #131316;
+  --color-surface-raised: #1c1c21;
+  --color-surface-hover: rgba(255, 255, 255, 0.04);
+  --color-surface-active: #24242b;
+  --color-overlay: rgba(0, 0, 0, 0.62);
+  --color-border: #26262c;
+  --color-border-strong: #3a3a44;
 
-  --color-paper: #fffffe;
-  --color-paper-ink: #1c1b17;
+  --color-text-primary: #ededf0;
+  --color-text-secondary: #9494a0;
+  --color-text-tertiary: #62626e;
+  --color-text-muted: #62626e;
 
-  /* On paper, the values from the citation design boards. */
-  --color-cite-cv: #0e6b63;
-  --color-cite-cv-fill: rgba(14, 107, 99, 0.12);
-  --color-cite-jd: #9a5b06;
-  --color-cite-jd-fill: rgba(154, 91, 6, 0.14);
+  /* Inverted: on a dark ground the loud primary is white, not black. */
+  --color-primary: #ededf0;
+  --color-primary-hover: #ffffff;
+  --color-primary-fg: #18181b;
+
+  --color-accent: #60a5fa;
+  --color-accent-hover: #93c5fd;
+  --color-accent-active: #bfdbfe;
+  --color-accent-subtle: rgba(96, 165, 250, 0.12);
+
+  --color-status-saved: #60a5fa;
+  --color-status-applied: #a1a1ad;
+  --color-status-interviewing: #fbbf24;
+  --color-status-offer: #4ade80;
+  --color-status-rejected: #f87171;
+  --color-status-withdrawn: #71717f;
+
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+
+  --color-icon-applications: #60a5fa;
+  --color-icon-documents: #4fd1c5;
+  --color-icon-settings: #a78bfa;
+  --color-icon-docs: #fbbf24;
+
+  /* Brighter than on paper: the same teal that reads as ink on white
+     disappears against a dark surface. */
+  --color-cite-cv: #4fd1c5;
+  --color-cite-cv-fill: rgba(79, 209, 197, 0.16);
+  --color-cite-jd: #e0a33a;
+  --color-cite-jd-fill: rgba(224, 163, 58, 0.18);
+
+  --color-paper: #1b1b21;
+  --color-paper-ink: #dcdce4;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
 }
 
 /* Global base styles */
@@ -129,4 +231,14 @@ html {
 
 body {
   min-height: 100vh;
+}
+
+/*
+ * One focus ring for the whole app, in the one blue. Keyboard nav is first
+ * class in a tool used every day; :focus-visible keeps it off mouse clicks.
+ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }

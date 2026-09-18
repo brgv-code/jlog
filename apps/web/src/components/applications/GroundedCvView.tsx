@@ -247,7 +247,7 @@ function Paper({
   const after = span ? text.slice(span[1]) : '';
 
   return (
-    <article className="mx-auto w-full max-w-[660px] whitespace-pre-wrap break-words rounded-sm border border-border/60 bg-[var(--color-paper)] px-8 py-9 text-[12.5px] leading-[1.65] text-[var(--color-paper-ink)] shadow-[0_1px_2px_rgba(0,0,0,.25),0_16px_40px_rgba(0,0,0,.35)]">
+    <article className="mx-auto w-full max-w-[660px] whitespace-pre-wrap break-words rounded-sm border border-border/60 bg-[var(--color-paper)] px-8 py-9 text-[12.5px] leading-[1.65] text-[var(--color-paper-ink)] shadow-[var(--shadow-lg)]">
       <span className={dim}>{before}</span>
       {span && (
         <mark
@@ -530,7 +530,7 @@ export function GroundedCvView({
                       i !== sel
                         ? 'border-transparent hover:bg-muted/50'
                         : linked
-                          ? 'border-[var(--cite)] bg-card shadow-[0_6px_18px_rgba(0,0,0,.25)]'
+                          ? 'border-[var(--cite)] bg-card shadow-[var(--shadow-md)]'
                           : 'border-muted-foreground/40 bg-card'
                     }`}
                   >
