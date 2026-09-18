@@ -21,12 +21,13 @@ import {
   CheckIcon,
   DownloadIcon,
   FileTextIcon,
+  HistoryIcon,
   LinkIcon,
   SparklesIcon,
   UnlinkIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CvDocument, CvSpan } from '../../lib/cvSource';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { CvDocument, CvSpan, FactOrigins } from '../../lib/cvSource';
 import { Button } from '../ui/button';
 import { PdfPaper } from './PdfPaper';
 
@@ -51,6 +52,8 @@ interface Props {
   jobDescription: string;
   selected: SelectedRole[];
   cv: CvDocument;
+  /** Where each stored phrasing was written. Empty is a supported state. */
+  origins: FactOrigins;
   reasoning?: string;
   attempts: number;
   onRegenerate: () => void;
@@ -67,30 +70,32 @@ interface Props {
 type Tab = 'cv' | 'jd';
 
 /**
- * How firmly a generated line is tied to the imported CV.
+ * Where the evidence for a generated line actually is.
  *
- * There is deliberately no "unsupported" here, and there cannot be: the agent
- * selects fact ids and the renderer resolves every one of them, so a line that
- * came from nowhere has no way to exist. What varies is how well the fact can
- * be pointed at in the document — which is a different, smaller claim, and
- * saying so precisely is the point of the whole screen.
+ * The first version of this assumed the evidence was always in the imported CV,
+ * and for this product that assumption is wrong by design: facts are mined from
+ * every CV the owner has sent — a corpus of 67 documents against a base holding
+ * 12 bullets — so most lines cannot be in the base CV and never could be.
+ * Reporting that as "no line to point at" described a failure where there was
+ * none, and buried the citation that does exist.
+ *
+ * There is still no "unsupported": the agent selects fact ids and the renderer
+ * resolves every one, so a line from nowhere cannot exist. What varies is which
+ * document can be shown for it.
  */
-type Grounding = 'verbatim' | 'phrasing' | 'unlocated';
+type Grounding = 'page' | 'history' | 'stored';
 
-const GROUNDING: Record<Grounding, { label: string; note: string; className: string }> = {
-  verbatim: {
-    label: 'From your CV',
-    note: 'These are the words in your CV, selected for this posting.',
+const GROUNDING: Record<Grounding, { label: string; className: string }> = {
+  page: {
+    label: 'In your CV',
     className: 'bg-[var(--color-cite-cv-fill)] text-[var(--color-cite-cv)]',
   },
-  phrasing: {
-    label: 'Your phrasing',
-    note: 'A wording you wrote for an earlier application, standing in for the same fact. The highlighted line is that fact in your CV.',
+  history: {
+    label: 'From an application you sent',
     className: 'bg-primary/15 text-primary',
   },
-  unlocated: {
-    label: 'No line to point at',
-    note: 'This fact is in your profile but is not in the CV you imported — it came from an earlier import or was seeded directly. The claim still comes from you; there is just nothing here to highlight.',
+  stored: {
+    label: 'In your profile',
     className: 'bg-muted text-muted-foreground',
   },
 };
@@ -104,12 +109,93 @@ type Claim = {
   cvSpan: CvSpan | null;
   jd: SelectedBullet['jd'];
   grounding: Grounding;
+  /** One sentence naming where this line comes from. Always something true. */
+  provenance: string;
 };
 
-function buildClaims(selected: SelectedRole[], cv: CvDocument): Claim[] {
+/**
+ * "Senior PM at Acme" — the application this phrasing was written for.
+ *
+ * Null for a phrasing that came from CV import, because there the recorded
+ * company is the EMPLOYER the bullet sits under rather than anywhere it was
+ * sent. Same two columns, opposite meaning, and saying "you wrote this for
+ * App Developer at Foundamental" about a job someone held would be worse than
+ * saying nothing.
+ */
+function wrote(origin: {
+  source: string | null;
+  roleTitle: string | null;
+  company: string | null;
+}): string | null {
+  if (origin.source === null || origin.source === 'import') return null;
+  const where = [origin.roleTitle, origin.company].filter(Boolean).join(' at ');
+  return where || null;
+}
+
+/**
+ * The one decision about where a line came from.
+ *
+ * Label and sentence are produced together on purpose. Deriving them from two
+ * separate conditions let them disagree — a phrasing taken from the imported CV
+ * could be labelled "from an application you sent" while the sentence below it
+ * said otherwise — and a citation that contradicts itself is worse than a vague
+ * one. Branches are ordered by how specific the answer is: the page that can be
+ * shown, then the application that can be named, then the applications the
+ * claim has appeared in, then the document the wording came from, then nothing.
+ */
+function cite(
+  cvSpan: CvSpan | null,
+  variantId: string | undefined,
+  origin: FactOrigins['variants'][string] | undefined,
+  fact: FactOrigins['facts'][string] | undefined,
+): { grounding: Grounding; provenance: string } {
+  if (cvSpan) {
+    return {
+      grounding: 'page',
+      provenance: variantId
+        ? 'The highlighted line is this fact in your CV. The wording here is one you used in an earlier application.'
+        : 'These are the words in your CV, selected for this posting.',
+    };
+  }
+
+  const wroteFor = origin ? wrote(origin) : null;
+  if (wroteFor) {
+    return { grounding: 'history', provenance: `You wrote this for ${wroteFor}.` };
+  }
+
+  if (fact?.companies.length) {
+    return {
+      grounding: 'history',
+      provenance: `You have used this claim in applications to ${fact.companies.slice(0, 3).join(', ')}.`,
+    };
+  }
+
+  if (origin?.source === 'import') {
+    return {
+      grounding: 'stored',
+      provenance:
+        'From the CV you imported, though these exact words could not be found in the text read out of it.',
+    };
+  }
+
+  return {
+    grounding: 'stored',
+    provenance: 'From your stored facts. Nothing recorded which document this wording came from.',
+  };
+}
+
+function buildClaims(selected: SelectedRole[], cv: CvDocument, origins: FactOrigins): Claim[] {
   return selected.flatMap((role, roleIndex) =>
     role.bullets.map((bullet, i) => {
       const cvSpan = cv.spans[bullet.factId] ?? null;
+      const origin = bullet.variantId ? origins.variants[bullet.variantId] : undefined;
+      const { grounding, provenance } = cite(
+        cvSpan,
+        bullet.variantId,
+        origin,
+        origins.facts[bullet.factId],
+      );
+
       return {
         key: `${bullet.factId}:${bullet.variantId ?? ''}:${roleIndex}:${i}`,
         roleIndex,
@@ -118,7 +204,8 @@ function buildClaims(selected: SelectedRole[], cv: CvDocument): Claim[] {
         ...(bullet.variantId ? { variantId: bullet.variantId } : {}),
         cvSpan,
         jd: bullet.jd,
-        grounding: !cvSpan ? 'unlocated' : bullet.variantId ? 'phrasing' : 'verbatim',
+        grounding,
+        provenance,
       } satisfies Claim;
     }),
   );
@@ -136,11 +223,14 @@ function Paper({
   text,
   span,
   markRef,
+  weak,
   empty,
 }: {
   text: string;
   span: CvSpan | null;
   markRef: (el: HTMLElement | null) => void;
+  /** Draw the highlight as unverified — dashed rather than ringed. */
+  weak?: boolean;
   empty: string;
 }) {
   if (!text.trim()) {
@@ -164,7 +254,11 @@ function Paper({
           ref={markRef}
           // Cloned decoration so a passage that wraps is boxed line by line
           // rather than as one ragged rectangle spanning the gap.
-          className="rounded-[3px] bg-[color:var(--cite-fill)] px-[3px] py-[1px] text-inherit shadow-[0_0_0_1px_var(--cite)] [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+          className={`rounded-[3px] bg-[color:var(--cite-fill)] px-[3px] py-[1px] text-inherit [box-decoration-break:clone] [-webkit-box-decoration-break:clone] ${
+            weak
+              ? 'outline outline-1 outline-dashed outline-[var(--cite)]'
+              : 'shadow-[0_0_0_1px_var(--cite)]'
+          }`}
         >
           {hit}
         </mark>
@@ -180,6 +274,7 @@ export function GroundedCvView({
   jobDescription,
   selected,
   cv,
+  origins,
   reasoning,
   attempts,
   onRegenerate,
@@ -221,9 +316,13 @@ export function GroundedCvView({
   const [markEl, setMarkEl] = useState<HTMLElement | null>(null);
   const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const claims = buildClaims(selected, cv);
+  // Memoised because `draw` depends on it: rebuilding the array every render
+  // would give the callback a new identity every render, and since `draw` sets
+  // state, the layout effect watching it would loop forever.
+  const claims = useMemo(() => buildClaims(selected, cv, origins), [selected, cv, origins]);
   const claim = claims[sel];
-  const located = claims.filter((c) => c.cvSpan).length;
+  const onPage = claims.filter((c) => c.grounding === 'page').length;
+  const fromHistory = claims.filter((c) => c.grounding === 'history').length;
 
   const span: CvSpan | null =
     tab === 'cv' ? (claim?.cvSpan ?? null) : claim?.jd ? [claim.jd.start, claim.jd.end] : null;
@@ -258,9 +357,22 @@ export function GroundedCvView({
 
     const mark = markEl;
     const viewer = viewerRef.current;
+    // The connector is reserved for the citation that is actually verified. A
+    // job-description match is the model's opinion with a substring check on
+    // top, and drawing the same arrow to it claimed a certainty nothing here
+    // establishes.
+    if (tab === 'jd') {
+      setArrow(null);
+      setStub(null);
+      return;
+    }
     if (!mark || !viewer) {
       setArrow(null);
-      setStub({ x: x1, y: y1 });
+      // The crossed-out stub means "nothing recorded where these words came
+      // from". A line whose origin IS known, just not on this page, has a
+      // citation — the evidence bar is carrying it — and marking that as a dead
+      // end called a working citation a failure.
+      setStub(claims[sel]?.grounding === 'stored' ? { x: x1, y: y1 } : null);
       return;
     }
 
@@ -278,7 +390,7 @@ export function GroundedCvView({
       x2,
       y2,
     });
-  }, [sel, markEl]);
+  }, [sel, markEl, tab, claims]);
 
   // Layout has to settle before the passage can be measured, and the scroll it
   // triggers is what most of the redraws below are chasing.
@@ -342,7 +454,8 @@ export function GroundedCvView({
           <p className="text-muted-foreground mt-0.5 text-[12px]">
             {claims.length} line{claims.length === 1 ? '' : 's'}, every one selected from your
             stored facts
-            {located < claims.length ? ` · ${located} traceable to your imported CV` : ''}
+            {onPage ? ` · ${onPage} shown on your CV` : ''}
+            {fromHistory ? ` · ${fromHistory} from applications you sent` : ''}
             {attempts > 1 ? ` · settled on attempt ${attempts}` : ''}
           </p>
         </div>
@@ -403,7 +516,7 @@ export function GroundedCvView({
                 // follows the tab being shown: a line with no passage in the
                 // open document gets the neutral treatment, not a teal border
                 // pointing at nothing.
-                const linked = tab === 'cv' ? Boolean(c.cvSpan) : Boolean(c.jd);
+                const linked = tab === 'cv' && c.grounding === 'page';
                 return (
                   <button
                     key={c.key}
@@ -434,16 +547,18 @@ export function GroundedCvView({
                     <span className="flex flex-none items-center gap-1.5">
                       {c.jd && (
                         <span
-                          title="Answers a line of the posting"
-                          className="rounded px-1.5 py-0.5 font-mono text-[9.5px] tracking-wide text-[var(--color-cite-jd)] bg-[var(--color-cite-jd-fill)]"
+                          title="The model matched this to a line of the posting"
+                          className="text-muted-foreground/70 rounded px-1 font-mono text-[9.5px] tracking-wide"
                         >
-                          JD
+                          jd?
                         </span>
                       )}
-                      {c.cvSpan ? (
+                      {c.grounding === 'page' ? (
                         <LinkIcon className="size-3 text-[var(--color-cite-cv)]" />
+                      ) : c.grounding === 'history' ? (
+                        <HistoryIcon className="text-muted-foreground size-3" />
                       ) : (
-                        <UnlinkIcon className="text-muted-foreground/60 size-3" />
+                        <UnlinkIcon className="text-muted-foreground/50 size-3" />
                       )}
                     </span>
                   </button>
@@ -516,6 +631,7 @@ export function GroundedCvView({
                 text={docText}
                 span={span}
                 markRef={setMarkEl}
+                weak={tab === 'jd'}
                 empty={
                   tab === 'cv'
                     ? 'Nothing imported yet. Import your CV in Settings and generated lines will be shown against it.'
@@ -596,21 +712,23 @@ export function GroundedCvView({
           </span>
         )}
         <p className="text-muted-foreground min-w-[16rem] flex-1 text-[12.5px] leading-relaxed">
-          {/* Whatever is highlighted on the right is what this sentence is
-              about — otherwise it explains one document while showing another. */}
-          {tab === 'cv'
-            ? ground?.note
-            : claim?.jd
-              ? 'The line of the posting this answers is highlighted on the right. The claim itself still comes from your CV.'
-              : 'The model did not tie this line to any single line of the posting.'}
+          {/* Where this line comes from. Always the same sentence regardless of
+              which tab is open, because it is a fact about the line, not about
+              whatever document happens to be on screen. */}
+          {claim?.provenance}
           {tab === 'cv' && pageMissed && (
             <span className="text-muted-foreground/80 mt-0.5 block text-[11.5px]">
               This line is in your CV but could not be located on the rendered page.
             </span>
           )}
+          {/* Deliberately quieter than the line above, and worded as the model's
+              doing. Everything else here is checked; this is the one thing that
+              is only checked for being IN the posting, not for being the right
+              line of it, and it must not read as though it were verified. */}
           {claim?.jd && (
-            <span className="mt-0.5 block text-[11.5px] text-[var(--color-cite-jd)]">
-              Answers: “{claim.jd.text.replace(/\s+/g, ' ').trim()}”
+            <span className="text-muted-foreground/70 mt-0.5 block text-[11.5px] italic">
+              The model matched this to “{claim.jd.text.replace(/\s+/g, ' ').trim()}” in the
+              posting.
             </span>
           )}
         </p>
