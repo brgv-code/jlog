@@ -159,7 +159,7 @@ export function PdfPaper({ highlight, onMatch, markRef, fallback }: Props) {
             // biome-ignore lint/suspicious/noArrayIndexKey: index IS the page number
             key={index}
             data-page={index}
-            className="relative shadow-[0_1px_2px_rgba(0,0,0,.25),0_16px_40px_rgba(0,0,0,.35)]"
+            className="relative shadow-[var(--shadow-lg)]"
             style={{ width: page.width, height: page.height }}
           >
             <div className="canvas-slot" />

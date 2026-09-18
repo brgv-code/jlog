@@ -237,10 +237,10 @@ export function LLMConfigForm() {
           type="submit"
           disabled={status === 'saving'}
           style={{
-            background: 'var(--color-accent)',
+            background: 'var(--color-primary)',
             border: 'none',
             borderRadius: 'var(--radius-md)',
-            color: '#fff',
+            color: 'var(--color-primary-fg)',
             fontSize: 'var(--text-sm)',
             padding: '8px 20px',
             cursor: status === 'saving' ? 'not-allowed' : 'pointer',

@@ -127,7 +127,7 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
 
   const errorStyle = {
     fontSize: 'var(--text-xs)',
-    color: '#F87171',
+    color: 'var(--color-danger)',
     marginTop: '2px',
   } as const;
 
@@ -317,10 +317,10 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
             type="submit"
             disabled={saving}
             style={{
-              backgroundColor: 'var(--color-accent)',
+              backgroundColor: 'var(--color-primary)',
               border: 'none',
               borderRadius: 'var(--radius-md)',
-              color: '#fff',
+              color: 'var(--color-primary-fg)',
               fontSize: 'var(--text-sm)',
               padding: '6px 16px',
               cursor: saving ? 'wait' : 'pointer',

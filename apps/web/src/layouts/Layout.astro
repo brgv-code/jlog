@@ -10,17 +10,24 @@ const { title = 'jlog — Job Application Tracker' } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Track your job applications — open source, self-hostable." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
-    <!-- Reads persisted theme before first paint to prevent flash -->
-    <script>
-      const t = localStorage.getItem('jlog_theme');
-      if (t) document.documentElement.setAttribute('data-theme', t);
+    <!--
+      Resolves the theme before first paint. jlog is a light app: a dark
+      desktop is not on its own a request for a dark jlog, so only an explicit
+      "dark", or an explicit "system" on a dark desktop, turns the lights off.
+    -->
+    <script is:inline>
+      const stored = localStorage.getItem('jlog_theme');
+      const dark =
+        stored === 'dark' ||
+        (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     </script>
   </head>
   <body>
@@ -33,6 +40,14 @@ const { title = 'jlog — Job Application Tracker' } = Astro.props;
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
   }
 
   body {

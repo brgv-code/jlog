@@ -11,21 +11,16 @@ interface Stats {
   responseRate: number;
 }
 
-function SkeletonBox() {
-  return (
-    <div
-      style={{
-        width: '48px',
-        height: '28px',
-        borderRadius: 'var(--radius-sm)',
-        backgroundColor: 'var(--color-surface-raised)',
-        marginBottom: 'var(--space-1)',
-      }}
-    />
-  );
-}
+const LABEL_STYLE = {
+  fontSize: '10px',
+  fontWeight: 500,
+  letterSpacing: '0.07em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--color-text-tertiary)',
+  whiteSpace: 'nowrap' as const,
+};
 
-function StatCard({
+function StatCell({
   label,
   value,
   loading,
@@ -35,29 +30,34 @@ function StatCard({
     <div
       style={{
         flex: 1,
+        minWidth: '108px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 'var(--space-1)',
-        padding: 'var(--space-4) var(--space-6)',
+        gap: 'var(--space-2)',
+        padding: 'var(--space-5) var(--space-6)',
       }}
     >
-      {loading ? (
-        <SkeletonBox />
-      ) : (
-        <span
-          style={{
-            fontSize: 'var(--text-2xl)',
-            fontWeight: 600,
-            letterSpacing: '-0.02em',
-            color: warn ? 'var(--color-warning)' : 'var(--color-text-primary)',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {value}
-        </span>
-      )}
-      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
-        {label}
+      {/*
+        Label first, and always rendered. "Render the shell before the data"
+        (rule 6): the strip should teach what jlog is going to tell you before
+        it has anything to tell.
+      */}
+      <span style={LABEL_STYLE}>{label}</span>
+      <span
+        style={{
+          fontSize: 'var(--text-2xl)',
+          fontWeight: 500,
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+          fontVariantNumeric: 'tabular-nums',
+          color: loading
+            ? 'var(--color-text-tertiary)'
+            : warn
+              ? 'var(--color-warning)'
+              : 'var(--color-text-primary)',
+        }}
+      >
+        {loading ? '—' : value}
       </span>
     </div>
   );
@@ -84,7 +84,7 @@ export function StatsStrip() {
         width: '1px',
         backgroundColor: 'var(--color-border)',
         alignSelf: 'stretch',
-        margin: 'var(--space-3) 0',
+        margin: 'var(--space-5) 0',
       }}
     />
   );
@@ -94,36 +94,37 @@ export function StatsStrip() {
       style={{
         display: 'flex',
         alignItems: 'stretch',
+        borderTop: '1px solid var(--color-border)',
         borderBottom: '1px solid var(--color-border)',
-        backgroundColor: 'var(--color-surface)',
+        backgroundColor: 'var(--color-bg)',
         overflowX: 'auto',
       }}
     >
-      <StatCard label="Total" value={stats?.total ?? 0} loading={loading} />
+      <StatCell label="Total" value={stats?.total ?? 0} loading={loading} />
       {divider}
-      <StatCard label="This week" value={stats?.thisWeek ?? 0} loading={loading} />
+      <StatCell label="This week" value={stats?.thisWeek ?? 0} loading={loading} />
       {divider}
-      <StatCard
+      <StatCell
         label="Response rate"
         value={stats ? `${stats.responseRate}%` : '0%'}
         loading={loading}
       />
       {divider}
-      <StatCard
+      <StatCell
         label="Interview rate"
         value={stats ? `${stats.interviewRate}%` : '0%'}
         loading={loading}
       />
       {divider}
-      <StatCard label="Offers" value={stats?.offers ?? 0} loading={loading} />
+      <StatCell label="Offers" value={stats?.offers ?? 0} loading={loading} />
       {divider}
-      <StatCard
+      <StatCell
         label="Avg response"
         value={stats?.avgDaysToResponse != null ? `${stats.avgDaysToResponse}d` : '—'}
         loading={loading}
       />
       {divider}
-      <StatCard
+      <StatCell
         label="Ghosted"
         value={stats?.ghosted ?? 0}
         loading={loading}

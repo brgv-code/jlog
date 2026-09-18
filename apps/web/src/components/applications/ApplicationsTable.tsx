@@ -1,6 +1,8 @@
 import type { ApplicationStatus } from '@jlog/shared';
+import { BriefcaseIcon, SearchXIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from '../ui/EmptyState';
+import { Button } from '../ui/button';
 import { StatusSelect } from './StatusSelect';
 
 interface Application {
@@ -21,6 +23,9 @@ interface ApplicationsTableProps {
   selectedId?: string | undefined;
   onStatusChange: (id: string, newStatus: ApplicationStatus) => void;
   onAddClick: () => void;
+  /** A filter or search is narrowing the list, so "none" means "none matched". */
+  isFiltered?: boolean;
+  onClearFilters?: () => void;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -55,11 +60,13 @@ function formatDate(value: string | null): string {
 
 const TH_STYLE = {
   textAlign: 'left' as const,
-  fontSize: '11px',
+  fontSize: '10px',
   fontWeight: 500,
-  color: 'var(--color-text-secondary)',
+  letterSpacing: '0.07em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--color-text-tertiary)',
   padding: '0 var(--space-4)',
-  height: '36px',
+  height: '34px',
   borderBottom: '1px solid var(--color-border)',
   whiteSpace: 'nowrap' as const,
   userSelect: 'none' as const,
@@ -67,7 +74,7 @@ const TH_STYLE = {
 
 const TD_STYLE = {
   padding: '0 var(--space-4)',
-  height: '44px',
+  height: '46px',
   fontSize: 'var(--text-sm)',
   color: 'var(--color-text-primary)',
   borderBottom: '1px solid var(--color-border)',
@@ -80,10 +87,15 @@ export function ApplicationsTable({
   selectedId,
   onStatusChange,
   onAddClick,
+  isFiltered = false,
+  onClearFilters,
 }: ApplicationsTableProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  // The j/k cursor is only meaningful while the grid actually has focus.
+  // Painting it unconditionally put a ring on row 0 of every cold page load.
+  const [gridFocused, setGridFocused] = useState(false);
 
   // Keep focused index in sync with selectedId
   useEffect(() => {
@@ -107,27 +119,35 @@ export function ApplicationsTable({
     }
   }
 
+  if (applications.length === 0 && isFiltered) {
+    // An empty result is not an empty account. Saying "No applications yet" to
+    // someone with 48 of them reads as data loss.
+    return (
+      <EmptyState
+        icon={<SearchXIcon size={22} strokeWidth={1.5} />}
+        title="No matching applications"
+        description="Nothing here matches the current search and filters."
+        action={
+          onClearFilters && (
+            <Button variant="outline" size="sm" onClick={onClearFilters}>
+              Clear filters
+            </Button>
+          )
+        }
+      />
+    );
+  }
+
   if (applications.length === 0) {
     return (
       <EmptyState
+        icon={<BriefcaseIcon size={22} strokeWidth={1.5} />}
         title="No applications yet"
-        description="Track your job applications by adding one above."
+        description="Every application you track here builds the history your CVs and cover letters are generated from."
         action={
-          <button
-            type="button"
-            onClick={onAddClick}
-            style={{
-              backgroundColor: 'var(--color-accent)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              color: '#fff',
-              fontSize: 'var(--text-sm)',
-              padding: '6px 16px',
-              cursor: 'pointer',
-            }}
-          >
+          <Button size="sm" onClick={onAddClick}>
             Add application
-          </button>
+          </Button>
         }
       />
     );
@@ -139,6 +159,8 @@ export function ApplicationsTable({
       role="treegrid"
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      onFocus={() => setGridFocused(true)}
+      onBlur={() => setGridFocused(false)}
       style={{ outline: 'none', overflow: 'auto' }}
       aria-label="Applications table"
     >
@@ -165,11 +187,11 @@ export function ApplicationsTable({
           {applications.map((app, idx) => {
             const isSelected = app.id === selectedId;
             const isHovered = app.id === hoveredId;
-            const isFocused = idx === focusedIndex;
+            const isFocused = gridFocused && idx === focusedIndex;
             const bg = isSelected
-              ? 'var(--color-surface-raised)'
+              ? 'var(--color-surface-active)'
               : isHovered
-                ? 'rgba(255,255,255,0.03)'
+                ? 'var(--color-surface-hover)'
                 : 'transparent';
             return (
               <tr
@@ -186,7 +208,8 @@ export function ApplicationsTable({
                   borderLeft: isSelected
                     ? '2px solid var(--color-accent)'
                     : '2px solid transparent',
-                  outline: isFocused && !isSelected ? '1px solid var(--color-accent)' : undefined,
+                  outline: isFocused && !isSelected ? '2px solid var(--color-accent)' : undefined,
+                  outlineOffset: '-2px',
                 }}
               >
                 <td

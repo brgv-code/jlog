@@ -4,68 +4,88 @@
  * shadcn components style themselves from semantic variables (--background,
  * --primary, --border …). Rather than adopt its stock zinc palette and end up
  * with a feature that looks bolted on, these map onto the colours already in
- * tokens.css — same hue 240 throughout, same accent — so a shadcn Button and a
+ * tokens.css — same neutrals, same accent — so a shadcn Button and a
  * hand-rolled Badge are the same design.
  *
  * Values are HSL channel triplets, not hex, because that is what lets Tailwind
  * opacity modifiers work: `bg-primary/10` needs the channels to interpolate.
+ *
+ * One thing to keep straight: shadcn's `--accent` is a *hover surface*, not the
+ * brand accent. The blue lives in `--ring` and `--link`. Wiring the blue into
+ * `--accent` is what would turn every ghost button's hover state blue.
  */
 /* Declared at :root so they resolve everywhere, including Radix portals
    which render outside the app subtree. */
 :root {
-  --background: 240 10.3% 5.7%;
-  --foreground: 240 21.1% 92.5%;
-
-  --card: 240 8.3% 9.4%;
-  --card-foreground: 240 21.1% 92.5%;
-
-  --popover: 240 9.1% 12.9%;
-  --popover-foreground: 240 21.1% 92.5%;
-
-  --primary: 233.8 56.3% 59.6%;
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 240 9.1% 12.9%;
-  --secondary-foreground: 240 21.1% 92.5%;
-
-  --muted: 240 9.1% 12.9%;
-  --muted-foreground: 240 12.1% 61.2%;
-
-  --accent: 240 9.1% 12.9%;
-  --accent-foreground: 240 21.1% 92.5%;
-
-  --destructive: 3.4 100% 61.4%;
-  --destructive-foreground: 0 0% 100%;
-
-  --success: 134.9 63.6% 50.4%;
-  --warning: 50 100% 52%;
-
-  --border: 240 8.7% 18%;
-  --input: 240 8.7% 18%;
-  --ring: 233.8 56.3% 59.6%;
-
-  --radius: 0.5rem;
-}
-
-[data-theme="light"] {
-  --background: 240 10% 96.1%;
-  --foreground: 240 17.1% 8%;
+  --background: 0 0% 100%;
+  --foreground: 240 5.9% 10%;
 
   --card: 0 0% 100%;
-  --card-foreground: 240 17.1% 8%;
+  --card-foreground: 240 5.9% 10%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 240 17.1% 8%;
+  --popover-foreground: 240 5.9% 10%;
 
-  --secondary: 240 15.4% 94.9%;
-  --secondary-foreground: 240 17.1% 8%;
+  /* Black, not blue. The one loud action on a screen. */
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 100%;
 
-  --muted: 240 15.4% 94.9%;
-  --muted-foreground: 240 10.1% 37.1%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
 
-  --accent: 240 15.4% 94.9%;
-  --accent-foreground: 240 17.1% 8%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.9% 45.3%;
 
-  --border: 240 11.4% 86.3%;
-  --input: 240 11.4% 86.3%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+
+  --destructive: 0 73.7% 41.8%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142.4 71.8% 29.2%;
+  --warning: 26 90.5% 37.1%;
+
+  --border: 240 4.5% 91.4%;
+  --input: 240 4.9% 83.9%;
+
+  /* The single blue: focus rings and links. */
+  --ring: 221.2 83.2% 53.3%;
+  --link: 221.2 83.2% 53.3%;
+
+  --radius: 0.375rem;
+}
+
+[data-theme="dark"] {
+  --background: 240 10.3% 5.7%;
+  --foreground: 240 9.2% 93.5%;
+
+  --card: 240 7.4% 8%;
+  --card-foreground: 240 9.2% 93.5%;
+
+  --popover: 240 8.2% 12%;
+  --popover-foreground: 240 9.2% 93.5%;
+
+  --primary: 240 9.2% 93.5%;
+  --primary-foreground: 240 5.9% 10%;
+
+  --secondary: 240 8.2% 12%;
+  --secondary-foreground: 240 9.2% 93.5%;
+
+  --muted: 240 8.2% 12%;
+  --muted-foreground: 240 5.9% 60.4%;
+
+  --accent: 240 8.2% 12%;
+  --accent-foreground: 240 9.2% 93.5%;
+
+  --destructive: 0 90.6% 70.8%;
+  --destructive-foreground: 240 5.9% 10%;
+
+  --success: 141.9 69.1% 58%;
+  --warning: 43.3 96.5% 56.3%;
+
+  --border: 240 7.3% 16.1%;
+  --input: 240 7.3% 16.1%;
+
+  --ring: 213.1 93.9% 67.8%;
+  --link: 213.1 93.9% 67.8%;
 }

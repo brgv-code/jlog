@@ -143,8 +143,8 @@ import Layout from '../layouts/Layout.astro';
 
   /* Buttons */
   .btn-primary {
-    background: var(--color-accent);
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
     border: none;
     border-radius: var(--radius-md);
     padding: 6px 16px;
@@ -157,7 +157,7 @@ import Layout from '../layouts/Layout.astro';
   }
 
   .btn-primary:hover {
-    background: var(--color-accent-hover);
+    background: var(--color-primary-hover);
   }
 
   .btn-ghost {
@@ -313,23 +313,23 @@ import Layout from '../layouts/Layout.astro';
   }
 
   .mock-badge.applied {
-    background: rgba(94, 106, 210, 0.15);
-    color: #818cf8;
+    background: color-mix(in srgb, var(--color-status-applied) 10%, transparent);
+    color: var(--color-status-applied);
   }
 
   .mock-badge.interviewing {
-    background: rgba(251, 191, 36, 0.12);
-    color: #fbbf24;
+    background: color-mix(in srgb, var(--color-status-interviewing) 10%, transparent);
+    color: var(--color-status-interviewing);
   }
 
   .mock-badge.offer {
-    background: rgba(48, 209, 88, 0.12);
-    color: #34d399;
+    background: color-mix(in srgb, var(--color-status-offer) 10%, transparent);
+    color: var(--color-status-offer);
   }
 
   .mock-badge.saved {
-    background: rgba(144, 144, 168, 0.12);
-    color: var(--color-text-secondary);
+    background: color-mix(in srgb, var(--color-status-saved) 10%, transparent);
+    color: var(--color-status-saved);
   }
 
   /* Features */

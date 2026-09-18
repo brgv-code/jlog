@@ -1,12 +1,15 @@
 import type { ApplicationStatus } from '@jlog/shared';
 import { APPLICATION_STATUSES } from '@jlog/shared';
+import { BriefcaseIcon, PlusIcon, SearchIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { Sidebar } from './Sidebar';
 import { AddApplicationDialog } from './applications/AddApplicationDialog';
 import { ApplicationDetail } from './applications/ApplicationDetail';
 import { ApplicationsTable } from './applications/ApplicationsTable';
 import { StatsStrip } from './applications/StatsStrip';
 import { Spinner } from './ui/Spinner';
+import { Button } from './ui/button';
 
 interface User {
   id: string;
@@ -155,204 +158,186 @@ export default function DashboardShell() {
   return (
     <div
       style={{
+        display: 'flex',
         minHeight: '100vh',
         backgroundColor: 'var(--color-bg)',
         fontFamily: 'var(--font-sans)',
         color: 'var(--color-text-primary)',
       }}
     >
-      {/* Top bar */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-8)',
-          height: '56px',
-          borderBottom: '1px solid var(--color-border)',
-          backgroundColor: 'var(--color-surface)',
-        }}
-      >
-        <span
+      <Sidebar user={user} active="applications" onSignOut={handleSignOut} />
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {/*
+          A breadcrumb, not a page header. The rail already says where you are,
+          so repeating it as a 28px title would spend the top of every screen
+          restating something. The only thing that earns weight up here is the
+          one primary action.
+        */}
+        <header
           style={{
-            fontWeight: 700,
-            fontSize: 'var(--text-lg)',
-            letterSpacing: '-0.02em',
-            color: 'var(--color-text-primary)',
+            height: '56px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 'var(--space-4)',
+            padding: '0 var(--space-8)',
           }}
         >
-          jlog
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <button
-            type="button"
-            onClick={() => setShowAddDialog(true)}
+          <span
             style={{
-              backgroundColor: 'var(--color-accent)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              color: '#fff',
-              fontSize: 'var(--text-sm)',
-              padding: '6px 16px',
-              cursor: 'pointer',
-            }}
-          >
-            Add application
-          </button>
-          {user.avatarUrl && (
-            <img
-              src={user.avatarUrl}
-              alt={user.name}
-              width={32}
-              height={32}
-              style={{ borderRadius: '50%', display: 'block' }}
-            />
-          )}
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
-            {user.name}
-          </span>
-          <a
-            href="/settings"
-            style={{
-              background: 'none',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--color-text-secondary)',
-              fontSize: 'var(--text-xs)',
-              padding: 'var(--space-1) var(--space-3)',
-              cursor: 'pointer',
-              textDecoration: 'none',
               display: 'inline-flex',
               alignItems: 'center',
-            }}
-          >
-            Settings
-          </a>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            style={{
-              background: 'none',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
+              gap: 'var(--space-2)',
+              fontSize: 'var(--text-sm)',
               color: 'var(--color-text-secondary)',
-              fontSize: 'var(--text-xs)',
-              padding: 'var(--space-1) var(--space-3)',
-              cursor: 'pointer',
             }}
           >
-            Sign out
-          </button>
-        </div>
-      </header>
-
-      <StatsStrip />
-
-      {/* Detail view replaces main when selected */}
-      {selectedId ? (
-        <main style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
-          <ApplicationDetail
-            applicationId={selectedId}
-            userName={user.name}
-            onBack={() => setSelectedId(null)}
-            onDelete={handleDelete}
-            onUpdate={handleDetailUpdate}
-          />
-        </main>
-      ) : (
-        <main
-          style={{
-            padding: '0 var(--space-8) var(--space-8)',
-            maxWidth: '1400px',
-            margin: '0 auto',
-          }}
-        >
-          {/* Filter bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-4)',
-              padding: 'var(--space-4) 0',
-              borderBottom: '1px solid var(--color-border)',
-              flexWrap: 'wrap',
-            }}
-          >
-            {/* Status tabs */}
-            <div style={{ display: 'flex', gap: '2px' }}>
-              {STATUS_TABS.map((tab) => {
-                const active = tab.value === statusFilter;
-                return (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    onClick={() => setStatusFilter(tab.value)}
-                    style={{
-                      background: active ? 'var(--color-surface-raised)' : 'none',
-                      border: active ? '1px solid var(--color-border)' : '1px solid transparent',
-                      borderRadius: 'var(--radius-md)',
-                      color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                      fontSize: 'var(--text-xs)',
-                      padding: '4px 10px',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Search */}
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search company or role…"
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--color-text-primary)',
-                fontSize: 'var(--text-sm)',
-                padding: '4px 10px',
-                outline: 'none',
-                width: '220px',
-              }}
+            <BriefcaseIcon
+              size={14}
+              strokeWidth={1.75}
+              style={{ color: 'var(--color-icon-applications)' }}
             />
+            Applications
+          </span>
+          {!selectedId && (
+            <Button size="sm" onClick={() => setShowAddDialog(true)}>
+              <PlusIcon size={14} strokeWidth={2} />
+              Add application
+            </Button>
+          )}
+        </header>
 
-            {/* Sort */}
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortField)}
+        {!selectedId && <StatsStrip />}
+
+        {selectedId ? (
+          <main style={{ flex: 1, maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+            <ApplicationDetail
+              applicationId={selectedId}
+              userName={user.name}
+              onBack={() => setSelectedId(null)}
+              onDelete={handleDelete}
+              onUpdate={handleDetailUpdate}
+            />
+          </main>
+        ) : (
+          <main
+            style={{
+              flex: 1,
+              padding: '0 var(--space-8) var(--space-8)',
+              maxWidth: '1400px',
+              margin: '0 auto',
+              width: '100%',
+            }}
+          >
+            {/* Filter bar */}
+            <div
               style={{
-                backgroundColor: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--color-text-secondary)',
-                fontSize: 'var(--text-xs)',
-                padding: '4px 8px',
-                cursor: 'pointer',
-                outline: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-4)',
+                padding: 'var(--space-5) 0',
+                flexWrap: 'wrap',
               }}
             >
-              <option value="createdAt">Sort: Date added</option>
-              <option value="appliedAt">Sort: Applied date</option>
-              <option value="company">Sort: Company</option>
-            </select>
+              {/* Status tabs */}
+              <div style={{ display: 'flex', gap: '2px' }}>
+                {STATUS_TABS.map((tab) => {
+                  const active = tab.value === statusFilter;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => setStatusFilter(tab.value)}
+                      style={{
+                        background: active ? 'var(--color-surface-active)' : 'none',
+                        border: 'none',
+                        borderRadius: 'var(--radius-md)',
+                        color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                        fontWeight: active ? 500 : 400,
+                        fontSize: 'var(--text-xs)',
+                        fontFamily: 'var(--font-sans)',
+                        padding: '5px 10px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-            {loadingApps && <Spinner size={16} />}
-          </div>
+              {/* Search */}
+              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                <SearchIcon
+                  size={14}
+                  strokeWidth={1.75}
+                  style={{
+                    position: 'absolute',
+                    left: '9px',
+                    color: 'var(--color-text-tertiary)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search company or role…"
+                  style={{
+                    backgroundColor: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--color-text-primary)',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 'var(--text-sm)',
+                    padding: '6px 10px 6px 28px',
+                    outline: 'none',
+                    width: '240px',
+                  }}
+                />
+              </div>
 
-          <ApplicationsTable
-            applications={applications}
-            onRowClick={(id) => setSelectedId(id)}
-            selectedId={selectedId ?? undefined}
-            onStatusChange={handleStatusChange}
-            onAddClick={() => setShowAddDialog(true)}
-          />
-        </main>
-      )}
+              {/* Sort */}
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortField)}
+                style={{
+                  backgroundColor: 'var(--color-bg)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--color-text-secondary)',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 'var(--text-xs)',
+                  padding: '6px 8px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value="createdAt">Sort: Date added</option>
+                <option value="appliedAt">Sort: Applied date</option>
+                <option value="company">Sort: Company</option>
+              </select>
+
+              {loadingApps && <Spinner size={16} />}
+            </div>
+
+            <ApplicationsTable
+              applications={applications}
+              onRowClick={(id) => setSelectedId(id)}
+              selectedId={selectedId ?? undefined}
+              onStatusChange={handleStatusChange}
+              onAddClick={() => setShowAddDialog(true)}
+              isFiltered={statusFilter !== 'all' || debouncedQuery !== ''}
+              onClearFilters={() => {
+                setStatusFilter('all');
+                setSearchQuery('');
+              }}
+            />
+          </main>
+        )}
+      </div>
 
       {showAddDialog && (
         <AddApplicationDialog
