@@ -446,7 +446,7 @@ export function GroundedCvView({
       style={{ '--cite': accent, '--cite-fill': fill } as React.CSSProperties}
     >
       {/* Top bar: what this is, how well it is grounded, and what to do with it. */}
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-5 py-3">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border py-3 pr-12 pl-5">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">
             {role} <span className="text-muted-foreground">at {company}</span>
