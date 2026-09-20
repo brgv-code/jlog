@@ -208,6 +208,13 @@ router.get('/me', async (c) => {
       email: user.email,
       avatarUrl: user.avatarUrl ?? null,
       plan: user.plan,
+      // Enough for the settings page to tell a subscription apart from a
+      // comped account, and to say when the former renews. `planSource` is
+      // what stops the UI offering a billing portal to someone who has never
+      // been billed (ADR-011).
+      planSource: user.planSource ?? null,
+      planStatus: user.planStatus ?? null,
+      currentPeriodEnd: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
     },
   });
 });

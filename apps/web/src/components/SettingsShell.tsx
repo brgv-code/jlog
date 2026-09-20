@@ -1,8 +1,9 @@
 import { ArrowRightIcon, SettingsIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { Sidebar } from './Sidebar';
 import { LLMConfigForm } from './settings/LLMConfigForm';
+import { PlanSection } from './settings/PlanSection';
 import { Spinner } from './ui/Spinner';
 import { ThemeSegmented } from './ui/ThemeSegmented';
 import { Button } from './ui/button';
@@ -12,6 +13,10 @@ interface User {
   name: string;
   email: string;
   avatarUrl: string | null;
+  plan: 'free' | 'pro';
+  planSource: 'stripe' | 'manual' | null;
+  planStatus: string | null;
+  currentPeriodEnd: string | null;
 }
 
 type AuthState =
@@ -32,22 +37,28 @@ export default function SettingsShell() {
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const tokenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    apiFetch('/api/auth/me')
-      .then(async (res) => {
-        if (res.status === 401) {
-          setAuth({ status: 'unauthenticated' });
-          return;
-        }
-        if (!res.ok) {
-          setAuth({ status: 'unauthenticated' });
-          return;
-        }
-        const data = (await res.json()) as { user: User };
-        setAuth({ status: 'authenticated', user: data.user });
-      })
-      .catch(() => setAuth({ status: 'unauthenticated' }));
+  /**
+   * Also the refresh the plan section polls with after a checkout: the redirect
+   * back from Stripe races the webhook, so the plan on this page can be one
+   * request behind the payment.
+   */
+  const loadMe = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/auth/me');
+      if (!res.ok) {
+        setAuth({ status: 'unauthenticated' });
+        return;
+      }
+      const data = (await res.json()) as { user: User };
+      setAuth({ status: 'authenticated', user: data.user });
+    } catch {
+      setAuth({ status: 'unauthenticated' });
+    }
   }, []);
+
+  useEffect(() => {
+    void loadMe();
+  }, [loadMe]);
 
   useEffect(() => {
     if (auth.status === 'unauthenticated') window.location.href = '/login';
@@ -235,6 +246,15 @@ export default function SettingsShell() {
               </p>
             </div>
           </section>
+
+          {/* Plan. Renders nothing at all where billing is not configured. */}
+          <PlanSection
+            plan={user.plan}
+            planSource={user.planSource}
+            planStatus={user.planStatus}
+            currentPeriodEnd={user.currentPeriodEnd}
+            onRefresh={loadMe}
+          />
 
           {/* Appearance */}
           <section style={sectionStyle}>

@@ -2,6 +2,7 @@ import { templateConfig, templateStyle } from '@jlog/shared';
 import { AlertTriangleIcon, FileTextIcon, SparklesIcon } from 'lucide-react';
 import { useState } from 'react';
 import { apiFetch } from '../../lib/api';
+import { useBillingEnabled } from '../../lib/billing';
 import type { CvProfile } from '../../lib/cvProfile';
 import {
   type CvDocument,
@@ -75,6 +76,7 @@ export function TailorCvDialog({
   const [error, setError] = useState<ApiError['error'] | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const billingEnabled = useBillingEnabled();
 
   // The design the user picked in the gallery. Sent as the shape the renderer
   // needs rather than the id, so the private package never has to know the
@@ -299,9 +301,21 @@ export function TailorCvDialog({
                       ))}
                     </ul>
                   ) : null}
-                  <Button variant="outline" size="sm" onClick={generate}>
-                    Try again
-                  </Button>
+                  {/* Retrying a 402 can only fail again: the account is not
+                      entitled, and the fix is upstream of this dialog. Where
+                      nothing is for sale (a self-hosted build) there is no
+                      action to offer at all. */}
+                  {error.code === 'PRO_REQUIRED' ? (
+                    billingEnabled ? (
+                      <Button size="sm" asChild>
+                        <a href="/settings">Upgrade to Pro</a>
+                      </Button>
+                    ) : null
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={generate}>
+                      Try again
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

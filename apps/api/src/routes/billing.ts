@@ -39,6 +39,20 @@ function notConfigured(missing: string) {
 }
 
 /**
+ * Whether this deployment can sell anything.
+ *
+ * Exists so the settings page can render nothing at all rather than an upgrade
+ * button that 503s. A self-hoster has no Stripe account and should not be shown
+ * a paywall they cannot cross, or an advert on software they are running
+ * themselves — which is the cheapest honest answer to ADR-011's open question
+ * without settling the business model either way.
+ */
+router.get('/config', (c) => {
+  const enabled = Boolean(c.env.STRIPE_SECRET_KEY && c.env.STRIPE_PRICE_ID);
+  return c.json({ enabled });
+});
+
+/**
  * Start a checkout. Returns the URL rather than redirecting, so the caller is
  * a `fetch` from the settings page instead of a form post.
  */
