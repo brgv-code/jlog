@@ -12,7 +12,30 @@ export const users = sqliteTable('users', {
   plan: text('plan', { enum: ['free', 'pro'] })
     .notNull()
     .default('free'),
+  /**
+   * Why this user is on their plan, and so who is allowed to change it
+   * (ADR-011). `manual` is a comped account and Stripe never touches it; null
+   * means nobody has ever billed them. Without this column, comping an account
+   * and then processing a `customer.subscription.deleted` silently revokes it.
+   */
+  planSource: text('plan_source', { enum: ['stripe', 'manual'] }),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  /** Stripe's own word for it, kept so `past_due` is not the same as `canceled`. */
+  planStatus: text('plan_status'),
+  currentPeriodEnd: integer('current_period_end', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * Webhook ids already processed. Stripe retries until it gets a 2xx, so
+ * duplicates are routine rather than exceptional, and the insert is what makes
+ * the handler idempotent.
+ */
+export const stripeEvents = sqliteTable('stripe_events', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(),
+  receivedAt: integer('received_at', { mode: 'timestamp' }).notNull(),
 });
 
 /**
