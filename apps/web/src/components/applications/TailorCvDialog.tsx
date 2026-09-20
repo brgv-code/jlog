@@ -1,3 +1,4 @@
+import { templateConfig, templateStyle } from '@jlog/shared';
 import { AlertTriangleIcon, FileTextIcon, SparklesIcon } from 'lucide-react';
 import { useState } from 'react';
 import { apiFetch } from '../../lib/api';
@@ -9,6 +10,7 @@ import {
   loadCvDocument,
   loadFactOrigins,
 } from '../../lib/cvSource';
+import { photoAsset } from '../../lib/photo';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Skeleton } from '../ui/skeleton';
@@ -74,10 +76,16 @@ export function TailorCvDialog({
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // The design the user picked in the gallery. Sent as the shape the renderer
+  // needs rather than the id, so the private package never has to know the
+  // catalogue — it depends on hono and nothing else.
+  const design = templateConfig(profile.template);
+  const style = templateStyle(design);
   const body = {
     jobDescription,
     targetRole: role,
     targetCompany: company,
+    template: style,
     chrome: {
       firstName: profile.firstName,
       lastName: profile.lastName,
@@ -99,11 +107,16 @@ export function TailorCvDialog({
       // The document is fetched alongside the generation, not after it: the
       // result is only worth showing next to what it is cited against, and
       // waiting for a second round trip would show it alone first.
+      // The photo only matters if the chosen design emits one, so a template
+      // that drops it costs no fetch at all.
+      const files =
+        style.chrome.includes('photo') && profile.photo ? await photoAsset(profile.photo) : null;
+
       const [res, cvDoc, factOrigins] = await Promise.all([
         apiFetch('/api/pro/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify(files ? { ...body, files } : body),
         }),
         loadCvDocument(),
         loadFactOrigins(),

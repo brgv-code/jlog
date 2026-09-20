@@ -4,6 +4,7 @@ import {
   isCvTemplate,
   templateChips,
   templateConfig,
+  templateStyle,
   templatesWithTag,
 } from './templates';
 
@@ -71,5 +72,31 @@ describe('templateChips', () => {
     expect(templateChips(templateConfig('plain'))).toContain('No photo');
     expect(templateChips(templateConfig('banking'))).toContain('Photo off by default');
     expect(templateChips(templateConfig('classic'))).not.toContain('No photo');
+  });
+});
+
+describe('templateStyle', () => {
+  it('carries the class and style the renderer needs', () => {
+    const s = templateStyle(templateConfig('banking'));
+    expect(s.documentClass).toBe('moderncv');
+    expect(s.style).toBe('banking');
+  });
+
+  it('never allows a photo on a design that cannot take one', () => {
+    // Even when the caller asks for one explicitly.
+    expect(templateStyle(templateConfig('plain'), true).chrome).not.toContain('photo');
+  });
+
+  it('honours the design default when the caller says nothing', () => {
+    expect(templateStyle(templateConfig('classic')).chrome).toContain('photo');
+    expect(templateStyle(templateConfig('banking')).chrome).not.toContain('photo');
+  });
+
+  it('lets a caller turn a photo on where the design supports it', () => {
+    expect(templateStyle(templateConfig('banking'), true).chrome).toContain('photo');
+  });
+
+  it('passes the section order through', () => {
+    expect(templateStyle(templateConfig('oldstyle')).sectionOrder[0]).toBe('Education');
   });
 });

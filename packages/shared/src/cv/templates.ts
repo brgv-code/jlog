@@ -158,3 +158,33 @@ export function templateChips(config: TemplateConfig): string[] {
   else if (!config.defaults.photo) chips.push('Photo off by default');
   return chips;
 }
+
+/**
+ * What the renderer needs, derived from what the gallery shows.
+ *
+ * The renderer wants an allow-list of chrome fields; the gallery describes a
+ * design and its default conventions. Deriving one from the other here keeps a
+ * single source of truth — the private renderer restates only this shape
+ * (ADR-007) and never the catalogue.
+ */
+export interface TemplateStyle {
+  documentClass: TemplateConfig['documentClass'];
+  style?: NonNullable<TemplateConfig['style']>;
+  chrome: ChromeField[];
+  sectionOrder: readonly string[];
+}
+
+export function templateStyle(config: TemplateConfig, includePhoto?: boolean): TemplateStyle {
+  // Everything except the photo is conventional across these designs; the photo
+  // is the one field a layout can refuse outright.
+  const chrome: ChromeField[] = ['title', 'address', 'homepage', 'socials'];
+  const wantsPhoto = includePhoto ?? config.defaults.photo;
+  if (config.supportsPhoto && wantsPhoto) chrome.push('photo');
+
+  return {
+    documentClass: config.documentClass,
+    ...(config.style ? { style: config.style } : {}),
+    chrome,
+    sectionOrder: config.defaults.sectionOrder,
+  };
+}
