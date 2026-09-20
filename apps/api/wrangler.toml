@@ -1,3 +1,24 @@
+# DEPLOYING THIS WORKER
+#
+# CI must never promote its own build, and the repo's `deploy` script uploads a
+# version rather than deploying one for exactly that reason.
+#
+# Cloudflare Workers Builds builds from the public repo, which carries the
+# `@jlog/pro` *stub* — `isProEnabled = false`, every paid route returning 402.
+# A CI version is therefore fine to build (it proves the OSS build compiles) and
+# wrong to serve: promoting one silently turns off document generation until the
+# next real deploy.
+#
+# The real deploy overlays the private implementation first:
+#
+#   cd ../jlog-pro && ./scripts/overlay.sh /path/to/jlog
+#   cd /path/to/jlog && pnpm install && pnpm --filter @jlog/pro test
+#   cd apps/api && pnpm exec wrangler deploy
+#
+# `wrangler deploy` creates and routes in one step, so a deployment whose version
+# was created ~1s earlier is a real one; a gap of minutes means someone promoted
+# a CI build and the stub is live.
+
 name = "jlog-api"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
