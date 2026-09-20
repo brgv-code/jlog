@@ -31,25 +31,42 @@ jobs:
   deploy:
     name: Overlay private implementation and deploy
     runs-on: ubuntu-latest
+
+    # This job reads nothing from GitHub beyond its own checkout, and writes
+    # nothing back. The default GITHUB_TOKEN is far broader than that.
+    permissions:
+      contents: read
+
+    # The secrets live on this environment rather than on the repository, so
+    # they are only exposed to a run that has been approved.
+    #
+    # Worth being precise about what that buys, because it is not protection
+    # from contributors: GitHub already withholds secrets from anything a fork's
+    # pull request triggers, so a PR that rewrites this file still cannot read
+    # them. What an approval gate covers is the realistic case — something
+    # malicious that got *merged*, including a dependency whose install script
+    # runs here with these secrets in scope.
+    environment: production
+
     steps:
       - name: Check out the public monorepo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Needs a token that can read the private repo: a fine-grained PAT with
       # Contents: read on it, or a deploy key. The public workflow only ever
       # names the secret, never its value.
       - name: Check out the private @jlog/pro implementation
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: ${{ secrets.PRO_REPO }}
           token: ${{ secrets.PRO_REPO_TOKEN }}
           path: .jlog-pro
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: pnpm
