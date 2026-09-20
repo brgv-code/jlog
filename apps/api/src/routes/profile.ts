@@ -566,6 +566,7 @@ router.get('/cv', async (c) => {
       email: row?.email ?? '',
       homepage: row?.homepage ?? '',
       photo: row?.photo ?? '',
+      template: row?.template ?? 'europe',
       socials: row?.socials ?? [],
       summary: row?.summary ?? '',
       sections: row?.sections ?? [],

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CV_TEMPLATES, DEFAULT_TEMPLATE } from './cv/templates';
 
 export const githubUserSchema = z.object({
   id: z.number(),
@@ -293,6 +294,8 @@ export const cvProfileSchema = z.object({
   homepage: z.string().max(300).default(''),
   /** A filename shipped with the compile request, not the image bytes. */
   photo: z.string().max(300).default(''),
+  /** Default CV template, overridden per generation. See ADR-010. */
+  template: z.enum(CV_TEMPLATES).default(DEFAULT_TEMPLATE),
   socials: z
     .array(z.object({ network: z.string().max(50), handle: z.string().max(200) }))
     .max(10)

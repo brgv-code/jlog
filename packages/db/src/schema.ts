@@ -247,6 +247,8 @@ export const cvProfiles = sqliteTable('cv_profiles', {
   homepage: text('homepage').notNull().default(''),
   /** A filename shipped alongside the compile request, not the image itself. */
   photo: text('photo').notNull().default(''),
+  /** Default CV template. Overridden per generation — see ADR-010. */
+  template: text('template').notNull().default('europe'),
   socials: text('socials', { mode: 'json' })
     .$type<{ network: string; handle: string }[]>()
     .notNull()
