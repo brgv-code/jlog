@@ -50,6 +50,9 @@ export default function ApplicationsShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const [applications, setApplications] = useState<Application[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
   // Home links here with a filter already chosen, so the tile you clicked and
   // the list you land on agree.
@@ -104,26 +107,52 @@ export default function ApplicationsShell() {
     };
   }, [searchQuery]);
 
-  // Fetch applications
-  const fetchApplications = useCallback(() => {
-    setLoadingApps(true);
-    const params = new URLSearchParams({ sort });
-    if (statusFilter !== 'all') params.set('status', statusFilter);
-    if (debouncedQuery) params.set('q', debouncedQuery);
+  const GHOSTED_AFTER_DAYS = 14;
 
-    apiFetch(`/api/applications?${params.toString()}`)
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = (await res.json()) as { applications: Application[] };
-        setApplications(data.applications);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingApps(false));
-  }, [statusFilter, debouncedQuery, sort]);
+  // Fetch a page. A cursor means "append"; no cursor means "replace", which is
+  // what every filter change does.
+  const fetchPage = useCallback(
+    (cursor: string | null) => {
+      if (cursor) setLoadingMore(true);
+      else setLoadingApps(true);
 
+      const params = new URLSearchParams({ sort });
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (debouncedQuery) params.set('q', debouncedQuery);
+      if (view === 'ghosted') {
+        params.set(
+          'appliedBefore',
+          new Date(Date.now() - GHOSTED_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        );
+      }
+      if (cursor) params.set('cursor', cursor);
+
+      apiFetch(`/api/applications?${params.toString()}`)
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = (await res.json()) as {
+            applications: Application[];
+            nextCursor: string | null;
+            total: number;
+          };
+          setApplications((prev) => (cursor ? [...prev, ...data.applications] : data.applications));
+          setNextCursor(data.nextCursor);
+          setTotal(data.total);
+        })
+        .catch(() => {})
+        .finally(() => {
+          setLoadingApps(false);
+          setLoadingMore(false);
+        });
+    },
+    [statusFilter, debouncedQuery, sort, view],
+  );
+
+  // fetchPage changes identity whenever a filter does, so this doubles as the
+  // reset: a new filter always starts from the first page.
   useEffect(() => {
-    if (auth.status === 'authenticated') fetchApplications();
-  }, [auth.status, fetchApplications]);
+    if (auth.status === 'authenticated') fetchPage(null);
+  }, [auth.status, fetchPage]);
 
   async function handleSignOut() {
     await apiFetch('/api/auth/logout', { method: 'POST' });
@@ -132,6 +161,7 @@ export default function ApplicationsShell() {
 
   function handleAddSuccess(app: Application) {
     setApplications((prev) => [app, ...prev]);
+    setTotal((n) => n + 1);
     setShowAddDialog(false);
   }
 
@@ -145,6 +175,7 @@ export default function ApplicationsShell() {
 
   function handleDelete(id: string) {
     setApplications((prev) => prev.filter((a) => a.id !== id));
+    setTotal((n) => Math.max(0, n - 1));
     setSelectedId(null);
   }
 
@@ -168,13 +199,6 @@ export default function ApplicationsShell() {
   if (auth.status === 'unauthenticated') return null;
 
   const { user } = auth;
-
-  const GHOSTED_AFTER_DAYS = 14;
-  const cutoff = Date.now() - GHOSTED_AFTER_DAYS * 24 * 60 * 60 * 1000;
-  const visible =
-    view === 'ghosted'
-      ? applications.filter((a) => a.appliedAt != null && Date.parse(a.appliedAt) < cutoff)
-      : applications;
 
   return (
     <div
@@ -345,10 +369,24 @@ export default function ApplicationsShell() {
               </select>
 
               {loadingApps && <Spinner size={16} />}
+
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--color-text-tertiary)',
+                  fontVariantNumeric: 'tabular-nums',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {loadingApps
+                  ? ' '
+                  : `${total.toLocaleString()} ${total === 1 ? 'application' : 'applications'}`}
+              </span>
             </div>
 
             <ApplicationsTable
-              applications={visible}
+              applications={applications}
               onRowClick={(id) => setSelectedId(id)}
               selectedId={selectedId ?? undefined}
               onStatusChange={handleStatusChange}
@@ -360,6 +398,27 @@ export default function ApplicationsShell() {
                 setView('all');
               }}
             />
+
+            {nextCursor && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  padding: 'var(--space-6) 0',
+                }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchPage(nextCursor)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore
+                    ? 'Loading…'
+                    : `Load more (${(total - applications.length).toLocaleString()} left)`}
+                </Button>
+              </div>
+            )}
           </main>
         )}
       </div>

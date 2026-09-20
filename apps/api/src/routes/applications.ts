@@ -5,7 +5,7 @@ import {
   paginationSchema,
   updateApplicationSchema,
 } from '@jlog/shared';
-import { and, desc, eq, like, lt, or } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, like, lt, or, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
@@ -71,13 +71,19 @@ router.get('/', async (c) => {
     );
   }
 
-  const { cursor, limit, status, sort, q } = parsed.data;
+  const { cursor, limit, status, sort, q, appliedBefore } = parsed.data;
   const db = createDb(c.env.DB);
 
-  const conditions = [eq(applications.userId, session.userId)];
+  // Split deliberately: the count must reflect the filters but NOT the cursor,
+  // or "247 applications" turns into "197 applications" the moment you page.
+  const filters = [eq(applications.userId, session.userId)];
 
   if (status) {
-    conditions.push(eq(applications.status, status));
+    filters.push(eq(applications.status, status));
+  }
+
+  if (appliedBefore) {
+    filters.push(isNotNull(applications.appliedAt), lt(applications.appliedAt, appliedBefore));
   }
 
   if (q) {
@@ -87,7 +93,7 @@ router.get('/', async (c) => {
       like(applications.role, pattern),
     );
     // or() returns undefined only when called with zero args; here we always pass two, so it is defined
-    if (searchCondition) conditions.push(searchCondition);
+    if (searchCondition) filters.push(searchCondition);
   }
 
   const sortCol =
@@ -96,6 +102,8 @@ router.get('/', async (c) => {
       : sort === 'company'
         ? applications.company
         : applications.createdAt;
+
+  const pageConditions = [...filters];
 
   // Keyset pagination on (sortCol, id) so the cursor stays valid for every
   // sort option, not just the default (createdAt).
@@ -110,15 +118,21 @@ router.get('/', async (c) => {
       and(eq(sortCol, cursorValue), lt(applications.id, decoded.id)),
     );
     // or() returns undefined only when called with zero args; here we always pass two, so it is defined
-    if (cursorCondition) conditions.push(cursorCondition);
+    if (cursorCondition) pageConditions.push(cursorCondition);
   }
 
-  const rows = await db
-    .select()
-    .from(applications)
-    .where(and(...conditions))
-    .orderBy(desc(sortCol), desc(applications.id))
-    .limit(limit + 1);
+  const [rows, [counted]] = await Promise.all([
+    db
+      .select()
+      .from(applications)
+      .where(and(...pageConditions))
+      .orderBy(desc(sortCol), desc(applications.id))
+      .limit(limit + 1),
+    db
+      .select({ total: sql<number>`count(*)` })
+      .from(applications)
+      .where(and(...filters)),
+  ]);
 
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
@@ -134,7 +148,7 @@ router.get('/', async (c) => {
         )
       : null;
 
-  return c.json({ applications: items, nextCursor });
+  return c.json({ applications: items, nextCursor, total: counted?.total ?? 0 });
 });
 
 // POST / — create
