@@ -1,9 +1,7 @@
-import { SettingsIcon } from 'lucide-react';
+import { ArrowRightIcon, SettingsIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { Sidebar } from './Sidebar';
-import { CvProfileForm } from './settings/CvProfileForm';
-import { ImportCvForm } from './settings/ImportCvForm';
 import { LLMConfigForm } from './settings/LLMConfigForm';
 import { Spinner } from './ui/Spinner';
 import { ThemeSegmented } from './ui/ThemeSegmented';
@@ -257,13 +255,20 @@ export default function SettingsShell() {
             <LLMConfigForm />
           </section>
 
-          {/* CV profile — the non-claim half of a generated CV, and the import
-              that fills both halves from a CV you already have */}
+          {/* Moved to its own route. A signpost stays because this is where it
+              lived for long enough that people will come looking. */}
           <section style={sectionStyle}>
             <p style={headingStyle}>CV</p>
-            <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
-              <ImportCvForm />
-              <CvProfileForm />
+            <p style={helpStyle}>
+              Your CV import and profile now have their own page, in the sidebar.
+            </p>
+            <div>
+              <Button variant="outline" size="sm" asChild>
+                <a href="/cv">
+                  Open CV
+                  <ArrowRightIcon size={13} strokeWidth={1.75} />
+                </a>
+              </Button>
             </div>
           </section>
 

@@ -3,12 +3,14 @@ import {
   AlertCircleIcon,
   ArrowRightIcon,
   BriefcaseIcon,
+  FileUserIcon,
   HomeIcon,
   MessagesSquareIcon,
   SendIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { type CvProfile, isProfileUsable, loadCvProfile } from '../lib/cvProfile';
 import { Sidebar } from './Sidebar';
 import { BarList } from './charts/BarList';
 import { Columns } from './charts/Columns';
@@ -67,6 +69,7 @@ export default function HomeShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cv, setCv] = useState<CvProfile | null>(null);
 
   useEffect(() => {
     apiFetch('/api/auth/me')
@@ -83,6 +86,13 @@ export default function HomeShell() {
 
   useEffect(() => {
     if (auth.status === 'unauthenticated') window.location.href = '/login';
+  }, [auth.status]);
+
+  useEffect(() => {
+    if (auth.status !== 'authenticated') return;
+    loadCvProfile()
+      .then(setCv)
+      .catch(() => {});
   }, [auth.status]);
 
   useEffect(() => {
@@ -180,9 +190,17 @@ export default function HomeShell() {
               </Button>
             }
           />
+        ) : null}
+
+        {!loading && total === 0 ? (
+          <div style={{ padding: '0 var(--space-8) var(--space-16)' }}>
+            <CvBand profile={cv} />
+          </div>
         ) : (
           <main style={{ padding: '0 var(--space-8) var(--space-16)', width: '100%' }}>
             <AttentionStrip attention={data?.attention} />
+
+            <CvBand profile={cv} />
 
             <Panel
               title="Applications added"
@@ -336,6 +354,96 @@ function Panel({
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * CV readiness, on the home page.
+ *
+ * Loud only when it needs to be. Without a usable profile nothing can be
+ * tailored, so that state gets a prompt with an action; once it is set up the
+ * band collapses to a single quiet line, because a solved problem should not
+ * keep asking for attention.
+ */
+function CvBand({ profile }: { profile: CvProfile | null }) {
+  const ready = profile != null && isProfileUsable(profile);
+
+  if (!ready) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--space-4)',
+          flexWrap: 'wrap',
+          padding: 'var(--space-5)',
+          marginTop: 'var(--space-6)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+          <FileUserIcon
+            size={18}
+            strokeWidth={1.5}
+            style={{ color: 'var(--color-icon-cv)', flexShrink: 0, marginTop: '2px' }}
+          />
+          <div style={{ display: 'grid', gap: '2px' }}>
+            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>Set up your CV</span>
+            <span
+              style={{
+                fontSize: 'var(--text-sm)',
+                color: 'var(--color-text-secondary)',
+                maxWidth: '58ch',
+                lineHeight: 1.6,
+              }}
+            >
+              Import a CV once and every tailored CV and cover letter is built from it. Until then,
+              tailoring has nothing to draw on.
+            </span>
+          </div>
+        </div>
+        <Button size="sm" asChild>
+          <a href="/cv">Import your CV</a>
+        </Button>
+      </div>
+    );
+  }
+
+  const name = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 'var(--space-4)',
+        flexWrap: 'wrap',
+        paddingTop: 'var(--space-5)',
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          fontSize: 'var(--text-sm)',
+          color: 'var(--color-text-secondary)',
+        }}
+      >
+        <FileUserIcon size={14} strokeWidth={1.75} style={{ color: 'var(--color-icon-cv)' }} />
+        CV ready — {name}
+        {profile.title && `, ${profile.title}`}
+      </span>
+      <Button variant="ghost" size="sm" asChild>
+        <a href="/cv">
+          Tweak your CV
+          <ArrowRightIcon size={13} strokeWidth={2} />
+        </a>
+      </Button>
+    </div>
   );
 }
 
