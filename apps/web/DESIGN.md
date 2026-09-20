@@ -66,6 +66,29 @@ Three signed-in surfaces:
 | `/applications` | `ApplicationsShell` | The list. Accepts `?status=` and `?view=ghosted` so Home's tiles land pre-filtered. |
 | `/settings` | `SettingsShell` | Centred at 760px — a column pinned left leaves half a wide screen empty. |
 
+The application detail view lives inside `/applications` rather than its own route. It
+pins to `calc(100vh - 56px)` so the document pane and the rail scroll independently
+instead of the page scrolling as one column.
+
+| Region | Holds |
+|---|---|
+| Identity bar | Company and role, both editable in place, plus status and the posting link. |
+| Document pane | Job description and notes as tabs. Rendered by default; editing is a mode you enter. |
+| Rail (340px) | Applied date, location, salary, source, Tailor CV, follow-up, activity, delete. |
+
+Two rules that page enforces. **Reading is the default state** — the job description used
+to render into a `rows={4}` textarea, so a thousand-word posting was read through a
+four-line window. And **a fact appears once**: company and role are the heading, so they
+are edited there rather than repeated as rail rows purely to have somewhere editable.
+
+## Long-form text
+
+`.jlog-prose` styles anything passed through `renderMarkdown`. The renderer emits one
+`<p>` per physical line and a `<br>` per blank line, and most job descriptions arrive as
+hard-wrapped plain text rather than markdown — so `<p>` carries zero margin (wrapped
+lines stack as one block) and the `<br>` supplies the paragraph break. List markers are
+set explicitly because Tailwind's preflight strips `list-style`.
+
 ## Charts
 
 Data comes from `GET /api/stats/overview` in one round trip. Charts are hand-rolled

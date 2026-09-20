@@ -258,6 +258,99 @@ body {
 }
 
 /*
+ * Rendered long-form text — job descriptions and notes.
+ *
+ * The markdown renderer emits one <p> per physical line and a <br> per blank
+ * line. Most job descriptions are pasted as hard-wrapped plain text rather than
+ * markdown, so paragraph margins would put a gap between every wrapped line.
+ * Zero margin on <p> lets wrapped lines stack as one block, and the <br> from a
+ * genuine blank line supplies the paragraph break instead.
+ */
+.jlog-prose {
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  color: var(--color-text-primary);
+}
+
+.jlog-prose p {
+  margin: 0;
+}
+
+.jlog-prose br {
+  display: block;
+  content: "";
+  height: 0.7em;
+}
+
+.jlog-prose h1,
+.jlog-prose h2,
+.jlog-prose h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 1.4em 0 0.5em;
+  line-height: 1.3;
+}
+
+.jlog-prose h1 {
+  font-size: var(--text-lg);
+}
+.jlog-prose h2 {
+  font-size: var(--text-base);
+}
+.jlog-prose h3 {
+  font-size: var(--text-sm);
+}
+
+.jlog-prose h1:first-child,
+.jlog-prose h2:first-child,
+.jlog-prose h3:first-child {
+  margin-top: 0;
+}
+
+.jlog-prose ul,
+.jlog-prose ol {
+  margin: 0.5em 0;
+  padding-left: 1.35em;
+}
+
+.jlog-prose ul {
+  list-style: disc;
+}
+.jlog-prose ol {
+  list-style: decimal;
+}
+
+.jlog-prose li::marker {
+  color: var(--color-text-tertiary);
+}
+
+/* A blank line before a heading or a list already reads as separation; the
+   renderer's <br> on top of the block margin doubles it. */
+.jlog-prose br + h1,
+.jlog-prose br + h2,
+.jlog-prose br + h3,
+.jlog-prose br + ul,
+.jlog-prose br + ol {
+  margin-top: 0;
+}
+
+.jlog-prose li {
+  margin: 0.15em 0;
+}
+
+.jlog-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background-color: var(--color-surface-raised);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.3em;
+}
+
+.jlog-prose strong {
+  font-weight: 600;
+}
+
+/*
  * Company monogram. The hue comes from the company name via --mono-h set
  * inline, so the same employer keeps the same colour everywhere without a
  * lookup table — and the wash is soft enough that forty of them in a column
