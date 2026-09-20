@@ -3,6 +3,7 @@ import {
   BriefcaseIcon,
   ChevronUpIcon,
   ExternalLinkIcon,
+  FileUserIcon,
   HomeIcon,
   LogOutIcon,
   PanelLeftIcon,
@@ -14,7 +15,7 @@ import { ThemeSegmented } from './ui/ThemeSegmented';
 const COLLAPSED_KEY = 'jlog_sidebar_collapsed';
 const DOCS_URL = 'https://github.com/brgv-code/jlog#readme';
 
-export type NavKey = 'home' | 'applications' | 'settings';
+export type NavKey = 'home' | 'applications' | 'cv' | 'settings';
 
 interface NavItem {
   key: NavKey | 'docs';
@@ -40,6 +41,13 @@ const NAV: NavItem[] = [
     href: '/applications',
     Icon: BriefcaseIcon,
     tone: 'var(--color-icon-applications)',
+  },
+  {
+    key: 'cv',
+    label: 'CV',
+    href: '/cv',
+    Icon: FileUserIcon,
+    tone: 'var(--color-icon-cv)',
   },
   {
     key: 'settings',

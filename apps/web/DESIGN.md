@@ -64,6 +64,7 @@ Three signed-in surfaces:
 |---|---|---|
 | `/dashboard` | `HomeShell` | Home. What needs attention today, then the charts behind it. Also where the API lands you after OAuth, which is why it keeps this path. |
 | `/applications` | `ApplicationsShell` | The list. Accepts `?status=` and `?view=ghosted` so Home's tiles land pre-filtered. |
+| `/cv` | `CvShell` | CV import and profile. Was two cards inside Settings; it is what every generated CV is built from, so it gets a primary place. |
 | `/settings` | `SettingsShell` | Centred at 760px — a column pinned left leaves half a wide screen empty. |
 
 The application detail view lives inside `/applications` rather than its own route. It
@@ -80,6 +81,23 @@ Two rules that page enforces. **Reading is the default state** — the job descr
 to render into a `rows={4}` textarea, so a thousand-word posting was read through a
 four-line window. And **a fact appears once**: company and role are the heading, so they
 are edited there rather than repeated as rail rows purely to have somewhere editable.
+
+## Job description formatting
+
+Postings arrive from the extension as plain text — the markup that made them readable on
+the job board is gone, so headings, bullets and paragraphs all come through as
+undifferentiated lines. `lib/jobText.ts` puts the structure back by inference before the
+markdown renderer sees it: typographic bullets (`•`, `–`, `▪`) become list items, short
+unpunctuated lines that shout, introduce a list, or stand alone between blanks become
+headings, and lines hard-wrapped mid-sentence are rejoined into flowing paragraphs.
+
+It is heuristic and will sometimes be wrong, so the detail view keeps a toggle back to
+the original — a formatter you cannot see through is worse than no formatter. Text that
+already carries markdown is detected and left alone; notes are never inferred over, since
+the user wrote that markdown deliberately.
+
+The rules live behind tests (`jobText.test.ts`) because they are the kind of heuristic
+that silently rots the moment someone tweaks a regex.
 
 ## Long-form text
 

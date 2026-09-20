@@ -1,8 +1,17 @@
 import type { ApplicationStatus } from '@jlog/shared';
-import { ArrowLeftIcon, ExternalLinkIcon, MailIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import {
+  ArrowLeftIcon,
+  ExternalLinkIcon,
+  MailIcon,
+  PencilIcon,
+  Trash2Icon,
+  TypeIcon,
+  WandSparklesIcon,
+} from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../lib/api';
+import { inferStructure } from '../../lib/jobText';
 import { renderMarkdown } from '../../lib/markdown';
 import { Spinner } from '../ui/Spinner';
 import { Button } from '../ui/button';
@@ -272,9 +281,22 @@ function DocPane({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [formatted, setFormatted] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const current = tab === 'jobDescription' ? jobDescription : notes;
+
+  /*
+   * Only the job description gets structure inferred. Notes are written by the
+   * user in a textarea, so their markdown is deliberate and guessing at it
+   * would fight them.
+   *
+   * The toggle appears only when inference actually changed something — on a
+   * posting that already reads as markdown there is nothing to toggle between.
+   */
+  const inferred = tab === 'jobDescription' ? inferStructure(current) : current;
+  const canToggle = tab === 'jobDescription' && inferred !== current;
+  const shown = canToggle && !formatted ? current : inferred;
 
   useEffect(() => {
     if (editing) {
@@ -350,10 +372,27 @@ function DocPane({
             </Button>
           </div>
         ) : (
-          <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-            <PencilIcon size={13} strokeWidth={1.75} />
-            Edit
-          </Button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+            {canToggle && (
+              <Button variant="ghost" size="sm" onClick={() => setFormatted((f) => !f)}>
+                {formatted ? (
+                  <>
+                    <TypeIcon size={13} strokeWidth={1.75} />
+                    Original
+                  </>
+                ) : (
+                  <>
+                    <WandSparklesIcon size={13} strokeWidth={1.75} />
+                    Formatted
+                  </>
+                )}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+              <PencilIcon size={13} strokeWidth={1.75} />
+              Edit
+            </Button>
+          </div>
         )}
       </div>
 
@@ -391,7 +430,7 @@ function DocPane({
             style={{ maxWidth: '72ch' }}
             // renderMarkdown sanitises before returning.
             // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitised in renderMarkdown
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(current) }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(shown) }}
           />
         ) : (
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>
