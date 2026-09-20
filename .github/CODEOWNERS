@@ -1,0 +1,22 @@
+# Ownership for the files where a change is a trust decision rather than a
+# code review. Everything else is open to normal review by anyone.
+#
+# CODEOWNERS only has teeth alongside branch protection on `main` with
+# "Require review from Code Owners" enabled; on its own it is a suggestion.
+
+# Workflows can reach the deploy secrets. A change here — a new trigger, an
+# extra step, an unpinned action — is worth more scrutiny than the code it
+# ships. `pull_request_target` in particular would expose secrets to
+# pull-request code, which is how nearly every real Actions leak happens.
+/.github/ @brgv-code
+
+# The seam between the open-source build and the paid one (ADR-003, ADR-007).
+# The stub's export surface is a contract with a private repository that
+# reviewers here cannot see.
+/packages/pro/ @brgv-code
+
+# Entitlement and money. `users.plan` is what the paywall reads, and
+# `plan_source` is what stops billing revoking a comped account (ADR-011).
+/apps/api/src/routes/billing.ts @brgv-code
+/apps/api/src/lib/billing.ts @brgv-code
+/packages/db/migrations/ @brgv-code
