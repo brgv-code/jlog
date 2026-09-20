@@ -38,6 +38,48 @@ describe('domExtractors', () => {
     expect(result).toEqual({ company: 'Real Employer Inc', role: 'Senior Full Stack Developer' });
   });
 
+  it('captures the employer logo when the board renders one', async () => {
+    setBody(`
+      <div class="job-details-jobs-unified-top-card">
+        <img alt="Real Employer Inc logo" src="https://media.example.com/logo.png" />
+        <h1 class="job-details-jobs-unified-top-card__job-title">Senior Full Stack Developer</h1>
+        <span class="job-details-jobs-unified-top-card__company-name">Real Employer Inc</span>
+      </div>
+    `);
+    const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
+    const result = await linkedin?.extract();
+    expect(result).toEqual({
+      company: 'Real Employer Inc',
+      role: 'Senior Full Stack Developer',
+      logoUrl: 'https://media.example.com/logo.png',
+    });
+  });
+
+  it('ignores a logo that is not served over https', async () => {
+    setBody(`
+      <div class="job-details-jobs-unified-top-card">
+        <img alt="Real Employer Inc logo" src="http://media.example.com/logo.png" />
+        <h1 class="job-details-jobs-unified-top-card__job-title">Senior Full Stack Developer</h1>
+        <span class="job-details-jobs-unified-top-card__company-name">Real Employer Inc</span>
+      </div>
+    `);
+    const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
+    const result = await linkedin?.extract();
+    expect(result).not.toHaveProperty('logoUrl');
+  });
+
+  it('does not attach a logo key when the page has no matching image', async () => {
+    setBody(`
+      <div class="job-details-jobs-unified-top-card">
+        <span class="job-details-jobs-unified-top-card__company-name">Nameless Co</span>
+        <h1 class="job-details-jobs-unified-top-card__job-title">Some Role</h1>
+      </div>
+    `);
+    const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');
+    const result = await linkedin?.extract();
+    expect(result).not.toHaveProperty('logoUrl');
+  });
+
   it('falls back through the LinkedIn selector chain when the primary class is absent', async () => {
     setBody(`
       <div class="topcard__flavor">Fallback Co</div>

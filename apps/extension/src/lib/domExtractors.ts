@@ -114,7 +114,8 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
         role = readRole(pane);
         company = readCompany(pane);
       }
-      return { company, role, logoUrl: readLogo(pane, company) };
+      const logoUrl = readLogo(pane, company);
+      return { company, role, ...(logoUrl ? { logoUrl } : {}) };
     },
     extractPageText: async () => {
       function textOf(el: HTMLElement | null): string {
