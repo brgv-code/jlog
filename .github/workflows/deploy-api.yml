@@ -1,0 +1,94 @@
+name: Deploy API
+
+# The API cannot be built from this repository alone.
+#
+# `packages/pro/src` here is the PUBLIC STUB, whose every route returns 402
+# regardless of the database. The real implementation lives in the private
+# repo and is copied over that path by its `scripts/overlay.sh` (ADR-003,
+# ADR-007). Any builder that can only see this repository — Cloudflare's
+# git-connected Workers Builds, for instance — therefore ships a worker where
+# the paid feature can never unlock, while every check stays green.
+#
+# That is exactly how it broke once: an entitled account saw "Pro" in settings
+# and a 402 from every pro route, because settings reads a public column and
+# the route was the stub. Hence the verification step below, which fails the
+# deploy rather than shipping a build that looks fine and is not.
+#
+# Turn OFF Cloudflare Workers Builds for jlog-api when enabling this, or the
+# two race and the git-connected one wins whenever it runs last.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A half-finished deploy overwritten by the next one is worse than a queue.
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Overlay private implementation and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the public monorepo
+        uses: actions/checkout@v4
+
+      # Needs a token that can read the private repo: a fine-grained PAT with
+      # Contents: read on it, or a deploy key. The public workflow only ever
+      # names the secret, never its value.
+      - name: Check out the private @jlog/pro implementation
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.PRO_REPO }}
+          token: ${{ secrets.PRO_REPO_TOKEN }}
+          path: .jlog-pro
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # Invoked through bash so a lost execute bit on checkout is not a failure.
+      - name: Overlay the private implementation
+        run: bash .jlog-pro/scripts/overlay.sh .
+
+      # The overlay copies src/ only and exits 0 in more than one way. Without
+      # this, a failed or partial copy deploys the stub silently, which is the
+      # failure this whole workflow exists to prevent.
+      - name: Verify the overlay actually landed
+        run: |
+          if ! grep -q 'PRIVATE IMPLEMENTATION' packages/pro/src/index.ts; then
+            echo "::error::packages/pro/src is still the public stub. Refusing to deploy a build whose paid routes can never unlock."
+            exit 1
+          fi
+          for f in agent.ts tex.ts facts.ts; do
+            test -f "packages/pro/src/$f" || { echo "::error::overlay incomplete: packages/pro/src/$f missing"; exit 1; }
+          done
+          echo "Overlay verified: private implementation in place."
+
+      # Still --frozen-lockfile: the overlay replaces src/ only and never
+      # package.json, so the lockfile is untouched by it. If that ever stops
+      # being true this step is where it should fail, loudly.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @jlog/api typecheck
+
+      - name: Test the private implementation
+        run: pnpm --filter @jlog/pro test
+
+      # `deploy`, not `versions upload`. Uploading without deploying leaves the
+      # newest version undeployed, which also blocks `wrangler secret put` with
+      # an error that does not explain itself.
+      - name: Deploy
+        run: pnpm --filter @jlog/api exec wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
