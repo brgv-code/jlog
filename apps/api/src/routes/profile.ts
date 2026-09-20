@@ -597,4 +597,130 @@ router.put('/cv', async (c) => {
   return c.json({ profile: parsed.data, stored: true });
 });
 
+/*
+ * Profile photo.
+ *
+ * A CV photo is expected across much of Europe and deliberately avoided in the
+ * US, so storing one and using one are separate decisions. This end only
+ * stores it; whether a given render includes it is decided at generation time.
+ *
+ * `cv_profiles.photo` keeps the filename the LaTeX references, matching the
+ * existing contract — the bytes travel with the compile request as an asset,
+ * they are not embedded in the document.
+ */
+const MAX_PHOTO_BYTES = 512_000;
+/** jpeg and png only: they are what a LaTeX toolchain can place without help. */
+const PHOTO_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+};
+
+function photoKey(userId: string, ext: string): string {
+  return `photo/${userId}.${ext}`;
+}
+
+router.put('/photo', async (c) => {
+  const session = requireSession(c);
+  const bucket = c.env.CV_FILES;
+  if (!bucket) {
+    return c.json(
+      { error: { code: 'STORAGE_NOT_CONFIGURED', message: 'No file storage on this deployment.' } },
+      503,
+    );
+  }
+
+  const contentType = c.req.header('content-type') ?? '';
+  const ext = PHOTO_TYPES[contentType];
+  if (!ext) {
+    throw new HttpError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Only JPEG and PNG images are accepted');
+  }
+
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    throw new HttpError(400, 'VALIDATION_ERROR', 'Empty body');
+  }
+  if (body.byteLength > MAX_PHOTO_BYTES) {
+    throw new HttpError(413, 'PAYLOAD_TOO_LARGE', 'That image is too large — 500KB is the limit');
+  }
+
+  const key = photoKey(session.userId, ext);
+  await bucket.put(key, body, { httpMetadata: { contentType } });
+
+  // Drop the other extension if the format changed, or a stale png would sit in
+  // the bucket forever with nothing pointing at it.
+  const stale = ext === 'jpg' ? photoKey(session.userId, 'png') : photoKey(session.userId, 'jpg');
+  await bucket.delete(stale).catch(() => {});
+
+  const filename = `photo.${ext}`;
+  const db = createDb(c.env.DB);
+  const now = new Date();
+  await db
+    .insert(cvProfiles)
+    .values({ userId: session.userId, photo: filename, createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({
+      target: cvProfiles.userId,
+      set: { photo: filename, updatedAt: now },
+    });
+
+  return c.json({ stored: true, photo: filename, bytes: body.byteLength });
+});
+
+/**
+ * Streamed through the API rather than served from a public bucket URL. This is
+ * a photograph of someone's face attached to their job search; a link that
+ * works without a session is a link that works for anyone who finds it.
+ */
+router.get('/photo', async (c) => {
+  const session = requireSession(c);
+  const bucket = c.env.CV_FILES;
+  if (!bucket) {
+    throw new HttpError(404, 'NOT_FOUND', 'No file storage on this deployment');
+  }
+
+  const db = createDb(c.env.DB);
+  const [row] = await db
+    .select({ photo: cvProfiles.photo })
+    .from(cvProfiles)
+    .where(eq(cvProfiles.userId, session.userId));
+
+  const ext = row?.photo?.split('.').pop();
+  if (!ext || !Object.values(PHOTO_TYPES).includes(ext)) {
+    throw new HttpError(404, 'NOT_FOUND', 'No photo stored');
+  }
+
+  const object = await bucket.get(photoKey(session.userId, ext));
+  if (!object) {
+    throw new HttpError(404, 'NOT_FOUND', 'The stored photo is no longer there');
+  }
+
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType ?? 'application/octet-stream',
+      // Private: a shared cache must never hold this.
+      'Cache-Control': 'private, max-age=60',
+    },
+  });
+});
+
+router.delete('/photo', async (c) => {
+  const session = requireSession(c);
+  const db = createDb(c.env.DB);
+
+  const bucket = c.env.CV_FILES;
+  if (bucket) {
+    await Promise.all(
+      Object.values(PHOTO_TYPES).map((ext) =>
+        bucket.delete(photoKey(session.userId, ext)).catch(() => {}),
+      ),
+    );
+  }
+
+  await db
+    .update(cvProfiles)
+    .set({ photo: '', updatedAt: new Date() })
+    .where(eq(cvProfiles.userId, session.userId));
+
+  return c.json({ deleted: true });
+});
+
 export default router;

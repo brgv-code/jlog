@@ -1,5 +1,5 @@
-import { CheckIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CheckIcon, PlusIcon, Trash2Icon, UploadIcon, UserRoundIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import {
   type CvProfile,
   type CvSection,
@@ -7,6 +7,7 @@ import {
   loadCvProfile,
   saveCvProfile,
 } from '../../lib/cvProfile';
+import { deletePhoto, loadPhotoUrl, uploadPhoto } from '../../lib/photo';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Separator } from '../ui/separator';
@@ -134,6 +135,121 @@ function SectionEditor({
   );
 }
 
+/**
+ * The photo control.
+ *
+ * Deliberately says nothing about whether a CV should carry one — that is a
+ * regional convention, not a preference, and it is decided per render rather
+ * than here. This only stores it.
+ */
+function PhotoField() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Blob URLs leak until revoked, and this one is replaced on every change.
+  useEffect(() => {
+    let revoked: string | null = null;
+    loadPhotoUrl()
+      .then((next) => {
+        revoked = next;
+        setUrl(next);
+      })
+      .catch(() => {});
+    return () => {
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, []);
+
+  async function refresh() {
+    const next = await loadPhotoUrl().catch(() => null);
+    setUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return next;
+    });
+  }
+
+  async function onPick(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await uploadPhoto(file);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not store that photo.');
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  async function onRemove() {
+    setBusy(true);
+    setError(null);
+    try {
+      await deletePhoto();
+      setUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not remove the photo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+        Photo
+      </span>
+      <div className="flex items-center gap-4">
+        <span className="bg-muted text-muted-foreground flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md">
+          {url ? (
+            <img src={url} alt="" className="size-full object-cover" />
+          ) : (
+            <UserRoundIcon className="size-6" strokeWidth={1.5} />
+          )}
+        </span>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              className="hidden"
+              onChange={(e) => onPick(e.target.files?.[0])}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+            >
+              <UploadIcon className="size-3.5" />
+              {url ? 'Replace' : 'Upload'}
+            </Button>
+            {url && (
+              <Button variant="ghost" size="sm" disabled={busy} onClick={onRemove}>
+                Remove
+              </Button>
+            )}
+          </div>
+          <p className="text-muted-foreground text-[11px] leading-relaxed">
+            Resized and re-encoded in your browser before upload. Whether a generated CV includes it
+            is chosen per application — US CVs conventionally have none.
+          </p>
+        </div>
+      </div>
+      {error && <p className="text-destructive text-[11px]">{error}</p>}
+    </div>
+  );
+}
+
 export function CvProfileForm() {
   const [profile, setProfile] = useState<CvProfile>(EMPTY_PROFILE);
   const [sections, setSections] = useState<SectionDraft[]>([]);
@@ -213,6 +329,8 @@ export function CvProfileForm() {
             placeholder="bhargav.dev"
           />
         </div>
+
+        <PhotoField />
 
         <label className="flex flex-col gap-1.5">
           <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
