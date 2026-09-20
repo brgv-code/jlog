@@ -8,6 +8,7 @@ import { sessionMiddleware } from './middleware/session';
 import { tracingMiddleware } from './middleware/tracing';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
+import billingRouter from './routes/billing';
 import companyLogoRouter from './routes/companyLogo';
 import eventsRouter from './routes/events';
 import extensionRouter from './routes/extension';
@@ -46,6 +47,15 @@ export interface Env {
   // Which Langfuse environment these traces belong to. Separates a preview
   // deployment's traces from production's inside one project.
   LANGFUSE_TRACING_ENVIRONMENT?: string;
+  /**
+   * Stripe, for the hosted instance's paid plan (ADR-011). All optional: a
+   * self-hoster has no billing, and every billing route fails closed with
+   * BILLING_NOT_CONFIGURED naming the missing one. Secrets rather than vars —
+   * wrangler.toml is in the public repo.
+   */
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRICE_ID?: string;
 }
 
 export type Variables = {
@@ -92,6 +102,9 @@ app.route('/api/profile', profileRouter);
 app.route('/api/llm', llmRouter);
 app.route('/api/extract', extractRouter);
 app.route('/api/extension', extensionRouter);
+// Billing. /billing/webhook is deliberately sessionless: Stripe sends no cookie
+// and the signature is what authenticates it.
+app.route('/api/billing', billingRouter);
 // Paid feature surface. In the OSS build this is the @jlog/pro stub (every route
 // returns 402); the hosted build aliases @jlog/pro to the private implementation.
 app.route('/api/pro', createProRouter({ makeTailor }));

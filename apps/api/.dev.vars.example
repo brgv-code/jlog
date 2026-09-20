@@ -12,3 +12,13 @@ LANGFUSE_SECRET_KEY=sk-lf-...
 LANGFUSE_BASE_URL=https://cloud.langfuse.com
 # Keeps local traces out of the production ones in the same project.
 LANGFUSE_TRACING_ENVIRONMENT=local
+# Optional — billing for the hosted plan. Unset means /api/billing/* returns
+# BILLING_NOT_CONFIGURED and everything else works, which is the self-hosted
+# case. Use test-mode keys here; never a live key in a file on your laptop.
+# STRIPE_WEBHOOK_SECRET is the whsec_ that `stripe listen` prints, not the one
+# from the dashboard — they are different secrets and only the CLI's verifies
+# against forwarded events:
+#   stripe listen --forward-to localhost:8787/api/billing/webhook
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID=price_...
