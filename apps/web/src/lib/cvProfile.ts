@@ -28,7 +28,7 @@ export const EMPTY_PROFILE: CvProfile = {
   email: '',
   homepage: '',
   photo: '',
-  template: 'europe',
+  template: 'classic',
   socials: [],
   summary: '',
   sections: [],

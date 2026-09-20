@@ -1,78 +1,139 @@
 /**
  * CV templates.
  *
- * A template is config over one renderer, not a renderer of its own — see
- * ADR-010. What varies between regional CVs is convention, not typesetting:
- * which personal details are conventional, what order sections go in, and how
- * long the document is expected to be. All of that is data.
+ * A template is a *design* — what the document looks like. It is not a country.
  *
- * Defined here rather than in the renderer so the public picker and the private
- * renderer consume one shape instead of two that drift.
+ * The first cut of this got that wrong: it defined europe/us/india, which were
+ * three sets of conventions over one identical moderncv layout. Asking to see
+ * them side by side is what exposed it — a gallery would have shown three
+ * near-identical documents. Region is a property some designs carry defaults
+ * for, never the thing being chosen.
+ *
+ * Everything here compiles on the Tectonic image as it stands, which caches
+ * `article` and `moderncv` and nothing else. moderncv's five built-in styles do
+ * most of the work; anything needing another class is an image rebuild.
  */
 
-export const CV_TEMPLATES = ['europe', 'us', 'india'] as const;
+export const CV_TEMPLATES = ['classic', 'banking', 'casual', 'oldstyle', 'fancy', 'plain'] as const;
 export type CvTemplate = (typeof CV_TEMPLATES)[number];
 
-export const DEFAULT_TEMPLATE: CvTemplate = 'europe';
+/** What the renderer emitted before templates existed, so it stays the default. */
+export const DEFAULT_TEMPLATE: CvTemplate = 'classic';
 
-/** Chrome fields a template is willing to emit. Absent means never emitted. */
+/** Filters in the gallery. They narrow; they never forbid. */
+export const TEMPLATE_TAGS = [
+  'Simple',
+  'Modern',
+  'Traditional',
+  'Academic',
+  'Creative',
+  'ATS-safe',
+  'One-page',
+  'Two-page',
+] as const;
+export type TemplateTag = (typeof TEMPLATE_TAGS)[number];
+
 export type ChromeField = 'photo' | 'address' | 'homepage' | 'socials' | 'title';
 
 export interface TemplateConfig {
   id: CvTemplate;
   label: string;
-  /** One line on who this is for, shown beside the picker. */
-  summary: string;
-  documentClass: string;
+  /** One or two sentences on who it suits. Shown under the name, as a blurb. */
+  blurb: string;
+  tags: readonly TemplateTag[];
+  documentClass: 'moderncv' | 'article';
+  /** moderncv's built-in style. Absent for the article-based design. */
+  style?: 'classic' | 'banking' | 'casual' | 'oldstyle' | 'fancy';
   /**
-   * The allow-list. Enforced at the renderer rather than the UI, so the
-   * guarantee holds whatever the profile stores or a caller passes.
+   * Starting conventions, not rules. A photo default of false is a sensible
+   * start for a one-page ATS design, not a prohibition — the user can turn it
+   * on, and the card says what the default is.
    */
-  chrome: readonly ChromeField[];
-  /** Section order. Sections not listed keep their stored order at the end. */
-  sectionOrder: readonly string[];
-  /** What the document is expected to fit in. Advisory, not enforced. */
-  pageTarget: number;
-  /**
-   * Why a field is excluded, when the reason is not obvious. Shown in the diff
-   * so the user learns the convention rather than just seeing something vanish.
-   */
-  notes?: Readonly<Partial<Record<ChromeField, string>>>;
+  defaults: {
+    photo: boolean;
+    pageTarget: number;
+    sectionOrder: readonly string[];
+  };
+  /** Designs whose layout has nowhere to put one. */
+  supportsPhoto: boolean;
+  /** Committed sample render, page one. Real output, not a mockup. */
+  preview: string;
 }
 
+const EXPERIENCE_FIRST = ['Experience', 'Education', 'Skills', 'Languages'] as const;
+
 export const TEMPLATE_CONFIGS: Readonly<Record<CvTemplate, TemplateConfig>> = {
-  europe: {
-    id: 'europe',
-    label: 'Europe',
-    summary: 'The continental convention. Photo and address are usual.',
+  classic: {
+    id: 'classic',
+    label: 'Classic',
+    blurb: 'A dated hints column beside each entry. The default, and the safest thing to send.',
+    tags: ['Traditional', 'Two-page'],
     documentClass: 'moderncv',
-    chrome: ['photo', 'address', 'homepage', 'socials', 'title'],
-    sectionOrder: ['Experience', 'Education', 'Skills', 'Languages'],
-    pageTarget: 2,
+    style: 'classic',
+    defaults: { photo: true, pageTarget: 2, sectionOrder: EXPERIENCE_FIRST },
+    supportsPhoto: true,
+    preview: '/templates/classic.pdf',
   },
-  us: {
-    id: 'us',
-    label: 'United States',
-    summary: 'One page, no photo. Experience leads.',
+  banking: {
+    id: 'banking',
+    label: 'Banking',
+    blurb: 'Centred header, restrained rules. Built for conservative industries.',
+    tags: ['Traditional', 'Simple'],
     documentClass: 'moderncv',
-    // No photo and no street address, deliberately and unconditionally.
-    chrome: ['homepage', 'socials', 'title'],
-    sectionOrder: ['Experience', 'Skills', 'Education'],
-    pageTarget: 1,
-    notes: {
-      photo:
-        'US employers routinely discard CVs carrying a photo, to limit discrimination exposure. This is not a style preference.',
-      address: 'A city is expected; a street address is not, and reads as a privacy lapse.',
+    style: 'banking',
+    defaults: { photo: false, pageTarget: 2, sectionOrder: EXPERIENCE_FIRST },
+    supportsPhoto: true,
+    preview: '/templates/banking.pdf',
+  },
+  casual: {
+    id: 'casual',
+    label: 'Casual',
+    blurb: 'Warmer spacing and a softer header. Reads well at startups.',
+    tags: ['Modern'],
+    documentClass: 'moderncv',
+    style: 'casual',
+    defaults: { photo: true, pageTarget: 2, sectionOrder: EXPERIENCE_FIRST },
+    supportsPhoto: true,
+    preview: '/templates/casual.pdf',
+  },
+  oldstyle: {
+    id: 'oldstyle',
+    label: 'Oldstyle',
+    blurb: 'Serif throughout, generous margins. Suits research and academic posts.',
+    tags: ['Academic', 'Traditional'],
+    documentClass: 'moderncv',
+    style: 'oldstyle',
+    defaults: {
+      photo: false,
+      pageTarget: 3,
+      sectionOrder: ['Education', 'Experience', 'Skills', 'Languages'],
     },
+    supportsPhoto: true,
+    preview: '/templates/oldstyle.pdf',
   },
-  india: {
-    id: 'india',
-    label: 'India',
-    summary: 'Photo usual, education detailed, length less constrained.',
+  fancy: {
+    id: 'fancy',
+    label: 'Fancy',
+    blurb: 'Decorated section headers and a coloured rule. The most expressive of the set.',
+    tags: ['Creative', 'Modern'],
     documentClass: 'moderncv',
-    chrome: ['photo', 'address', 'homepage', 'socials', 'title'],
-    sectionOrder: ['Education', 'Experience', 'Skills', 'Languages'],
-    pageTarget: 3,
+    style: 'fancy',
+    defaults: { photo: true, pageTarget: 2, sectionOrder: EXPERIENCE_FIRST },
+    supportsPhoto: true,
+    preview: '/templates/fancy.pdf',
+  },
+  plain: {
+    id: 'plain',
+    label: 'Plain',
+    blurb:
+      'One column, no rules, no graphics, standard headings. The shape applicant tracking systems parse most reliably.',
+    tags: ['ATS-safe', 'Simple', 'One-page'],
+    documentClass: 'article',
+    defaults: { photo: false, pageTarget: 1, sectionOrder: EXPERIENCE_FIRST },
+    // A parser-friendly single column has nowhere to float an image that would
+    // not also confuse the parser it exists to satisfy.
+    supportsPhoto: false,
+    preview: '/templates/plain.pdf',
   },
 };
 
@@ -84,37 +145,16 @@ export function isCvTemplate(value: unknown): value is CvTemplate {
   return typeof value === 'string' && (CV_TEMPLATES as readonly string[]).includes(value);
 }
 
-export interface TemplateDiff {
-  /** Chrome fields this template drops relative to the comparison one. */
-  dropped: { field: ChromeField; note?: string }[];
-  /** Chrome fields this template adds relative to the comparison one. */
-  added: ChromeField[];
-  /** Set when the two order sections differently. */
-  reordered: boolean;
-  pageTarget: number;
+export function templatesWithTag(tag: TemplateTag | null): TemplateConfig[] {
+  const all = CV_TEMPLATES.map(templateConfig);
+  return tag ? all.filter((t) => t.tags.includes(tag)) : all;
 }
 
-/**
- * What changes if you pick `template` instead of `against`.
- *
- * Derived from the configs the renderer consumes, so the preview cannot claim
- * something the document will not do.
- */
-export function diffTemplates(template: CvTemplate, against: CvTemplate): TemplateDiff {
-  const next = templateConfig(template);
-  const base = templateConfig(against);
-  const nextFields = new Set<ChromeField>(next.chrome);
-  const baseFields = new Set<ChromeField>(base.chrome);
-
-  return {
-    dropped: base.chrome
-      .filter((f) => !nextFields.has(f))
-      .map((field) => {
-        const note = next.notes?.[field];
-        return note ? { field, note } : { field };
-      }),
-    added: next.chrome.filter((f) => !baseFields.has(f)),
-    reordered: next.sectionOrder.join() !== base.sectionOrder.join(),
-    pageTarget: next.pageTarget,
-  };
+/** Short factual chips for the card — derived, so they cannot contradict the config. */
+export function templateChips(config: TemplateConfig): string[] {
+  const chips: string[] = [];
+  chips.push(config.defaults.pageTarget === 1 ? 'One page' : `${config.defaults.pageTarget} pages`);
+  if (!config.supportsPhoto) chips.push('No photo');
+  else if (!config.defaults.photo) chips.push('Photo off by default');
+  return chips;
 }
