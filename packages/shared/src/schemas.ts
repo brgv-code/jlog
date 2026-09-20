@@ -63,6 +63,13 @@ export const paginationSchema = z.object({
   status: z.enum(APPLICATION_STATUSES).optional(),
   sort: z.enum(['createdAt', 'appliedAt', 'company']).default('createdAt'),
   q: z.string().max(200).optional(),
+  /**
+   * Applied strictly before this instant. Exists so "ghosted" — applied long
+   * enough ago that silence is an answer — is a server-side filter. Filtering
+   * it in the browser made both the total and the next page wrong, because the
+   * server counted and paged rows the client then threw away.
+   */
+  appliedBefore: z.coerce.date().optional(),
 });
 
 export const llmProviders = ['anthropic', 'openai', 'gemini', 'ollama'] as const;
