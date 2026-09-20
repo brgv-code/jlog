@@ -9,6 +9,7 @@ import { and, desc, eq, isNotNull, like, lt, or, sql } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
+import { cacheLogo } from '../lib/companyLogo';
 import { requireSession } from '../lib/session';
 
 type BatchStatement = BatchItem<'sqlite'>;
@@ -208,6 +209,14 @@ router.post('/', async (c) => {
 
   if (!application) {
     throw new HttpError(500, 'DB_ERROR', 'Failed to create application');
+  }
+
+  // Fire and forget. A logo is decoration; failing to fetch one must never
+  // fail the request that created the application, and the caller should not
+  // wait on a third-party host to get its 201.
+  if (data.companyLogoUrl) {
+    const logoUrl = data.companyLogoUrl;
+    c.executionCtx.waitUntil(cacheLogo(c.env, application.company, logoUrl).catch(() => {}));
   }
 
   return c.json({ application }, 201);

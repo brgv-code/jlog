@@ -8,6 +8,12 @@ export interface DetectedJob {
   sourceUrl: string;
   sourceSite: string;
   appliedAt?: number;
+  /**
+   * The employer's logo as the board rendered it. Captured here because the
+   * posting page is the only place the URL is reliably knowable — sourceUrl is
+   * the job board, not the company. Cached server-side, once, for every user.
+   */
+  logoUrl?: string;
 }
 
 export interface ExtractedJob {
@@ -15,6 +21,8 @@ export interface ExtractedJob {
   role: string;
   location: string | null;
   confidence: number;
+  /** Logo URL captured from the posting page, when the board exposes one. */
+  logoUrl?: string;
 }
 
 // Messages between content scripts and background

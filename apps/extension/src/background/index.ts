@@ -39,6 +39,7 @@ async function saveJob(job: DetectedJob): Promise<{ ok: boolean; error?: string 
         appliedAt: job.appliedAt ? Math.floor(job.appliedAt / 1000) : undefined,
         ...(job.notes ? { notes: job.notes } : {}),
         ...(job.jobDescription ? { jobDescription: job.jobDescription } : {}),
+        ...(job.logoUrl ? { companyLogoUrl: job.logoUrl } : {}),
       }),
     });
     if (!res.ok) {

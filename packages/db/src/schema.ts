@@ -271,3 +271,28 @@ export const events = sqliteTable('events', {
   payload: text('payload', { mode: 'json' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
+
+/**
+ * Company logos, cached once and shared by every user.
+ *
+ * Deliberately not scoped to a user: a logo is a fact about a company, the same
+ * for everyone who applies there. The hundredth person to track Stripe costs no
+ * fetch.
+ *
+ * `missing` is the negative half of the cache. Without it, every render of a
+ * company we failed to resolve retries the fetch forever.
+ */
+export const companyLogos = sqliteTable('company_logos', {
+  /** Normalised name — lowercased, legal suffixes stripped. See normaliseCompany(). */
+  companyKey: text('company_key').primaryKey(),
+  /** The name as first seen, so a human can tell what a key meant. */
+  displayName: text('display_name').notNull(),
+  r2Key: text('r2_key'),
+  contentType: text('content_type'),
+  bytes: integer('bytes'),
+  /** Where it came from, so a bad capture can be traced back to the board. */
+  sourceUrl: text('source_url'),
+  /** True when we looked and found nothing. Stops the retry loop. */
+  missing: integer('missing', { mode: 'boolean' }).notNull().default(false),
+  fetchedAt: integer('fetched_at', { mode: 'timestamp' }).notNull(),
+});
