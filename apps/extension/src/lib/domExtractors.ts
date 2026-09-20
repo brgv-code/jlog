@@ -19,7 +19,9 @@
 export interface SiteExtractor {
   name: string;
   matches: (url: string) => boolean;
-  extract: () => { company: string; role: string } | Promise<{ company: string; role: string }>;
+  extract: () =>
+    | { company: string; role: string; logoUrl?: string }
+    | Promise<{ company: string; role: string; logoUrl?: string }>;
   // Optional: scope the whole-page text dump used for the LLM fallback to the
   // job details pane rather than document.body. On LinkedIn especially, the
   // page also contains the left nav (unread badges), the job results list,
@@ -89,6 +91,19 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
           fromAriaLabel
         );
       }
+      // The employer's logo, captured here because this is the only place the
+      // URL is knowable: sourceUrl is LinkedIn, not the company, and a company
+      // name does not yield a domain. LinkedIn sets the logo img's alt to the
+      // company name, which is a more durable anchor than any class hash.
+      function readLogo(pane: ParentNode, name: string): string {
+        if (!name) return '';
+        const wanted = name.toLowerCase();
+        const img = Array.from(pane.querySelectorAll('img')).find((candidate) =>
+          (candidate.getAttribute('alt') ?? '').toLowerCase().includes(wanted),
+        );
+        const src = img?.getAttribute('src') ?? '';
+        return src.startsWith('https://') ? src : '';
+      }
       const deadline = Date.now() + 2000;
       let pane = findDetailsPane();
       let role = readRole(pane);
@@ -99,7 +114,8 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
         role = readRole(pane);
         company = readCompany(pane);
       }
-      return { company, role };
+      const logoUrl = readLogo(pane, company);
+      return { company, role, ...(logoUrl ? { logoUrl } : {}) };
     },
     extractPageText: async () => {
       function textOf(el: HTMLElement | null): string {

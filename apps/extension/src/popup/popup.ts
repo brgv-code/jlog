@@ -237,13 +237,16 @@ function renderExtracting(root: HTMLElement, url: string): void {
       chrome.scripting.executeScript(
         { target: { tabId }, func: siteExtractor.extract },
         (results) => {
-          const domResult = results?.[0]?.result as { company: string; role: string } | undefined;
+          const domResult = results?.[0]?.result as
+            | { company: string; role: string; logoUrl?: string }
+            | undefined;
           if (!chrome.runtime.lastError && domResult?.company && domResult?.role) {
             const job = {
               company: domResult.company,
               role: domResult.role,
               location: null,
               confidence: 1,
+              ...(domResult.logoUrl ? { logoUrl: domResult.logoUrl } : {}),
             };
             // Company/role came straight from the DOM, so there's no need to
             // call the LLM at all — but also read the description straight
@@ -361,6 +364,7 @@ function renderConfirmExtracted(
       ...(jobDescription ? { jobDescription } : {}),
       sourceUrl: url,
       sourceSite: 'generic',
+      ...(job.logoUrl ? { logoUrl: job.logoUrl } : {}),
     };
     renderSaving(root, detectedJob);
   });

@@ -2,6 +2,7 @@ import type { ApplicationStatus } from '@jlog/shared';
 import { BriefcaseIcon, SearchXIcon } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useCompanyLogo } from '../../lib/companyLogo';
 import { EmptyState } from '../ui/EmptyState';
 import { Button } from '../ui/button';
 import { StatusSelect } from './StatusSelect';
@@ -68,6 +69,39 @@ function hueFor(name: string): number {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) % 360;
   return hash;
+}
+
+/**
+ * The employer's logo where we have one, a coloured monogram where we do not.
+ *
+ * The monogram is the default rather than the failure state: most companies
+ * will never resolve a logo, and a column of forty rows still needs landmarks.
+ */
+function CompanyAvatar({ company }: { company: string }) {
+  const logo = useCompanyLogo(company);
+
+  if (logo) {
+    return (
+      <img
+        src={logo}
+        alt=""
+        width={32}
+        height={32}
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: 'var(--radius-md)',
+          objectFit: 'contain',
+          // Logos arrive on whatever ground the board used. A neutral tile keeps
+          // a white-on-transparent mark from vanishing in light mode.
+          backgroundColor: 'var(--color-surface-raised)',
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+
+  return <Monogram company={company} />;
 }
 
 function Monogram({ company }: { company: string }) {
@@ -216,7 +250,7 @@ export function ApplicationsTable({
                 cursor: 'pointer',
               }}
             >
-              <Monogram company={app.company} />
+              <CompanyAvatar company={app.company} />
 
               <span style={{ flex: 1, minWidth: 0, display: 'grid', gap: '1px' }}>
                 <span

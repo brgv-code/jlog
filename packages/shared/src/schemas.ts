@@ -45,6 +45,13 @@ export const createApplicationSchema = z.object({
   status: z.enum(APPLICATION_STATUSES).default('saved'),
   sourceUrl: z.string().url().nullish(),
   sourceSite: z.string().max(50).nullish(),
+  /**
+   * The employer's logo as the job board rendered it. Captured by the extension
+   * on the posting page, because that is the only place the URL is reliably
+   * knowable — sourceUrl is the board, and a company name does not yield a
+   * domain. Cached once and shared by every user.
+   */
+  companyLogoUrl: z.string().url().max(2000).nullish(),
   appliedAt: z.number().int().optional(),
   notes: z.string().max(10000).nullish(),
   jobDescription: z.string().max(50000).nullish(),
