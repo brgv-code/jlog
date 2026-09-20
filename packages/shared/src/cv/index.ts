@@ -2,6 +2,8 @@ export * from './ids';
 export * from './latex';
 export * from './markdown';
 export * from './types';
+export * from './templates';
+export * from './templateFromLocation';
 export * from './text';
 export * from './structure';
 export * from './locate';

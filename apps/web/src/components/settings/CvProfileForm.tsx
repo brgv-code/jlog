@@ -1,3 +1,4 @@
+import { CV_TEMPLATES, type CvTemplate, diffTemplates, templateConfig } from '@jlog/shared';
 import { CheckIcon, PlusIcon, Trash2Icon, UploadIcon, UserRoundIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -250,6 +251,87 @@ function PhotoField() {
   );
 }
 
+/**
+ * The template picker, and what picking one actually changes.
+ *
+ * Per ADR-010 this shows the *difference*, not a rendered document. The choice
+ * is between conventions, not aesthetics, so naming the consequence — "no
+ * photo, no street address, one page" — tells you more than a 200px thumbnail
+ * in which a missing photo is easy to miss. It is derived from the same
+ * TemplateConfig the renderer consumes, so it cannot promise something the
+ * document will not do.
+ */
+function TemplatePicker({
+  value,
+  onChange,
+}: {
+  value: CvTemplate;
+  onChange: (t: CvTemplate) => void;
+}) {
+  const config = templateConfig(value);
+  const diff = diffTemplates(value, 'europe');
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+          Default template
+        </span>
+        <span className="text-muted-foreground text-[11px] leading-relaxed">
+          Used unless an application's location suggests otherwise, which you confirm before
+          generating.
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {CV_TEMPLATES.map((id) => {
+          const active = id === value;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange(id)}
+              aria-pressed={active}
+              className={`rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
+                active
+                  ? 'border-foreground/25 bg-secondary text-foreground font-medium'
+                  : 'border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {templateConfig(id).label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="border-border flex flex-col gap-2 rounded-md border p-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[13px]">{config.summary}</span>
+          <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">
+            {config.pageTarget} page{config.pageTarget === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {diff.dropped.length > 0 && (
+          <ul className="flex flex-col gap-1.5">
+            {diff.dropped.map(({ field, note }) => (
+              <li key={field} className="flex gap-2 text-[11px] leading-relaxed">
+                <span className="text-muted-foreground shrink-0">−</span>
+                <span>
+                  <span className="text-foreground">No {field}</span>
+                  {note && <span className="text-muted-foreground"> — {note}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <span className="text-muted-foreground text-[11px]">{config.sectionOrder.join(' · ')}</span>
+      </div>
+    </div>
+  );
+}
+
 export function CvProfileForm() {
   const [profile, setProfile] = useState<CvProfile>(EMPTY_PROFILE);
   const [sections, setSections] = useState<SectionDraft[]>([]);
@@ -329,6 +411,8 @@ export function CvProfileForm() {
             placeholder="bhargav.dev"
           />
         </div>
+
+        <TemplatePicker value={profile.template} onChange={(t) => set('template', t)} />
 
         <PhotoField />
 
