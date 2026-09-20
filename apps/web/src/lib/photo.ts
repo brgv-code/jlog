@@ -72,3 +72,30 @@ export async function loadPhotoUrl(): Promise<string | null> {
   if (!res.ok) return null;
   return URL.createObjectURL(await res.blob());
 }
+
+/**
+ * The stored photo as a base64 compile asset, or null if there is none.
+ *
+ * The LaTeX references a filename (`chrome.photo`); the bytes travel beside the
+ * document as a sibling file. Fetched at generation time rather than held in
+ * state so a photo replaced in another tab cannot be silently stale in the PDF.
+ */
+export async function photoAsset(
+  filename: string,
+): Promise<Record<string, { encoding: 'base64'; content: string }> | null> {
+  const res = await apiFetch('/api/profile/photo').catch(() => null);
+  if (!res?.ok) return null;
+
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength === 0) return null;
+
+  // Chunked rather than spread into String.fromCharCode in one call: a few
+  // hundred KB of arguments overflows the call stack in some browsers.
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+
+  return { [filename]: { encoding: 'base64', content: btoa(binary) } };
+}
