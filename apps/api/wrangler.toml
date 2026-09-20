@@ -52,6 +52,10 @@ migrations_dir = "../../packages/db/migrations"
 binding = "CV_FILES"
 bucket_name = "jlog-cv-files"
 
+# Logs only. There is no `traces` key in wrangler's observability schema — the
+# block that used to sit below was rejected on every invocation and did nothing.
+# LLM tracing is Langfuse's job anyway (ADR-004), which is where the spans worth
+# reading actually are.
 [observability]
 enabled = true
 head_sampling_rate = 1
@@ -62,7 +66,3 @@ head_sampling_rate = 1
 persist = true
 invocation_logs = true
 
-[observability.traces]
-enabled = true
-persist = true
-head_sampling_rate = 1
