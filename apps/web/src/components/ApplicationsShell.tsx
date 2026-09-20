@@ -231,7 +231,9 @@ export default function ApplicationsShell() {
         </header>
 
         {selectedId ? (
-          <main style={{ flex: 1, maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+          <main
+            style={{ flex: 1, minHeight: 0, maxWidth: '1400px', margin: '0 auto', width: '100%' }}
+          >
             <ApplicationDetail
               applicationId={selectedId}
               userName={user.name}

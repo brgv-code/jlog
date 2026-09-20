@@ -1,8 +1,11 @@
 import type { ApplicationStatus } from '@jlog/shared';
+import { ArrowLeftIcon, ExternalLinkIcon, MailIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../lib/api';
 import { renderMarkdown } from '../../lib/markdown';
 import { Spinner } from '../ui/Spinner';
+import { Button } from '../ui/button';
 import { StatusSelect } from './StatusSelect';
 import { TailorCvCard } from './TailorCvCard';
 import { Timeline } from './Timeline';
@@ -35,147 +38,83 @@ interface ApplicationDetailProps {
 }
 
 type EditableField = 'company' | 'role' | 'location' | 'sourceUrl' | 'notes' | 'jobDescription';
+type DocTab = 'jobDescription' | 'notes';
 
-function InlineField({
+const LABEL_STYLE: CSSProperties = {
+  fontSize: '10px',
+  fontWeight: 500,
+  letterSpacing: '0.07em',
+  textTransform: 'uppercase',
+  color: 'var(--color-text-tertiary)',
+};
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatSalary(app: Application): string {
+  if (app.salaryMin == null && app.salaryMax == null) return '—';
+  const lo = app.salaryMin != null ? app.salaryMin.toLocaleString() : '?';
+  const hi = app.salaryMax != null ? app.salaryMax.toLocaleString() : '?';
+  return `${lo} – ${hi} ${app.salaryCurrency ?? 'USD'}`;
+}
+
+/**
+ * One row of the rail: label above, value below, click the value to edit.
+ *
+ * Short facts belong here precisely because they are short — they used to each
+ * occupy a full-width block in the main column, which pushed the job
+ * description, the thing the page is actually for, below the fold.
+ */
+function MetaRow({
   label,
   value,
-  fieldName,
+  field,
   onSave,
-  multiline,
+  mono,
+  placeholder = 'Not set',
 }: {
   label: string;
   value: string;
-  fieldName: EditableField;
-  onSave: (field: EditableField, value: string) => Promise<void>;
-  multiline?: boolean;
+  field?: EditableField;
+  onSave?: (field: EditableField, value: string) => Promise<void>;
+  mono?: boolean;
+  placeholder?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
-  // Only used for the notes field: 'edit' | 'preview'
-  const [notesMode, setNotesMode] = useState<'edit' | 'preview'>('edit');
   const inputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => setDraft(value), [value]);
   useEffect(() => {
-    setDraft(value);
-  }, [value]);
-
-  // Focus the input/textarea when editing opens (avoids autoFocus lint rule)
-  useEffect(() => {
-    if (editing) {
-      inputRef.current?.focus();
-      textareaRef.current?.focus();
-    }
+    if (editing) inputRef.current?.focus();
   }, [editing]);
 
   async function save() {
-    if (draft === value) {
+    if (!field || !onSave || draft === value) {
       setEditing(false);
       return;
     }
     setSaving(true);
-    await onSave(fieldName, draft);
+    await onSave(field, draft);
     setSaving(false);
     setEditing(false);
   }
 
-  const baseStyle = {
-    width: '100%',
-    backgroundColor: 'var(--color-bg)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-md)',
-    color: 'var(--color-text-primary)',
+  const valueStyle: CSSProperties = {
     fontSize: 'var(--text-sm)',
-    padding: '4px 8px',
-    outline: 'none',
-    fontFamily: 'var(--font-sans)',
-  } as const;
-
-  const toggleBtnStyle = (active: boolean) =>
-    ({
-      background: active ? 'var(--color-surface-raised)' : 'none',
-      border: active ? '1px solid var(--color-border)' : '1px solid transparent',
-      borderRadius: 'var(--radius-sm)',
-      color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-      fontSize: 'var(--text-xs)',
-      padding: '2px 8px',
-      cursor: 'pointer',
-    }) as const;
-
-  if (multiline) {
-    return (
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '4px',
-          }}
-        >
-          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{label}</span>
-          <div style={{ display: 'flex', gap: '2px' }}>
-            <button
-              type="button"
-              style={toggleBtnStyle(notesMode === 'edit')}
-              onClick={() => {
-                setNotesMode('edit');
-                setEditing(true);
-              }}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              style={toggleBtnStyle(notesMode === 'preview')}
-              onClick={() => {
-                setNotesMode('preview');
-                setEditing(false);
-              }}
-            >
-              Preview
-            </button>
-          </div>
-        </div>
-        {notesMode === 'preview' ? (
-          <div
-            // Content is user-authored and sanitised by renderMarkdown before being set
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(draft || '') }}
-            style={{
-              fontSize: 'var(--text-sm)',
-              color: draft ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-              lineHeight: 1.6,
-              minHeight: '60px',
-            }}
-          />
-        ) : (
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={save}
-            rows={4}
-            style={{ ...baseStyle, resize: 'vertical' }}
-          />
-        )}
-      </div>
-    );
-  }
+    fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
+    color: value ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+    overflowWrap: 'anywhere',
+  };
 
   return (
-    <div style={{ marginBottom: 'var(--space-4)' }}>
-      <span
-        style={{
-          display: 'block',
-          fontSize: '11px',
-          color: 'var(--color-text-secondary)',
-          marginBottom: '2px',
-        }}
-      >
-        {label}
-      </span>
+    <div style={{ display: 'grid', gap: '3px' }}>
+      <span style={LABEL_STYLE}>{label}</span>
       {editing ? (
         <input
           ref={inputRef}
@@ -184,11 +123,24 @@ function InlineField({
           onBlur={save}
           onKeyDown={(e) => {
             if (e.key === 'Enter') save();
-            if (e.key === 'Escape') setEditing(false);
+            if (e.key === 'Escape') {
+              setDraft(value);
+              setEditing(false);
+            }
           }}
-          style={baseStyle}
+          style={{
+            width: '100%',
+            backgroundColor: 'var(--color-bg)',
+            border: '1px solid var(--color-border-strong)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--color-text-primary)',
+            fontSize: 'var(--text-sm)',
+            fontFamily: 'var(--font-sans)',
+            padding: '3px 6px',
+            outline: 'none',
+          }}
         />
-      ) : (
+      ) : field ? (
         <button
           type="button"
           onClick={() => setEditing(true)}
@@ -198,49 +150,259 @@ function InlineField({
             padding: 0,
             cursor: 'text',
             textAlign: 'left',
-            width: '100%',
             display: 'flex',
             alignItems: 'center',
-            gap: '4px',
+            gap: 'var(--space-2)',
+            ...valueStyle,
           }}
         >
-          <span
-            style={{
-              fontSize: 'var(--text-sm)',
-              color: value ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-            }}
-          >
-            {value || 'Click to edit…'}
-          </span>
-          {saving && <Spinner size={12} />}
+          {value || placeholder}
+          {saving && <Spinner size={11} />}
         </button>
+      ) : (
+        <span style={valueStyle}>{value || placeholder}</span>
       )}
     </div>
   );
 }
 
-function generateFollowUpMessage(
-  company: string,
-  role: string,
-  appliedAt: string | null,
-  userName: string,
-): string {
-  const daysSince =
-    appliedAt != null
-      ? Math.floor((Date.now() - new Date(appliedAt).getTime()) / (1000 * 60 * 60 * 24))
-      : null;
-  const timePhrase =
-    daysSince != null ? `${daysSince} day${daysSince === 1 ? '' : 's'} ago` : 'recently';
-  return `Hi,
+/**
+ * The page title, editable in place.
+ *
+ * Company and role used to appear twice — once as the heading and again as rail
+ * rows, purely so they had somewhere to be edited. Editing them where they are
+ * displayed removes the duplicate.
+ */
+function EditableHeading({
+  value,
+  field,
+  onSave,
+  style,
+}: {
+  value: string;
+  field: EditableField;
+  onSave: (field: EditableField, value: string) => Promise<void>;
+  style: CSSProperties;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-I wanted to follow up on my application for the ${role} position at ${company}. I applied ${timePhrase} and remain very interested in the opportunity.
+  useEffect(() => setDraft(value), [value]);
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
 
-Could you provide an update on the status of my application? I'm happy to share any additional information or answer questions.
+  async function save() {
+    if (draft !== value) await onSave(field, draft);
+    setEditing(false);
+  }
 
-Thank you for your time.
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') {
+            setDraft(value);
+            setEditing(false);
+          }
+        }}
+        style={{
+          ...style,
+          display: 'block',
+          width: '100%',
+          background: 'var(--color-bg)',
+          border: '1px solid var(--color-border-strong)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '1px 5px',
+          margin: '-2px -6px',
+          fontFamily: 'var(--font-sans)',
+          outline: 'none',
+        }}
+      />
+    );
+  }
 
-Best regards,
-${userName}`;
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      title="Click to edit"
+      style={{
+        ...style,
+        display: 'block',
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        textAlign: 'left',
+        cursor: 'text',
+        fontFamily: 'var(--font-sans)',
+      }}
+    >
+      {value}
+    </button>
+  );
+}
+
+/**
+ * The job description and notes, given the room they need.
+ *
+ * Both used to render into a four-row textarea, so a thousand-word posting was
+ * read through a window four lines tall. Here reading is the default state and
+ * fills the column; editing is a mode you enter on purpose.
+ */
+function DocPane({
+  tab,
+  onTabChange,
+  jobDescription,
+  notes,
+  onSave,
+}: {
+  tab: DocTab;
+  onTabChange: (t: DocTab) => void;
+  jobDescription: string;
+  notes: string;
+  onSave: (field: EditableField, value: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const current = tab === 'jobDescription' ? jobDescription : notes;
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(current);
+      textareaRef.current?.focus();
+    }
+  }, [editing, current]);
+
+  async function save() {
+    setSaving(true);
+    await onSave(tab, draft);
+    setSaving(false);
+    setEditing(false);
+  }
+
+  const TABS: { key: DocTab; label: string }[] = [
+    { key: 'jobDescription', label: 'Job description' },
+    { key: 'notes', label: 'Notes' },
+  ];
+
+  return (
+    <section style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--space-4)',
+          padding: '0 var(--space-8)',
+          borderBottom: '1px solid var(--color-border)',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+          {TABS.map(({ key, label }) => {
+            const active = key === tab;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setEditing(false);
+                  onTabChange(key);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  // The underline sits on the element's own bottom edge so it
+                  // lands on the container's hairline rather than above it.
+                  borderBottom: `2px solid ${active ? 'var(--color-text-primary)' : 'transparent'}`,
+                  marginBottom: '-1px',
+                  padding: 'var(--space-4) 0',
+                  fontSize: 'var(--text-sm)',
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: active ? 500 : 400,
+                  color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {editing ? (
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+            <PencilIcon size={13} strokeWidth={1.75} />
+            Edit
+          </Button>
+        )}
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          padding: 'var(--space-6) var(--space-8) var(--space-16)',
+        }}
+      >
+        {editing ? (
+          <textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            style={{
+              width: '100%',
+              minHeight: '60vh',
+              backgroundColor: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--color-text-primary)',
+              fontSize: 'var(--text-sm)',
+              fontFamily: 'var(--font-sans)',
+              lineHeight: 1.7,
+              padding: 'var(--space-4)',
+              outline: 'none',
+              resize: 'vertical',
+            }}
+          />
+        ) : current ? (
+          <div
+            className="jlog-prose"
+            style={{ maxWidth: '72ch' }}
+            // renderMarkdown sanitises before returning.
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitised in renderMarkdown
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(current) }}
+          />
+        ) : (
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>
+            {tab === 'jobDescription'
+              ? 'No job description saved. Paste the posting here and tailoring can cite it.'
+              : 'No notes yet. Anything you write here stays with the application.'}
+          </p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export function ApplicationDetail({
@@ -252,6 +414,7 @@ export function ApplicationDetail({
 }: ApplicationDetailProps) {
   const [app, setApp] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<DocTab>('jobDescription');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [followUpMessage, setFollowUpMessage] = useState('');
@@ -300,7 +463,21 @@ export function ApplicationDetail({
 
   function openFollowUp() {
     if (!app) return;
-    setFollowUpMessage(generateFollowUpMessage(app.company, app.role, app.appliedAt, userName));
+    const days =
+      app.appliedAt != null
+        ? Math.floor((Date.now() - new Date(app.appliedAt).getTime()) / 86400000)
+        : null;
+    const timePhrase = days != null ? `${days} day${days === 1 ? '' : 's'} ago` : 'recently';
+    setFollowUpMessage(`Hi,
+
+I wanted to follow up on my application for the ${app.role} position at ${app.company}. I applied ${timePhrase} and remain very interested in the opportunity.
+
+Could you provide an update on the status of my application? I'm happy to share any additional information or answer questions.
+
+Thank you for your time.
+
+Best regards,
+${userName}`);
     setShowFollowUp(true);
   }
 
@@ -325,7 +502,7 @@ export function ApplicationDetail({
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-12)' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-16)' }}>
         <Spinner />
       </div>
     );
@@ -339,343 +516,247 @@ export function ApplicationDetail({
     );
   }
 
-  const appliedDate = app.appliedAt
-    ? new Date(app.appliedAt).toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : '—';
-
   return (
-    <div style={{ padding: 'var(--space-6)', maxWidth: '720px', margin: '0 auto' }}>
-      <button
-        type="button"
-        onClick={onBack}
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 56px)',
+        minHeight: 0,
+      }}
+    >
+      {/* Identity bar */}
+      <header
         style={{
-          background: 'none',
-          border: 'none',
-          color: 'var(--color-text-secondary)',
-          fontSize: 'var(--text-sm)',
-          cursor: 'pointer',
-          marginBottom: 'var(--space-6)',
           display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-        }}
-      >
-        ← Back
-      </button>
-
-      <div
-        style={{
-          marginBottom: 'var(--space-6)',
-          display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'space-between',
+          gap: 'var(--space-6)',
+          padding: 'var(--space-2) var(--space-8) var(--space-5)',
+          flexShrink: 0,
         }}
       >
-        <div>
-          <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, letterSpacing: '-0.01em' }}>
-            {app.company}
-          </h2>
-          <p
-            style={{
-              color: 'var(--color-text-secondary)',
-              fontSize: 'var(--text-sm)',
-              marginTop: '2px',
-            }}
-          >
-            {app.role}
-          </p>
-        </div>
-        <StatusSelect
-          applicationId={app.id}
-          currentStatus={app.status}
-          onStatusChange={handleStatusChange}
-        />
-      </div>
-
-      <TailorCvCard
-        applicationId={app.id}
-        company={app.company}
-        role={app.role}
-        jobDescription={app.jobDescription}
-      />
-
-      <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-6)' }}>
-        <InlineField
-          label="Company"
-          value={app.company}
-          fieldName="company"
-          onSave={handleSaveField}
-        />
-        <InlineField label="Role" value={app.role} fieldName="role" onSave={handleSaveField} />
-        <InlineField
-          label="Location"
-          value={app.location ?? ''}
-          fieldName="location"
-          onSave={handleSaveField}
-        />
-        <InlineField
-          label="Source URL"
-          value={app.sourceUrl ?? ''}
-          fieldName="sourceUrl"
-          onSave={handleSaveField}
-        />
-
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <span
-            style={{
-              display: 'block',
-              fontSize: '11px',
-              color: 'var(--color-text-secondary)',
-              marginBottom: '2px',
-            }}
-          >
-            Applied date
-          </span>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
-            {appliedDate}
-          </span>
-        </div>
-
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <span
-            style={{
-              display: 'block',
-              fontSize: '11px',
-              color: 'var(--color-text-secondary)',
-              marginBottom: '2px',
-            }}
-          >
-            Salary range
-          </span>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
-            {app.salaryMin != null || app.salaryMax != null
-              ? `${[
-                  app.salaryMin != null ? app.salaryMin.toLocaleString() : '?',
-                  app.salaryMax != null ? app.salaryMax.toLocaleString() : '?',
-                ].join(' – ')} ${app.salaryCurrency ?? 'USD'}`
-              : '—'}
-          </span>
-        </div>
-
-        {app.responseReceivedAt && (
-          <div style={{ marginBottom: 'var(--space-4)' }}>
-            <span
-              style={{
-                display: 'block',
-                fontSize: '11px',
-                color: 'var(--color-text-secondary)',
-                marginBottom: '2px',
-              }}
-            >
-              Response received
-            </span>
-            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
-              {new Date(app.responseReceivedAt).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </span>
-          </div>
-        )}
-
-        <InlineField
-          label="Notes"
-          value={app.notes ?? ''}
-          fieldName="notes"
-          onSave={handleSaveField}
-          multiline
-        />
-
-        <InlineField
-          label="Job Description"
-          value={app.jobDescription ?? ''}
-          fieldName="jobDescription"
-          onSave={handleSaveField}
-          multiline
-        />
-      </div>
-
-      {/* Follow-up */}
-      <div
-        style={{
-          marginTop: 'var(--space-6)',
-          borderTop: '1px solid var(--color-border)',
-          paddingTop: 'var(--space-4)',
-        }}
-      >
-        {!showFollowUp ? (
+        <div style={{ minWidth: 0 }}>
           <button
             type="button"
-            onClick={openFollowUp}
+            onClick={onBack}
             style={{
-              background: 'none',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--color-text-secondary)',
-              fontSize: 'var(--text-xs)',
-              padding: '4px 12px',
-              cursor: 'pointer',
-            }}
-          >
-            Send follow-up
-          </button>
-        ) : (
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 'var(--space-2)',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: 'var(--color-text-secondary)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                }}
-              >
-                Follow-up message
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowFollowUp(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--color-text-tertiary)',
-                  fontSize: 'var(--text-xs)',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-            <textarea
-              value={followUpMessage}
-              onChange={(e) => setFollowUpMessage(e.target.value)}
-              rows={8}
-              style={{
-                width: '100%',
-                backgroundColor: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--color-text-primary)',
-                fontSize: 'var(--text-sm)',
-                padding: '8px',
-                fontFamily: 'var(--font-sans)',
-                resize: 'vertical',
-                outline: 'none',
-                lineHeight: 1.6,
-              }}
-            />
-            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
-              <button
-                type="button"
-                onClick={() => sendFollowUp('email')}
-                disabled={followUpLogging}
-                style={{
-                  backgroundColor: 'var(--color-primary)',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--color-primary-fg)',
-                  fontSize: 'var(--text-xs)',
-                  padding: '6px 14px',
-                  cursor: 'pointer',
-                }}
-              >
-                Open in Email
-              </button>
-              <button
-                type="button"
-                onClick={() => sendFollowUp('whatsapp')}
-                disabled={followUpLogging}
-                style={{
-                  background: 'none',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--color-text-secondary)',
-                  fontSize: 'var(--text-xs)',
-                  padding: '6px 14px',
-                  cursor: 'pointer',
-                }}
-              >
-                Send via WhatsApp
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Activity timeline */}
-      <div
-        style={{
-          marginTop: 'var(--space-8)',
-          borderTop: '1px solid var(--color-border)',
-          paddingTop: 'var(--space-6)',
-        }}
-      >
-        <h3
-          style={{
-            fontSize: 'var(--text-sm)',
-            fontWeight: 600,
-            color: 'var(--color-text-secondary)',
-            marginBottom: 'var(--space-4)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-          }}
-        >
-          Activity
-        </h3>
-        <Timeline applicationId={applicationId} />
-      </div>
-
-      <div
-        style={{
-          marginTop: 'var(--space-8)',
-          borderTop: '1px solid var(--color-border)',
-          paddingTop: 'var(--space-4)',
-        }}
-      >
-        <button
-          type="button"
-          onClick={handleDelete}
-          style={{
-            background: 'none',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-            color: deleteConfirm ? 'var(--color-danger)' : 'var(--color-text-secondary)',
-            fontSize: 'var(--text-xs)',
-            padding: '4px 12px',
-            cursor: 'pointer',
-          }}
-        >
-          {deleteConfirm ? 'Confirm delete' : 'Delete application'}
-        </button>
-        {deleteConfirm && (
-          <button
-            type="button"
-            onClick={() => setDeleteConfirm(false)}
-            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
               background: 'none',
               border: 'none',
+              padding: 0,
+              marginBottom: 'var(--space-3)',
               color: 'var(--color-text-secondary)',
               fontSize: 'var(--text-xs)',
-              marginLeft: 'var(--space-2)',
+              fontFamily: 'var(--font-sans)',
               cursor: 'pointer',
             }}
           >
-            Cancel
+            <ArrowLeftIcon size={13} strokeWidth={1.75} />
+            All applications
           </button>
-        )}
+          <EditableHeading
+            value={app.company}
+            field="company"
+            onSave={handleSaveField}
+            style={{
+              fontSize: 'var(--text-2xl)',
+              fontWeight: 600,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
+              color: 'var(--color-text-primary)',
+            }}
+          />
+          <EditableHeading
+            value={app.role}
+            field="role"
+            onSave={handleSaveField}
+            style={{
+              fontSize: 'var(--text-base)',
+              color: 'var(--color-text-secondary)',
+              marginTop: '2px',
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-3)',
+            flexShrink: 0,
+            paddingTop: 'var(--space-6)',
+          }}
+        >
+          {app.sourceUrl && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={app.sourceUrl} target="_blank" rel="noopener noreferrer">
+                View posting
+                <ExternalLinkIcon size={13} strokeWidth={1.75} />
+              </a>
+            </Button>
+          )}
+          <StatusSelect
+            applicationId={app.id}
+            currentStatus={app.status}
+            onStatusChange={handleStatusChange}
+          />
+        </div>
+      </header>
+
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          minHeight: 0,
+          borderTop: '1px solid var(--color-border)',
+        }}
+      >
+        <DocPane
+          tab={tab}
+          onTabChange={setTab}
+          jobDescription={app.jobDescription ?? ''}
+          notes={app.notes ?? ''}
+          onSave={handleSaveField}
+        />
+
+        <aside
+          style={{
+            width: '340px',
+            flexShrink: 0,
+            borderLeft: '1px solid var(--color-border)',
+            overflowY: 'auto',
+            padding: 'var(--space-6)',
+            display: 'grid',
+            gap: 'var(--space-6)',
+            alignContent: 'start',
+          }}
+        >
+          <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+            <MetaRow label="Applied" value={formatDate(app.appliedAt)} />
+            <MetaRow
+              label="Location"
+              value={app.location ?? ''}
+              field="location"
+              onSave={handleSaveField}
+            />
+            <MetaRow label="Salary" value={formatSalary(app)} />
+            {app.responseReceivedAt && (
+              <MetaRow label="Response received" value={formatDate(app.responseReceivedAt)} />
+            )}
+            <MetaRow
+              label="Source URL"
+              value={app.sourceUrl ?? ''}
+              field="sourceUrl"
+              onSave={handleSaveField}
+              mono
+              placeholder="Not linked"
+            />
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-6)' }}>
+            <TailorCvCard
+              applicationId={app.id}
+              company={app.company}
+              role={app.role}
+              jobDescription={app.jobDescription}
+            />
+          </div>
+
+          <div
+            style={{
+              borderTop: '1px solid var(--color-border)',
+              paddingTop: 'var(--space-6)',
+              display: 'grid',
+              gap: 'var(--space-3)',
+            }}
+          >
+            <span style={LABEL_STYLE}>Follow-up</span>
+            {showFollowUp ? (
+              <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+                <textarea
+                  value={followUpMessage}
+                  onChange={(e) => setFollowUpMessage(e.target.value)}
+                  rows={10}
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--color-text-primary)',
+                    fontSize: 'var(--text-xs)',
+                    fontFamily: 'var(--font-sans)',
+                    lineHeight: 1.6,
+                    padding: 'var(--space-3)',
+                    outline: 'none',
+                    resize: 'vertical',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  <Button
+                    size="sm"
+                    onClick={() => sendFollowUp('email')}
+                    disabled={followUpLogging}
+                  >
+                    <MailIcon size={13} strokeWidth={1.75} />
+                    Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => sendFollowUp('whatsapp')}
+                    disabled={followUpLogging}
+                  >
+                    WhatsApp
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowFollowUp(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Button variant="outline" size="sm" onClick={openFollowUp}>
+                  Draft a follow-up
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              borderTop: '1px solid var(--color-border)',
+              paddingTop: 'var(--space-6)',
+              display: 'grid',
+              gap: 'var(--space-3)',
+            }}
+          >
+            <span style={LABEL_STYLE}>Activity</span>
+            <Timeline applicationId={applicationId} />
+          </div>
+
+          <div
+            style={{
+              borderTop: '1px solid var(--color-border)',
+              paddingTop: 'var(--space-6)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+            }}
+          >
+            <Button variant="destructive" size="sm" onClick={handleDelete}>
+              <Trash2Icon size={13} strokeWidth={1.75} />
+              {deleteConfirm ? 'Confirm delete' : 'Delete'}
+            </Button>
+            {deleteConfirm && (
+              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(false)}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   );
