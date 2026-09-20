@@ -40,7 +40,7 @@ export function normaliseCompany(name: string): string {
     name
       .toLowerCase()
       .normalize('NFKD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/\p{M}/gu, '')
       // Legal suffixes carry no identity: people write them inconsistently.
       .replace(/\b(inc|llc|ltd|limited|gmbh|bv|nv|ag|sa|srl|plc|corp|corporation|co)\b\.?/g, '')
       .replace(/[^a-z0-9]+/g, ' ')

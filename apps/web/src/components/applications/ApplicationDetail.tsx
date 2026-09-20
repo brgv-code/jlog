@@ -429,7 +429,6 @@ function DocPane({
             className="jlog-prose"
             style={{ maxWidth: '72ch' }}
             // renderMarkdown sanitises before returning.
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitised in renderMarkdown
             dangerouslySetInnerHTML={{ __html: renderMarkdown(shown) }}
           />
         ) : (
