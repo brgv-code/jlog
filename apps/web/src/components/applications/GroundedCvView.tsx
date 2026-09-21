@@ -617,6 +617,25 @@ export function GroundedCvView({
           </div>
 
           <div ref={viewerRef} className="min-h-0 flex-1 overflow-y-auto bg-background p-6">
+            {/*
+              The posting is stored, but this particular line was not matched to
+              any of it. Without saying so the pane is a wall of dimmed text with
+              nothing indicated — indistinguishable from a highlight that failed
+              to render. The posting stays readable below; it is still worth
+              reading, it just is not evidence for this line.
+            */}
+            {tab === 'jd' && docText && !claim?.jd && (
+              <div className="border-border bg-muted/40 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <span className="text-muted-foreground text-[11.5px] leading-relaxed">
+                  The model did not match this line to the posting. It comes from your{' '}
+                  {cv.kind === 'imported' ? 'CV' : 'stored facts'}.
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setTab('cv')}>
+                  <FileTextIcon />
+                  {cv.kind === 'imported' ? 'Show in CV' : 'Show the fact'}
+                </Button>
+              </div>
+            )}
             {showPages ? (
               <PdfPaper
                 highlight={cvWords}
@@ -732,7 +751,7 @@ export function GroundedCvView({
             </span>
           )}
         </p>
-        {claim?.jd && (
+        {(claim?.jd || tab === 'jd') && (
           <Button variant="outline" size="sm" onClick={() => setTab(tab === 'cv' ? 'jd' : 'cv')}>
             <FileTextIcon />
             {tab === 'cv' ? 'Show in posting' : 'Show in CV'}
