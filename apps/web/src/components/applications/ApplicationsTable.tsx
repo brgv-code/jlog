@@ -28,6 +28,12 @@ interface ApplicationsTableProps {
   /** A filter or search is narrowing the list, so "none" means "none matched". */
   isFiltered?: boolean;
   onClearFilters?: () => void;
+  /**
+   * Off for the landing page's demo, which has no session to fetch logos with.
+   * Rows fall back to the monogram, which is the normal state for most
+   * employers anyway.
+   */
+  showLogos?: boolean;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -77,8 +83,8 @@ function hueFor(name: string): number {
  * The monogram is the default rather than the failure state: most companies
  * will never resolve a logo, and a column of forty rows still needs landmarks.
  */
-function CompanyAvatar({ company }: { company: string }) {
-  const logo = useCompanyLogo(company);
+function CompanyAvatar({ company, showLogos }: { company: string; showLogos: boolean }) {
+  const logo = useCompanyLogo(company, showLogos);
 
   if (logo) {
     return (
@@ -137,6 +143,7 @@ export function ApplicationsTable({
   onAddClick,
   isFiltered = false,
   onClearFilters,
+  showLogos = true,
 }: ApplicationsTableProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   // Each row's primary action is a real button, so j/k moves DOM focus rather
@@ -250,7 +257,7 @@ export function ApplicationsTable({
                 cursor: 'pointer',
               }}
             >
-              <CompanyAvatar company={app.company} />
+              <CompanyAvatar company={app.company} showLogos={showLogos} />
 
               <span style={{ flex: 1, minWidth: 0, display: 'grid', gap: '1px' }}>
                 <span

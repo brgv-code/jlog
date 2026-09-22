@@ -1,24 +1,25 @@
 ---
+import { ProductDemo } from '../components/landing/ProductDemo';
 import Layout from '../layouts/Layout.astro';
 
 /*
  * The landing page.
  *
- * Built from tokens.css and hand-written CSS rather than from the app's React
- * components: everything below the nav is a *depiction* of the product, not the
- * product. The applications table is a live island backed by a fetch; putting it
- * on a marketing page would mean shipping React, the API client and an empty
- * state to a signed-out visitor to show four fake rows.
+ * Two different jobs, deliberately split:
  *
- * The cost of that choice is real and worth naming: this file duplicates the
- * look of surfaces it cannot import, so it goes stale silently when they change.
- * It already did once — it sat on emoji feature cards through an entire
- * redesign. If the app's list or citation view changes shape, this changes too.
+ * - The hero carries a slanted, layered stack of UI fragments with a light
+ *   running its leading edge. It is decoration and is marked aria-hidden. Its
+ *   job is the four seconds before someone decides to keep reading.
+ * - The section below mounts the REAL ApplicationsTable against fixtures. A
+ *   visitor can filter it, change a status, walk it with j/k. That component
+ *   was already presentational, so nothing had to be loosened to get it here.
  *
- * Rules it follows, from DESIGN.md: dividers rather than boxes, one black
- * primary action, and colour only where it carries meaning — here that is
- * application status, the two citation sources, and the three section icons
- * that reuse the sidebar's per-destination hues.
+ * Flat and straight-on for the part you interact with, slanted for the part you
+ * only look at. A demo rotated 16 degrees is a poster, not a demo.
+ *
+ * The old version of this page hand-drew four rows in CSS and called that the
+ * product, which is how it sat on emoji feature cards through an entire
+ * redesign without anyone noticing it had stopped describing anything.
  */
 
 const GITHUB_URL = 'https://github.com/brgv-code/jlog';
@@ -27,26 +28,28 @@ const steps = [
   {
     id: 'capture',
     title: 'Capture',
-    body: 'The extension notices when you apply on LinkedIn, Wellfound, Ashby, Greenhouse, Lever or YC. Anywhere else, one click reads the page and fills the row in for you.',
+    body: 'Apply on LinkedIn, Wellfound, Ashby, Greenhouse, Lever or YC and the row writes itself. Anywhere else, one click reads the page.',
   },
   {
     id: 'track',
     title: 'Track',
-    body: 'Saved, applied, interviewing, offer. Home leads with what actually needs you today — what has gone quiet, what is waiting on a reply, what is mid-interview.',
+    body: 'Home leads with what needs you today — gone quiet, awaiting a reply, mid-interview — rather than with a count.',
   },
   {
     id: 'tailor',
     title: 'Tailor',
-    body: 'A CV written for the posting in front of you, compiled to PDF from real LaTeX. Built from your history, not from a prompt that has read your CV once.',
+    body: 'A CV written for the posting in front of you, compiled to PDF from real LaTeX. Built from your history, not from a prompt.',
   },
 ];
+
+/* Six boards with their own content script, named because the list is the claim. */
+const BOARDS = ['LinkedIn', 'Wellfound', 'Ashby', 'Greenhouse', 'Lever', 'YC Jobs'];
 
 /*
  * Diagrams, not previews. The gallery inside the app renders the real PDFs
  * (public/templates/*.pdf) through pdf.js; six canvases on a marketing page is
- * a lot of JavaScript to prove a point about layout. These are abstractions of
- * each design's shape — where the header sits, one column or two — which is the
- * part that differs and the part someone is choosing between.
+ * a lot of JavaScript to prove a point about layout. These abstract each
+ * design's skeleton — where the name sits, whether there is a hint column.
  */
 const templates = [
   { id: 'classic', label: 'Classic', hint: true },
@@ -84,20 +87,15 @@ const templates = [
     </header>
 
     <main>
-      <!--
-        The split hero. Two panels, but deliberately not two coequal columns:
-        the highlighted row on the left is the job the document on the right was
-        written for, and the connector between them is the product. Read as a
-        menu of two features it would sell neither.
-      -->
       <section class="hero">
+        <p class="eyebrow">Open source · Self-hostable · Bring your own model</p>
         <h1 class="headline">
           Every job you apply to, captured.<br />
           Every CV you send, written for it.
         </h1>
         <p class="subheading">
           jlog logs the application from the job board you were already on, then writes a CV for
-          that posting out of your real history — with every line traceable back to something you
+          that posting out of your real history — every line traceable back to something you
           actually wrote.
         </p>
         <div class="cta-row">
@@ -107,68 +105,100 @@ const templates = [
           </a>
         </div>
 
-        <div class="split" aria-hidden="true">
-          <div class="panel">
-            <div class="panel-head">
-              <span class="panel-title">Applications</span>
-              <span class="panel-meta">72</span>
-            </div>
-            <div class="rows">
-              <div class="row">
-                <span class="row-company">Stripe</span>
-                <span class="badge interviewing">Interviewing</span>
-              </div>
-              <div class="row row-selected">
-                <span class="row-company">Linear</span>
-                <span class="badge applied">Applied</span>
-              </div>
-              <div class="row">
-                <span class="row-company">Vercel</span>
-                <span class="badge offer">Offer</span>
-              </div>
-              <div class="row">
-                <span class="row-company">Figma</span>
-                <span class="badge saved">Saved</span>
+        <!--
+          Decorative. Three fragments of the app stacked in perspective — the
+          posting behind, the pipeline in the middle, the generated document in
+          front — so the depth says "this reads that, and writes this" without a
+          caption. aria-hidden because there is nothing here a screen reader
+          needs that the copy above has not already said.
+        -->
+        <div class="stage" aria-hidden="true">
+          <div class="glow"></div>
+          <div class="stack">
+            <div class="layer layer-back">
+              <div class="layer-head"><span class="chip chip-jd">Job description</span></div>
+              <div class="layer-body">
+                <span class="tl"></span>
+                <span class="tl tl-hi-jd"></span>
+                <span class="tl"></span>
+                <span class="tl tl-short"></span>
+                <span class="tl"></span>
               </div>
             </div>
-          </div>
 
-          <div class="connector">
-            <span class="connector-line"></span>
-            <svg class="connector-chevron" viewBox="0 0 16 16" aria-hidden="true">
-              <path
-                d="M6 3l5 5-5 5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"></path>
-            </svg>
-          </div>
+            <div class="layer layer-mid">
+              <div class="layer-head">
+                <span class="chip">Applications</span><span class="count">72</span>
+              </div>
+              <div class="rows">
+                <div class="row"><span class="dot interviewing"></span><span class="co">Stripe</span><span class="pill interviewing">Interviewing</span></div>
+                <div class="row row-on"><span class="dot applied"></span><span class="co">Linear</span><span class="pill applied">Applied</span></div>
+                <div class="row"><span class="dot offer"></span><span class="co">Vercel</span><span class="pill offer">Offer</span></div>
+                <div class="row"><span class="dot saved"></span><span class="co">Figma</span><span class="pill saved">Saved</span></div>
+              </div>
+            </div>
 
-          <div class="panel panel-doc">
-            <div class="panel-head">
-              <span class="panel-title">CV · Linear</span>
-              <span class="panel-meta">Frontend Engineer</span>
-            </div>
-            <div class="doc">
-              <p class="doc-line">
-                Owned the <mark class="cite cite-jd">design system</mark> that
-                <mark class="cite cite-cv">40 engineers</mark> built on, cutting UI review time in half.
-              </p>
-              <p class="doc-line doc-line-dim"></p>
-              <p class="doc-line doc-line-dim doc-line-short"></p>
-            </div>
-            <div class="doc-key">
-              <span class="key"><span class="swatch swatch-cv"></span>your CV</span>
-              <span class="key"><span class="swatch swatch-jd"></span>the posting</span>
+            <div class="layer layer-front">
+              <!-- The comet. An SVG dash running the perimeter: universally
+                   supported, unlike the conic-gradient + @property version, and
+                   it degrades to a still outline when motion is reduced. -->
+              <svg class="comet" viewBox="0 0 320 200" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cometTail" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0" />
+                    <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="1" />
+                  </linearGradient>
+                </defs>
+                <rect
+                  x="1" y="1" width="318" height="198" rx="10"
+                  fill="none" stroke="url(#cometTail)" stroke-width="2"
+                  pathLength="100" stroke-dasharray="18 82" stroke-linecap="round"></rect>
+              </svg>
+
+              <div class="layer-head">
+                <span class="chip chip-cv">CV · Linear</span><span class="count">PDF</span>
+              </div>
+              <div class="doc">
+                <p class="doc-line">
+                  Owned the <mark class="cite cite-jd">design system</mark> that
+                  <mark class="cite cite-cv">40 engineers</mark> built on.
+                </p>
+                <span class="tl tl-ink"></span>
+                <span class="tl tl-ink tl-short"></span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Three steps, divided rather than boxed (DESIGN.md rule 2). -->
-      <section class="steps">
+      <section class="proof reveal">
+        <dl class="proof-grid">
+          <div><dt>6</dt><dd>job boards captured automatically</dd></div>
+          <div><dt>6</dt><dd>CV designs, compiled from LaTeX</dd></div>
+          <div><dt>4</dt><dd>model providers, including local Ollama</dd></div>
+          <div><dt>MIT</dt><dd>runs on Cloudflare's free tier</dd></div>
+        </dl>
+        <p class="proof-boards">
+          {BOARDS.map((board) => <span class="board">{board}</span>)}
+        </p>
+      </section>
+
+      <!--
+        client:visible rather than client:load. This is below the fold on most
+        screens, and a landing page that ships React before its own headline has
+        painted is arguing against its first section.
+      -->
+      <section class="try reveal">
+        <p class="eyebrow">Try it</p>
+        <h2 class="section-title">The actual interface, with sample data</h2>
+        <p class="section-body section-body-wide">
+          Not a screenshot and not a drawing — the shipped component, running here. Filter it,
+          change a status, click a generated line to see what it was written from.
+        </p>
+        <ProductDemo client:visible />
+      </section>
+
+      <section class="steps reveal">
         {
           steps.map((step) => (
             <article class="step">
@@ -205,22 +235,18 @@ const templates = [
         }
       </section>
 
-      <!--
-        The one claim nothing else in this category makes, so it gets a section
-        rather than a bullet.
-      -->
-      <section class="grounding">
+      <section class="grounding reveal">
         <div class="grounding-copy">
+          <p class="eyebrow">Grounding</p>
           <h2 class="section-title">Nothing it writes is unattributable</h2>
           <p class="section-body">
-            Generation runs against a corpus of facts pulled out of your own CV, not against the
-            CV as a block of text. Every line it produces keeps a pointer back to the fact it came
-            from and the requirement it was written for, and the app draws the connection.
+            Generation runs against a corpus of facts mined from your own CVs, not against a CV as
+            a block of text. Every line keeps a pointer back to the fact it came from and the
+            requirement it answers.
           </p>
           <p class="section-body">
             When a line matches nothing in the posting, it says so rather than inventing the link.
-            That is the part that matters: a CV that quietly embellishes is worse than no CV at
-            all, because you find out in the interview.
+            A CV that quietly embellishes is worse than no CV — you find out in the interview.
           </p>
         </div>
         <ul class="grounding-facts">
@@ -243,12 +269,13 @@ const templates = [
         </ul>
       </section>
 
-      <section class="templates">
+      <section class="templates reveal">
+        <p class="eyebrow">Templates</p>
         <h2 class="section-title">Six designs, not six countries</h2>
         <p class="section-body section-body-wide">
-          A template is a design. Where the conventions differ — whether a photo belongs on the
-          page, how long it runs — that is a property of the design you picked, applied for you,
-          not a country you have to choose first.
+          A template is a design. Where conventions differ — whether a photo belongs on the page,
+          how long it runs — that is a property of the design you picked, applied for you, not a
+          country you have to choose first.
         </p>
         <ul class="template-strip">
           {
@@ -270,26 +297,25 @@ const templates = [
         </ul>
       </section>
 
-      <section class="oss">
-        <div class="oss-copy">
-          <h2 class="section-title">Yours, including the parts you'd rather not hand over</h2>
-          <p class="section-body">
-            jlog is MIT licensed and runs on Cloudflare's free tier. Self-host the whole thing on
-            your own account and your application history never leaves it. Bring your own key for
-            Anthropic, OpenAI or Gemini, or point it at a local Ollama and send nothing anywhere.
-          </p>
-          <div class="oss-actions">
-            <a href={GITHUB_URL} class="btn btn-ghost" target="_blank" rel="noopener noreferrer">
-              Read the source
-            </a>
-            <span class="oss-note">
-              The extension is built from source — there is no Chrome Web Store listing yet.
-            </span>
-          </div>
+      <section class="oss reveal">
+        <p class="eyebrow">Self-hosting</p>
+        <h2 class="section-title">Yours, including the parts you'd rather not hand over</h2>
+        <p class="section-body">
+          MIT licensed, and it runs on Cloudflare's free tier. Self-host the whole thing on your
+          own account and your application history never leaves it. Bring your own key for
+          Anthropic, OpenAI or Gemini, or point it at a local Ollama and send nothing anywhere.
+        </p>
+        <div class="oss-actions">
+          <a href={GITHUB_URL} class="btn btn-ghost" target="_blank" rel="noopener noreferrer">
+            Read the source
+          </a>
+          <span class="oss-note">
+            The extension is built from source — there is no Chrome Web Store listing yet.
+          </span>
         </div>
       </section>
 
-      <section class="closer">
+      <section class="closer reveal">
         <h2 class="closer-title">Start with the applications you have open now.</h2>
         <a href="/login" class="btn btn-primary btn-lg">Get started free</a>
       </section>
@@ -303,6 +329,85 @@ const templates = [
     </footer>
   </div>
 </Layout>
+
+<!--
+  Scroll reveal and the hero's pointer tilt. Inline and dependency-free: two
+  small handlers do not justify a library, and this has to run before hydration
+  or the sections below sit invisible until React arrives.
+
+  Everything here is additive. Sections are visible by default and only hidden
+  once the script has confirmed it can animate them, so a visitor with JS off
+  gets the page rather than a blank column. Both effects are skipped entirely
+  under prefers-reduced-motion.
+-->
+<script is:inline>
+  (() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+
+    const pending = new Set(document.querySelectorAll('.reveal'));
+    for (const el of pending) el.classList.add('will-reveal');
+
+    /*
+     * Driven by scroll position rather than by IntersectionObserver.
+     *
+     * An observer only fires when the intersection ratio changes, and a jump —
+     * pressing End, restoring scroll on reload, following a deep link — takes a
+     * section from below the viewport to above it without ever intersecting. No
+     * callback fires and the section stays at opacity 0 for the life of the
+     * page. Asking "is its top above the fold line" instead is correct for both
+     * a scroll and a jump, and it self-detaches once everything is shown.
+     */
+    const check = () => {
+      for (const el of pending) {
+        if (el.getBoundingClientRect().top < window.innerHeight * 0.88) {
+          el.classList.add('revealed');
+          pending.delete(el);
+        }
+      }
+      if (pending.size === 0) {
+        window.removeEventListener('scroll', onScroll);
+        window.removeEventListener('resize', onScroll);
+      }
+    };
+
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        check();
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    check();
+
+    // Pointer tilt, fine pointers only: on a touch screen there is no hover to
+    // respond to, and the handler would only cost battery.
+    const stage = document.querySelector('.stage');
+    if (!stage || !window.matchMedia('(pointer: fine)').matches) return;
+
+    let tiltFrame = 0;
+    stage.addEventListener('pointermove', (e) => {
+      if (tiltFrame) return;
+      tiltFrame = requestAnimationFrame(() => {
+        tiltFrame = 0;
+        const box = stage.getBoundingClientRect();
+        const x = (e.clientX - box.left) / box.width - 0.5;
+        const y = (e.clientY - box.top) / box.height - 0.5;
+        stage.style.setProperty('--tilt-y', `${x * 7}deg`);
+        stage.style.setProperty('--tilt-x', `${-y * 5}deg`);
+      });
+    });
+
+    stage.addEventListener('pointerleave', () => {
+      stage.style.setProperty('--tilt-y', '0deg');
+      stage.style.setProperty('--tilt-x', '0deg');
+    });
+  })();
+</script>
 
 <style>
   /* ---------- shell ---------- */
@@ -321,20 +426,34 @@ const templates = [
   }
 
   section {
-    max-width: 1080px;
+    max-width: 1128px;
     margin: 0 auto;
     width: 100%;
     padding: var(--space-16) var(--space-6);
   }
 
-  /* Sections separate with a hairline. No cards. */
+  .proof,
+  .try,
   .steps,
   .grounding,
   .templates,
   .oss,
   .closer {
     border-top: 1px solid var(--color-border);
-    max-width: 1128px;
+  }
+
+  /*
+   * The mono eyebrow. The one thing here the app does not do: inside jlog, mono
+   * means "a value you copy". On a page with seven sections and no navigation
+   * it earns a second job, as the label that gives each section a top edge.
+   */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--space-4);
   }
 
   .section-title {
@@ -360,6 +479,31 @@ const templates = [
     margin-bottom: var(--space-10);
   }
 
+  /* ---------- motion ---------- */
+
+  .will-reveal {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  .revealed {
+    opacity: 1;
+    transform: none;
+    transition: opacity 480ms ease-out, transform 480ms ease-out;
+  }
+
+  /*
+   * Nothing scrolls a printed page, so the observer never fires and every
+   * section below the hero would come out blank. Same reasoning applies to any
+   * renderer that paginates rather than scrolls.
+   */
+  @media print {
+    .will-reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   /* ---------- nav ---------- */
 
   .nav {
@@ -370,7 +514,11 @@ const templates = [
     height: 56px;
     padding: 0 var(--space-6);
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
+    background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 20;
   }
 
   .wordmark {
@@ -507,28 +655,84 @@ const templates = [
     justify-content: center;
   }
 
-  /* ---------- the split ---------- */
+  /* ---------- the slanted stack ---------- */
 
-  .split {
-    margin-top: var(--space-16);
+  .stage {
+    --tilt-x: 0deg;
+    --tilt-y: 0deg;
+    position: relative;
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: var(--space-4);
-    text-align: left;
+    max-width: 940px;
+    margin-top: var(--space-16);
+    height: 430px;
+    perspective: 1500px;
+    perspective-origin: 50% 40%;
   }
 
-  .panel {
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
+  /*
+   * The only "glow" on a light page: a very wide, very faint accent wash behind
+   * the stack. Anything stronger reads as a dark-theme effect pasted onto white.
+   */
+  .glow {
+    position: absolute;
+    inset: 12% 6% 18%;
+    background: radial-gradient(
+      ellipse at 50% 45%,
+      color-mix(in srgb, var(--color-accent) 16%, transparent) 0%,
+      transparent 68%
+    );
+    filter: blur(44px);
+    pointer-events: none;
+  }
+
+  .stack {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transform: rotateX(calc(12deg + var(--tilt-x))) rotateY(calc(-17deg + var(--tilt-y)));
+    transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .layer {
+    position: absolute;
     border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
     overflow: hidden;
+    transform-style: preserve-3d;
   }
 
-  .panel-head {
+  /* Each layer sits further forward, and is drawn slightly brighter and with a
+     deeper shadow, so the order reads as depth rather than as overlap. */
+  .layer-back {
+    width: 300px;
+    top: 0;
+    left: 4%;
+    transform: translateZ(-90px);
+    opacity: 0.72;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .layer-mid {
+    width: 330px;
+    top: 74px;
+    left: 26%;
+    transform: translateZ(0);
+    box-shadow: var(--shadow-md);
+  }
+
+  .layer-front {
+    width: 320px;
+    top: 158px;
+    left: 50%;
+    transform: translateZ(90px);
+    box-shadow: var(--shadow-lg);
+    background: var(--color-paper);
+  }
+
+  .layer-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
@@ -536,7 +740,7 @@ const templates = [
     background: var(--color-surface);
   }
 
-  .panel-title {
+  .chip {
     font-size: var(--text-xs);
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -544,9 +748,48 @@ const templates = [
     color: var(--color-text-secondary);
   }
 
-  .panel-meta {
+  .chip-jd {
+    color: var(--color-cite-jd);
+  }
+
+  .chip-cv {
+    color: var(--color-cite-cv);
+  }
+
+  .count {
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-tertiary);
+  }
+
+  .layer-body,
+  .doc {
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  /* Text stand-ins. Bars rather than lorem, so nothing reads as copy. */
+  .tl {
+    display: block;
+    height: 7px;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-text-primary) 11%, transparent);
+  }
+
+  .tl-short {
+    width: 58%;
+  }
+
+  .tl-ink {
+    background: color-mix(in srgb, var(--color-paper-ink) 12%, transparent);
+  }
+
+  .tl-hi-jd {
+    background: var(--color-cite-jd-fill);
+    box-shadow: inset 2px 0 0 var(--color-cite-jd);
+    height: 9px;
   }
 
   .row {
@@ -563,15 +806,46 @@ const templates = [
     border-bottom: none;
   }
 
-  .row-selected {
+  .row-on {
     background: var(--color-surface-raised);
   }
 
-  .row-company {
+  .co {
     font-weight: 500;
+    margin-right: auto;
   }
 
-  .badge {
+  /*
+   * The status pill is at the row's right edge, which is exactly the part the
+   * next layer covers. A dot on the left carries the same colour where nothing
+   * is sitting on top of it — the same trick the charts use, for the same
+   * reason: the pill is the label, the dot is the signal.
+   */
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: var(--radius-full);
+    flex: none;
+    margin-right: var(--space-3);
+  }
+
+  .dot.saved {
+    background: var(--color-status-saved);
+  }
+
+  .dot.applied {
+    background: var(--color-status-applied);
+  }
+
+  .dot.interviewing {
+    background: var(--color-status-interviewing);
+  }
+
+  .dot.offer {
+    background: var(--color-status-offer);
+  }
+
+  .pill {
     display: inline-block;
     padding: 2px 9px;
     border-radius: var(--radius-full);
@@ -580,71 +854,30 @@ const templates = [
     white-space: nowrap;
   }
 
-  .badge.saved {
+  .pill.saved {
     color: var(--color-status-saved);
     background: color-mix(in srgb, var(--color-status-saved) 10%, transparent);
   }
 
-  .badge.applied {
+  .pill.applied {
     color: var(--color-status-applied);
     background: color-mix(in srgb, var(--color-status-applied) 10%, transparent);
   }
 
-  .badge.interviewing {
+  .pill.interviewing {
     color: var(--color-status-interviewing);
     background: color-mix(in srgb, var(--color-status-interviewing) 10%, transparent);
   }
 
-  .badge.offer {
+  .pill.offer {
     color: var(--color-status-offer);
     background: color-mix(in srgb, var(--color-status-offer) 10%, transparent);
-  }
-
-  .connector {
-    display: flex;
-    align-items: center;
-    color: var(--color-text-tertiary);
-  }
-
-  .connector-line {
-    display: block;
-    width: var(--space-6);
-    height: 1px;
-    background: var(--color-border-strong);
-  }
-
-  .connector-chevron {
-    width: 16px;
-    height: 16px;
-    display: block;
-    margin-left: -2px;
-  }
-
-  /* The generated document reads as paper, not as more UI. */
-  .panel-doc {
-    background: var(--color-paper);
-  }
-
-  .doc {
-    padding: var(--space-4);
   }
 
   .doc-line {
     font-size: var(--text-sm);
     line-height: 1.7;
     color: var(--color-paper-ink);
-  }
-
-  /* Stand-ins for the rest of the page — bars, so no one reads them as copy. */
-  .doc-line-dim {
-    height: 7px;
-    border-radius: var(--radius-full);
-    background: color-mix(in srgb, var(--color-paper-ink) 12%, transparent);
-    margin-top: var(--space-4);
-  }
-
-  .doc-line-short {
-    width: 58%;
   }
 
   .cite {
@@ -663,34 +896,67 @@ const templates = [
     background: var(--color-cite-jd-fill);
   }
 
-  .doc-key {
-    display: flex;
-    gap: var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    border-top: 1px solid var(--color-border);
-    font-size: var(--text-xs);
-    color: var(--color-text-secondary);
+  /* The light running the front layer's edge. */
+  .comet {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    overflow: visible;
   }
 
-  .key {
-    display: inline-flex;
-    align-items: center;
+  .comet rect {
+    animation: comet 4.5s linear infinite;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 60%, transparent));
+  }
+
+  @keyframes comet {
+    from {
+      stroke-dashoffset: 100;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* ---------- proof band ---------- */
+
+  .proof-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-6);
+  }
+
+  .proof-grid dt {
+    font-size: var(--text-3xl);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: var(--space-2);
+  }
+
+  .proof-grid dd {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+
+  .proof-boards {
+    margin-top: var(--space-10);
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
   }
 
-  .swatch {
-    width: 8px;
-    height: 8px;
+  .board {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-full);
-    display: inline-block;
-  }
-
-  .swatch-cv {
-    background: var(--color-cite-cv);
-  }
-
-  .swatch-jd {
-    background: var(--color-cite-jd);
+    padding: 4px 11px;
   }
 
   /* ---------- steps ---------- */
@@ -862,12 +1128,10 @@ const templates = [
     );
   }
 
-  /* Name left, hint column beside the body. */
   .sheet-classic .sheet-name {
     width: 54%;
   }
 
-  /* Name centred over a rule across the full measure. */
   .sheet-banking .sheet-head {
     border-bottom: 1.5px solid color-mix(in srgb, var(--color-paper-ink) 28%, transparent);
     padding-bottom: 7%;
@@ -878,13 +1142,11 @@ const templates = [
     margin: 0 auto;
   }
 
-  /* Heavier name block, hint column, no rule. */
   .sheet-casual .sheet-name {
     width: 46%;
     height: 12px;
   }
 
-  /* Centred name, no rule, and looser leading through the body. */
   .sheet-oldstyle .sheet-name {
     width: 50%;
     margin: 0 auto;
@@ -898,7 +1160,6 @@ const templates = [
     );
   }
 
-  /* The name sits in a filled band rather than on the page. */
   .sheet-fancy .sheet-head {
     background: color-mix(in srgb, var(--color-paper-ink) 20%, transparent);
     padding: 5% 6%;
@@ -911,7 +1172,6 @@ const templates = [
     background: color-mix(in srgb, var(--color-paper-ink) 45%, transparent);
   }
 
-  /* ATS-safe single column: no band, no hint column, tight uniform lines. */
   .sheet-plain .sheet-name {
     width: 36%;
     height: 5px;
@@ -997,21 +1257,24 @@ const templates = [
 
   /* ---------- narrow ---------- */
 
+  @media (max-width: 1000px) {
+    /* The stack is sized in px because perspective children cannot be laid out
+       by a grid. Below this it would collide with itself, so it scales as one
+       object rather than reflowing. */
+    .stage {
+      height: 340px;
+      transform: scale(0.82);
+    }
+  }
+
   @media (max-width: 900px) {
     section {
       padding: var(--space-12) var(--space-5);
     }
 
-    /* The connector turns to point down rather than disappearing: the handoff
-       between the two panels is the whole argument of the hero. */
-    .split {
-      grid-template-columns: 1fr;
-      gap: var(--space-3);
-    }
-
-    .connector {
-      justify-content: center;
-      transform: rotate(90deg);
+    .proof-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-8) var(--space-6);
     }
 
     .grounding {
@@ -1038,6 +1301,39 @@ const templates = [
 
     .template-strip {
       grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 720px) {
+    /* Three layers in perspective need horizontal room the phone has not got.
+       Straight on, stacked, still layered — the depth cue becomes the shadow. */
+    .stage {
+      height: auto;
+      transform: none;
+      perspective: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      margin-top: var(--space-12);
+    }
+
+    .glow {
+      display: none;
+    }
+
+    .stack {
+      position: static;
+      transform: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .layer {
+      position: static;
+      width: 100%;
+      transform: none;
+      opacity: 1;
     }
   }
 
