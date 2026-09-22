@@ -132,6 +132,13 @@
   --text-2xl: 1.5rem;
   --text-3xl: 1.875rem;
   --text-4xl: 2.25rem;
+  /*
+   * Landing only. Nothing inside the app needs type this large — a 28px
+   * page title restating the sidebar is exactly what DESIGN.md argues
+   * against — but a hero does, and it has to hold its shape from 375px up.
+   * Clamped rather than given a media query so there is one value to read.
+   */
+  --text-5xl: clamp(2.25rem, 5.5vw, 3.5rem);
 
   /* Spacing */
   --space-1: 0.25rem;

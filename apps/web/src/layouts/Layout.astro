@@ -4,9 +4,24 @@ import '../styles/shadcn.css';
 
 interface Props {
   title?: string;
+  description?: string;
+  /** Social card, resolved against `site` in astro.config.mjs. */
+  ogImage?: string;
 }
 
-const { title = 'jlog — Job Application Tracker' } = Astro.props;
+const {
+  title = 'jlog — Job Application Tracker',
+  description = 'Track your job applications — open source, self-hostable.',
+  ogImage = '/og.png',
+} = Astro.props;
+
+/*
+ * `site` is set in astro.config.mjs, but a build without it should degrade to a
+ * missing card rather than to `new URL()` throwing on a relative path.
+ */
+const site = Astro.site;
+const canonical = site ? new URL(Astro.url.pathname, site).href : undefined;
+const ogImageUrl = site ? new URL(ogImage, site).href : undefined;
 ---
 
 <!doctype html>
@@ -14,9 +29,31 @@ const { title = 'jlog — Job Application Tracker' } = Astro.props;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Track your job applications — open source, self-hostable." />
+    <meta name="description" content={description} />
+    {canonical && <link rel="canonical" href={canonical} />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
+
+    <!--
+      jlog gets shared as a link far more often than it gets found: the traffic
+      is X, Hacker News and Slack, all of which render a bare grey rectangle
+      without these. og:image must be absolute — a relative path is silently
+      dropped by every scraper.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="jlog" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
+
     <!--
       Resolves the theme before first paint. jlog is a light app: a dark
       desktop is not on its own a request for a dark jlog, so only an explicit

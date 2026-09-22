@@ -1,0 +1,172 @@
+<!doctype html>
+<!--
+  Source for public/og.png — the 1200×630 card that renders when jlog is shared
+  on X, Slack, Discord or Hacker News.
+
+  Regenerate after editing:
+
+    npx astro dev
+    # open this file at exactly 1200×630 and screenshot to apps/web/public/og.png
+
+  Not built by Astro and not served: it lives in scripts/ because it produces an
+  asset, in the same spirit as render-templates.mjs.
+
+  Colours are inlined copies of the light-mode values in src/styles/tokens.css
+  rather than var() references. A raster has no theme to respond to, and the
+  card must not silently change appearance when the dark palette is edited.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>jlog — social card</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+
+      body {
+        /* Matches --font-sans. Geist is declared app-wide but never loaded, so
+           this resolves to system-ui in practice — same as the live site. */
+        font-family: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
+        background: #ffffff; /* --color-bg */
+        color: #18181b; /* --color-text-primary */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 72px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .brand svg {
+        width: 40px;
+        height: 40px;
+        display: block;
+      }
+
+      h1 {
+        font-size: 68px;
+        font-weight: 600;
+        letter-spacing: -0.035em;
+        line-height: 1.08;
+      }
+
+      /*
+       * The citation motif, which is the one thing in jlog nothing else does.
+       * Rendered on --color-paper so it reads as a document rather than as more
+       * interface, exactly as it does in the app.
+       */
+      .proof {
+        background: #fffffe; /* --color-paper */
+        border: 1px solid #e8e8ea; /* --color-border */
+        border-radius: 8px;
+        padding: 26px 30px;
+        font-size: 26px;
+        line-height: 1.5;
+        color: #1c1b17; /* --color-paper-ink */
+      }
+
+      mark {
+        background: none;
+        color: inherit;
+        padding-bottom: 2px;
+      }
+
+      .cv {
+        background: rgba(14, 107, 99, 0.12); /* --color-cite-cv-fill */
+        box-shadow: inset 0 -3px 0 #0e6b63; /* --color-cite-cv */
+      }
+
+      .jd {
+        background: rgba(154, 91, 6, 0.14); /* --color-cite-jd-fill */
+        box-shadow: inset 0 -3px 0 #9a5b06; /* --color-cite-jd */
+      }
+
+      .key {
+        margin-top: 20px;
+        display: flex;
+        gap: 28px;
+        font-size: 19px;
+        color: #6f6f78; /* --color-text-secondary */
+      }
+
+      .key span {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+      }
+
+      .foot {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        font-size: 22px;
+        color: #6f6f78;
+      }
+
+      .foot strong {
+        color: #18181b;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#18181b" />
+        <circle cx="20" cy="6.5" r="2.2" fill="#2563eb" />
+        <path
+          d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5"
+          fill="none"
+          stroke="#ffffff"
+          stroke-width="4"
+          stroke-linecap="round"
+        />
+      </svg>
+      <span>jlog</span>
+    </div>
+
+    <h1>Every job you apply to, captured.<br />Every CV you send, written for it.</h1>
+
+    <div>
+      <div class="proof">
+        Owned the <mark class="jd">design system</mark> that <mark class="cv">40 engineers</mark>
+        built on, cutting UI review time in half.
+      </div>
+      <!-- Under the sentence, not above it: the key is a caption for the
+           underlines and is unreadable as anything else. -->
+      <div class="key">
+        <span><span class="dot" style="background: #0e6b63"></span>traced to your CV</span>
+        <span><span class="dot" style="background: #9a5b06"></span>traced to the posting</span>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span><strong>jlog.bhargav.dev</strong> · open source, self-hostable</span>
+      <span>MIT</span>
+    </div>
+  </body>
+</html>
