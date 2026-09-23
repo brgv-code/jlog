@@ -24,24 +24,37 @@ export interface DemoApplication {
   createdAt: string;
 }
 
+/** Company, role, location, status, board, and how many days ago. */
+const ROWS: [string, string, string | null, ApplicationStatus, string | null, number][] = [
+  ['Linear', 'Senior Product Engineer', 'Remote', 'applied', 'ashby', 6],
+  ['Stripe', 'Staff Frontend Engineer', 'Remote — EU', 'interviewing', 'linkedin', 3],
+  ['Vercel', 'Developer Experience Engineer', 'Berlin, DE', 'offer', 'greenhouse', 12],
+  ['Anthropic', 'Product Engineer', 'Remote — EU', 'interviewing', 'greenhouse', 5],
+  ['Cloudflare', 'Systems Engineer, Workers', 'Lisbon, PT', 'applied', 'workday', 9],
+  ['Raycast', 'Frontend Engineer', 'London, UK', 'saved', null, 1],
+  ['Supabase', 'Full-stack Engineer', 'Remote', 'rejected', 'lever', 21],
+  ['Resend', 'Founding Engineer', 'Remote', 'withdrawn', 'wellfound', 30],
+];
+
 /*
- * Each row's age in days, and where its "Posting" link goes.
+ * Where each row's "Posting" link goes: the companies' real careers pages,
+ * rather than the per-row `example.com/3` this used to build — that rendered
+ * as a live anchor on a public page and sent anyone who clicked it to the IANA
+ * placeholder domain.
  *
- * The links are the companies' real careers pages rather than a per-row
- * `example.com/3`, which rendered as a live anchor on a public page and sent
- * anyone who clicked it to the IANA placeholder domain.
+ * Beside the rows rather than a seventh column in them, so a row still fits on
+ * one line. Raycast is absent on purpose: it is the saved-never-applied row,
+ * and it has no source to link to.
  */
-const ROWS: [string, string, string | null, ApplicationStatus, string | null, number, string | null][] =
-  [
-    ['Linear', 'Senior Product Engineer', 'Remote', 'applied', 'ashby', 6, 'https://linear.app/careers'],
-    ['Stripe', 'Staff Frontend Engineer', 'Remote — EU', 'interviewing', 'linkedin', 3, 'https://stripe.com/jobs'],
-    ['Vercel', 'Developer Experience Engineer', 'Berlin, DE', 'offer', 'greenhouse', 12, 'https://vercel.com/careers'],
-    ['Anthropic', 'Product Engineer', 'Remote — EU', 'interviewing', 'greenhouse', 5, 'https://www.anthropic.com/careers'],
-    ['Cloudflare', 'Systems Engineer, Workers', 'Lisbon, PT', 'applied', 'workday', 9, 'https://www.cloudflare.com/careers/'],
-    ['Raycast', 'Frontend Engineer', 'London, UK', 'saved', null, 1, null],
-    ['Supabase', 'Full-stack Engineer', 'Remote', 'rejected', 'lever', 21, 'https://supabase.com/careers'],
-    ['Resend', 'Founding Engineer', 'Remote', 'withdrawn', 'wellfound', 30, 'https://resend.com/careers'],
-  ];
+const POSTING: Record<string, string | undefined> = {
+  Linear: 'https://linear.app/careers',
+  Stripe: 'https://stripe.com/jobs',
+  Vercel: 'https://vercel.com/careers',
+  Anthropic: 'https://www.anthropic.com/careers',
+  Cloudflare: 'https://www.cloudflare.com/careers/',
+  Supabase: 'https://supabase.com/careers',
+  Resend: 'https://resend.com/careers',
+};
 
 /*
  * The baseline SSR and the first client render agree on.
@@ -61,14 +74,14 @@ export const DEMO_EPOCH = Date.parse('2026-09-22T12:00:00.000Z');
 export function demoApplications(now: number = DEMO_EPOCH): DemoApplication[] {
   const daysAgo = (n: number) => new Date(now - n * 864e5).toISOString();
 
-  return ROWS.map(([company, role, location, status, sourceSite, d, sourceUrl], i) => ({
+  return ROWS.map(([company, role, location, status, sourceSite, d], i) => ({
     id: `demo_${i}`,
     company,
     role,
     location,
     status,
     sourceSite,
-    sourceUrl,
+    sourceUrl: POSTING[company] ?? null,
     appliedAt: status === 'saved' ? null : daysAgo(d),
     createdAt: daysAgo(d),
   }));
