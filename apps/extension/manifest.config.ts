@@ -16,8 +16,24 @@ export default defineManifest({
     'https://*.lever.co/*',
     'https://*.workatastartup.com/*',
   ],
+  // Without these Chrome shows the grey jigsaw piece everywhere the extension
+  // appears — toolbar, puzzle menu, chrome://extensions and the store listing.
+  // The files live in public/, so Vite copies them to the bundle root untouched.
+  icons: {
+    '16': 'icons/icon-16.png',
+    '32': 'icons/icon-32.png',
+    '48': 'icons/icon-48.png',
+    '128': 'icons/icon-128.png',
+  },
   action: {
     default_popup: 'src/popup/index.html',
+    default_title: 'jlog — track this job',
+    default_icon: {
+      '16': 'icons/icon-16.png',
+      '32': 'icons/icon-32.png',
+      '48': 'icons/icon-48.png',
+      '128': 'icons/icon-128.png',
+    },
   },
   background: {
     service_worker: 'src/background/index.ts',
