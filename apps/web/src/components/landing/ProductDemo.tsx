@@ -176,14 +176,25 @@ export function ProductDemo() {
         ))}
       </div>
 
-      <div
-        role="tabpanel"
-        id={`demo-panel-${pane}`}
-        aria-labelledby={`demo-tab-${pane}`}
-        tabIndex={-1}
-      >
-        {pane === 'applications' ? <ApplicationsPane /> : <TailoringPane />}
-      </div>
+      {/*
+        Both panels exist at all times, the inactive one hidden.
+        Rendering only the selected pane left the other tab's `aria-controls`
+        pointing at an id that was not in the document, so assistive technology
+        was handed half a relationship. Keeping both also means each pane's
+        filters and selection survive a switch.
+      */}
+      {PANES.map(({ id }) => (
+        <div
+          key={id}
+          role="tabpanel"
+          id={`demo-panel-${id}`}
+          aria-labelledby={`demo-tab-${id}`}
+          tabIndex={-1}
+          hidden={pane !== id}
+        >
+          {id === 'applications' ? <ApplicationsPane /> : <TailoringPane />}
+        </div>
+      ))}
 
       <p
         style={{
