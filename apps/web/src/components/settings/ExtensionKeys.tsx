@@ -104,16 +104,29 @@ export function ExtensionKeys() {
   const [keys, setKeys] = useState<KeyRow[] | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Kept apart from `error` so it can be rendered next to the key list. A
+   * revoke failure warned about at the top of the section would sit off-screen,
+   * above the button that just failed.
+   */
+  const [listError, setListError] = useState<string | null>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadKeys = useCallback(async () => {
     try {
       const res = await apiFetch('/api/extension/tokens');
-      if (!res.ok) return;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { tokens: KeyRow[] };
       setKeys(data.tokens);
+      setListError(null);
     } catch {
-      setKeys([]);
+      // Never leave a stale list standing as if it were current: this list is
+      // what someone reads to confirm a key is really gone. Keep whatever was
+      // already shown, say it may be out of date, and fall back to an empty
+      // list only if there has never been one — otherwise the first failed
+      // load spins forever.
+      setKeys((prev) => prev ?? []);
+      setListError('Could not refresh this list, so it may be out of date.');
     }
   }, []);
 
@@ -161,13 +174,18 @@ export function ExtensionKeys() {
 
   async function revoke(prefix: string) {
     setRevoking(prefix);
+    setListError(null);
     try {
-      await apiFetch(`/api/extension/tokens/${prefix}`, { method: 'DELETE' });
-      // A revoked key must not linger in the one-time reveal box either.
+      const res = await apiFetch(`/api/extension/tokens/${prefix}`, { method: 'DELETE' });
+      // A resolved fetch is not a successful one. Clearing the UI on a 401 or
+      // a 500 would tell someone a leaked key was dead while it was still live
+      // — the one lie this button must never tell.
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Only now is it safe to drop it from the one-time reveal box.
       setMinted((m) => (m?.prefix === prefix ? null : m));
       await loadKeys();
     } catch {
-      setError('Could not revoke that key. Try again.');
+      setListError('Could not revoke that key — it is still active. Try again.');
     } finally {
       setRevoking(null);
     }
@@ -290,6 +308,7 @@ export function ExtensionKeys() {
       {/* ---- Active keys ---- */}
       <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
         <p style={{ ...fieldLabelStyle, fontWeight: 600 }}>Active keys</p>
+        {listError && <p style={{ ...noteStyle, color: 'hsl(var(--destructive))' }}>{listError}</p>}
         {keys === null && <Spinner size={16} />}
         {keys?.length === 0 && (
           <p style={noteStyle}>No keys yet. Generate one to connect the extension.</p>
