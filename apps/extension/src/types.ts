@@ -31,4 +31,6 @@ export type ExtensionMessage =
   | { type: 'EXTRACT_REQUEST'; text: string; url: string }
   | { type: 'EXTRACT_RESPONSE'; job: ExtractedJob | null; error?: string }
   | { type: 'SAVE_JOB'; job: DetectedJob }
-  | { type: 'SAVE_RESULT'; ok: boolean; error?: string };
+  | { type: 'SAVE_RESULT'; ok: boolean; error?: string }
+  /** Popup asking the background whether the stored key is still accepted. */
+  | { type: 'CHECK_CONNECTION' };
