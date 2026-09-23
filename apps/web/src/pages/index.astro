@@ -1,4 +1,11 @@
 ---
+/*
+ * Written by scripts/render-thumbs.mjs, which renders the committed template
+ * PDFs to WebP. Imported rather than the filenames being assumed, so a
+ * template whose picture was never rendered fails this build by name instead
+ * of shipping a broken <img> nobody notices.
+ */
+import thumbs from '../../public/templates/thumbs/manifest.json';
 import { ProductDemo } from '../components/landing/ProductDemo';
 import Layout from '../layouts/Layout.astro';
 
@@ -111,19 +118,140 @@ const providers = [
 ];
 
 /*
- * Diagrams, not previews. The gallery inside the app renders the real PDFs
- * (public/templates/*.pdf) through pdf.js; six canvases on a marketing page is
- * a lot of JavaScript to prove a point about layout. These abstract each
- * design's skeleton — where the name sits, whether there is a hint column.
+ * The real pages, not diagrams of them.
+ *
+ * These used to be six abstract skeletons drawn in CSS — a name bar and some
+ * repeating-gradient body text — on the reasoning that six pdf.js canvases is
+ * a lot of JavaScript for a marketing page. That reasoning still holds; the
+ * mistake was concluding the alternative was a drawing. `render-thumbs.mjs`
+ * renders the committed PDFs to WebP once, by hand, and the page ships six
+ * 18KB images of actual typeset documents. A claim about typesetting that is
+ * illustrated with grey rectangles is a claim nobody has to believe.
+ *
+ * `note` is the one thing a picture of a first page does not say by itself.
  */
-const templates = [
-  { id: 'classic', label: 'Classic', hint: true },
-  { id: 'banking', label: 'Banking', hint: false },
-  { id: 'casual', label: 'Casual', hint: true },
-  { id: 'oldstyle', label: 'Oldstyle', hint: false },
-  { id: 'fancy', label: 'Fancy', hint: false },
-  { id: 'plain', label: 'Plain', hint: false },
+const templates: { id: keyof typeof thumbs; label: string; note: string }[] = [
+  { id: 'classic', label: 'Classic', note: 'moderncv, dated left column' },
+  { id: 'banking', label: 'Banking', note: 'centred rule under the name' },
+  { id: 'casual', label: 'Casual', note: 'larger name, looser leading' },
+  { id: 'oldstyle', label: 'Oldstyle', note: 'serif, centred headings' },
+  { id: 'fancy', label: 'Fancy', note: 'filled header block' },
+  { id: 'plain', label: 'Plain', note: 'single column, ATS-safe' },
 ];
+
+for (const template of templates) {
+  if (!thumbs[template.id]) {
+    throw new Error(
+      `No rendered thumbnail for the "${template.id}" template. Run scripts/render-thumbs.mjs.`,
+    );
+  }
+}
+
+/*
+ * The pinned act.
+ *
+ * Five beats of one continuous gesture — posting, capture, row, document,
+ * compile — scrubbed by scroll rather than played on a timer. The page already
+ * made each of these claims in its own section; what it never showed was that
+ * they are one motion. `label` names the beat in the rail, `caption` is the
+ * line that fades in under the scene while that beat is current.
+ */
+const beats = [
+  {
+    id: 'posting',
+    label: 'The posting',
+    caption: 'A job page like any other. You were going to apply to it anyway.',
+  },
+  {
+    id: 'capture',
+    label: 'Captured',
+    caption: 'The extension recognises the apply and reads the page. Nothing to click.',
+  },
+  {
+    id: 'row',
+    label: 'Tracked',
+    caption: 'It becomes a row in the pipeline, with a status you can move.',
+  },
+  {
+    id: 'document',
+    label: 'Written',
+    caption: 'A CV for this posting, composed from facts you imported once.',
+  },
+  {
+    id: 'compiled',
+    label: 'Compiled',
+    caption: 'Every line traced back to its source, then typeset through real LaTeX.',
+  },
+];
+
+/*
+ * The thread diagram.
+ *
+ * Grounding is the one claim on this page nobody else can make, and it was
+ * being carried by two <mark> background colours. Here each generated line is
+ * drawn with a curve running back to the fact it came from and the requirement
+ * it answers — teal for your CV, ochre for the posting, the same pairing the
+ * app uses. `y` is the row's centre in the SVG's own coordinate space, so the
+ * curves and the text cannot drift apart when the copy changes.
+ */
+/*
+ * Rows are a fixed height so the SVG gutters can be drawn in the same
+ * coordinate space as the HTML beside them: three 84px rows with 8px between
+ * puts the row centres at 42, 134 and 226 of a 268-tall box, and the curves
+ * land on them without anything being measured at runtime.
+ */
+const THREAD_ROW = 84;
+const THREAD_GAP = 8;
+const THREAD_H = THREAD_ROW * 3 + THREAD_GAP * 2;
+/** Centre of row i, in the gutters' own coordinates. */
+const threadY = (i: number) => THREAD_ROW / 2 + i * (THREAD_ROW + THREAD_GAP);
+
+/** What you wrote, once, and had to tick before it was stored. */
+const threadFacts = [
+  'Owned the design system — 40 engineers, 6 product teams',
+  'Cut dashboard load 3.2s → 900ms by code-splitting',
+  'Specified interaction and empty states with designers',
+];
+
+/** What this posting asked for, in the order the posting asked for it. */
+const threadNeeds = [
+  'Work directly with designers on interaction detail',
+  'Own our design system and component library',
+  'Keep the app fast — performance is a feature here',
+];
+
+/*
+ * The generated lines, each one the join of a fact and a requirement.
+ *
+ * `need` is deliberately not the identity mapping. A CV is written in your
+ * order and a posting is written in theirs, so the ochre threads cross and the
+ * teal ones do not — which is the actual shape of the problem, and the reason
+ * a CV has to be rewritten per posting rather than reordered.
+ */
+const threadLines = [
+  {
+    fact: 0,
+    need: 1,
+    text: 'Owned the design system 40 engineers across 6 product teams built on.',
+  },
+  { fact: 1, need: 2, text: 'Cut median dashboard load from 3.2s to 900ms by code-splitting.' },
+  { fact: 2, need: 0, text: 'Specified interaction and empty states with designers before build.' },
+];
+
+/**
+ * A gentle S rather than a straight rule: a thread, not a table border.
+ *
+ * A curve between two rows at the same height has identical control points and
+ * comes out dead straight, which reads as a border someone forgot to remove.
+ * Those get a small sag instead, so the teal runs are visibly drawn even where
+ * they connect a fact to the line directly below it.
+ */
+const threadPath = (from: number, to: number, width: number) => {
+  const y1 = threadY(from);
+  const y2 = threadY(to);
+  const sag = from === to ? 9 : 0;
+  return `M0,${y1} C${width * 0.42},${y1 + sag} ${width * 0.58},${y2 + sag} ${width},${y2}`;
+};
 ---
 
 <Layout
@@ -378,7 +506,7 @@ const templates = [
       </section>
 
       <section class="proof reveal">
-        <dl class="proof-grid">
+        <dl class="proof-grid stagger">
           <div><dt data-count="6">6</dt><dd>job boards captured automatically</dd></div>
           <div><dt data-count="6">6</dt><dd>CV designs, compiled from LaTeX</dd></div>
           <div><dt data-count="4">4</dt><dd>model providers, including local Ollama</dd></div>
@@ -444,6 +572,208 @@ const templates = [
       </section>
 
       <!--
+        The act.
+
+        The three claims above are the three claims this page has always made,
+        and it made them as three paragraphs and, further down, as four separate
+        static panels. What none of that showed is that they are one continuous
+        motion — a posting you were reading becomes a row becomes a document
+        without you doing anything in between.
+
+        So this is that motion, pinned and scrubbed: the rail is tall, the stage
+        sticks to the top of it, and scroll position drives the scene rather than
+        scrolling past it. Everything inside is driven by six numbers the script
+        writes on the stage each frame — an overall --q and one 0-to-1 progress
+        per beat — so the whole choreography is CSS calc against those, and it
+        runs backwards as cleanly as forwards.
+
+        Without JS, under prefers-reduced-motion, in print, and on a phone it is
+        not pinned at all: the default styles lay the five panels out as a plain
+        static composition and every beat is simply visible. The pinned version
+        is what `html.motion` opts into.
+      -->
+      <section class="act" aria-labelledby="act-title">
+        <div class="act-rail">
+          <div class="act-stage" data-beat="0">
+            <div class="act-side">
+              <div>
+                <p class="eyebrow">Start to finish</p>
+                <h2 class="section-title" id="act-title">One posting, all the way through</h2>
+              </div>
+
+              <!--
+                The caption lives inside its beat rather than in a box of its
+                own, so the rail stays one list and the eye never leaves it. In
+                the pinned version all but the current one are collapsed to zero
+                height; in the static fallback they are simply all open, which
+                is the right way to read five steps you cannot scrub.
+              -->
+              <ol class="act-steps">
+                {
+                  beats.map((beat, i) => (
+                    <li class="act-step" data-i={i}>
+                      <span class="act-step-n">{String(i + 1).padStart(2, '0')}</span>
+                      <span class="act-step-l">{beat.label}</span>
+                      <span class="act-step-c">{beat.caption}</span>
+                    </li>
+                  ))
+                }
+              </ol>
+            </div>
+
+            <div class="act-frame" aria-hidden="true">
+              <div class="act-scene">
+                <!-- 1. The posting. On screen from the first frame; it is where
+                     the story starts and it never leaves, it is only left
+                     behind by the camera. -->
+                <div class="act-panel act-jd">
+                  <div class="bar">
+                    <span class="dots"><i></i><i></i><i></i></span>
+                    <span class="bar-url">jobs.ashbyhq.com/linear</span>
+                  </div>
+                  <div class="jd">
+                    <h3 class="jd-title">Senior Product Engineer</h3>
+                    <p class="jd-meta">Linear · Remote · Full-time</p>
+                    <p class="jd-h">What you'll do</p>
+                    <ul class="jd-list">
+                      <li>Ship product surfaces end to end, from spec to release.</li>
+                      <li class="jd-hit">Own our design system and component library.</li>
+                      <li>Keep the app fast — performance is a feature here.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- 2. The capture card, whose three fields fill in sequence
+                     rather than all at once: filling one at a time is the only
+                     way a reader can tell it is reading the page rather than
+                     showing a form. -->
+                <div class="act-panel act-ext">
+                  <div class="ext-head">
+                    <span class="ext-mark">j</span>
+                    <span class="ext-title">Captured from Ashby</span>
+                  </div>
+                  <dl class="ext-fields">
+                    <div style="--i:0"><dt>Company</dt><dd>Linear</dd></div>
+                    <div style="--i:1"><dt>Role</dt><dd>Senior Product Engineer</dd></div>
+                    <div style="--i:2"><dt>Location</dt><dd>Remote</dd></div>
+                  </dl>
+                  <span class="ext-cta">Saved</span>
+                </div>
+
+                <!-- 3. The pipeline. The rows that were already there are
+                     static; the Linear row is the one that writes itself, so it
+                     is the only one carrying --i and the highlight. -->
+                <div class="act-panel act-list">
+                  <div class="bar">
+                    <span class="bar-title">Applications</span>
+                    <span class="bar-tools">
+                      <span class="tab on">All</span>
+                      <span class="tab">Applied</span>
+                      <span class="tab">Interviewing</span>
+                    </span>
+                    <span class="bar-count act-count">72</span>
+                  </div>
+                  <div class="rows">
+                    <div class="row">
+                      <span class="mono-tile" data-h="14">S</span>
+                      <span class="cell">
+                        <span class="co">Stripe</span>
+                        <span class="ro">Staff Frontend Engineer</span>
+                      </span>
+                      <span class="meta">Remote — EU · LinkedIn</span>
+                      <span class="pill interviewing">Interviewing</span>
+                    </div>
+                    <div class="row act-row-new">
+                      <span class="mono-tile" data-h="252">L</span>
+                      <span class="cell">
+                        <span class="co">Linear</span>
+                        <span class="ro">Senior Product Engineer</span>
+                      </span>
+                      <span class="meta">Remote · Ashby</span>
+                      <span class="pill applied">Applied</span>
+                    </div>
+                    <div class="row">
+                      <span class="mono-tile" data-h="196">V</span>
+                      <span class="cell">
+                        <span class="co">Vercel</span>
+                        <span class="ro">Developer Experience Engineer</span>
+                      </span>
+                      <span class="meta">Berlin, DE · Greenhouse</span>
+                      <span class="pill offer">Offer</span>
+                    </div>
+                    <div class="row">
+                      <span class="mono-tile" data-h="28">A</span>
+                      <span class="cell">
+                        <span class="co">Anthropic</span>
+                        <span class="ro">Product Engineer</span>
+                      </span>
+                      <span class="meta">Remote — EU · Greenhouse</span>
+                      <span class="pill interviewing">Interviewing</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 4 and 5. The document, then the compile that ends it. The
+                     bullets compose on beat four and their citations light on
+                     beat five, which is the order the app does it in: it writes
+                     first and attributes after. -->
+                <div class="act-panel act-paper">
+                  <svg class="comet act-comet" viewBox="0 0 400 260" preserveAspectRatio="none">
+                    <!-- Its own gradient rather than the hero's. A paint server
+                         does resolve across two inline SVGs in one document, but
+                         then this panel breaks the day the hero is edited. -->
+                    <defs>
+                      <linearGradient id="actCometTail" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0"></stop>
+                        <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="1"></stop>
+                      </linearGradient>
+                    </defs>
+                    <rect
+                      x="1" y="1" width="398" height="258" rx="11"
+                      fill="none" stroke="url(#actCometTail)" stroke-width="2"
+                      pathLength="100" stroke-dasharray="14 86" stroke-linecap="round"></rect>
+                  </svg>
+                  <div class="cv">
+                    <div class="cv-head" style="--i:0">
+                      <span class="cv-name">Alex Rivera</span>
+                      <span class="cv-contact">alex@example.com · Berlin · github.com/arivera</span>
+                    </div>
+                    <p class="cv-sec" style="--i:1">Experience</p>
+                    <div class="cv-entry" style="--i:2">
+                      <span class="cv-when">2021 — 2025</span>
+                      <span class="cv-what">
+                        <span class="cv-role">Senior Frontend Engineer, Acme</span>
+                        <span class="cv-b">
+                          Owned the <mark class="cite cite-jd">design system</mark> that
+                          <mark class="cite cite-cv">40 engineers</mark> across 6 product teams built on.
+                        </span>
+                      </span>
+                    </div>
+                    <div class="cv-entry" style="--i:3">
+                      <span class="cv-when"></span>
+                      <span class="cv-what">
+                        <span class="cv-b">
+                          Cut median dashboard load from
+                          <mark class="cite cite-cv">3.2s to 900ms</mark> by
+                          <mark class="cite cite-jd">code-splitting the bundle</mark>.
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="act-panel act-chip">
+                  <span class="ping"></span>
+                  <span class="chip-main">Compiled to PDF</span>
+                  <span class="chip-sub">tectonic · 1.8s · classic</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!--
         Capture, in full.
         The trio above says "the row writes itself" in one line, which is the
         claim people disbelieve. This is the answer: three tiers, named, with
@@ -465,7 +795,7 @@ const templates = [
             same list, with the same pipeline behind it.
           </p>
         </div>
-        <ol class="tiers">
+        <ol class="tiers stagger">
           <li class="tier">
             <span class="tier-n">01</span>
             <div class="tier-body">
@@ -508,13 +838,25 @@ const templates = [
         painted is arguing against its first section.
       -->
       <section class="try reveal">
-        <p class="eyebrow">Try it</p>
-        <h2 class="section-title">The actual interface, with sample data</h2>
-        <p class="section-body section-body-wide">
-          Not a screenshot and not a drawing — the shipped component, running here. Filter it,
-          change a status, click a generated line to see what it was written from.
-        </p>
-        <ProductDemo client:visible />
+        <div class="try-head">
+          <div>
+            <p class="eyebrow">Try it</p>
+            <h2 class="section-title">The actual interface, with sample data</h2>
+          </div>
+          <p class="section-body">
+            Not a screenshot and not a drawing — the shipped component, running here. Filter it,
+            change a status, click a generated line to see what it was written from.
+          </p>
+        </div>
+        <!--
+          The strongest thing on the page was sitting inside the same 1128px
+          measure as a paragraph. It gets a stage wider than the text column and
+          a frame, because a live product is the one element here that should
+          look bigger than the writing about it.
+        -->
+        <div class="try-stage">
+          <ProductDemo client:visible />
+        </div>
       </section>
 
       <!--
@@ -719,7 +1061,66 @@ release.
         </div>
       </section>
 
-      <section class="grounding reveal">
+      <!--
+        Templates.
+
+        Moved above the band, and moved off drawings onto the real pages. Each
+        card links to the PDF it is a picture of, which is the only version of
+        this claim that can be checked: a gallery you cannot open is a gallery
+        you have to believe.
+      -->
+      <section class="templates reveal">
+        <p class="eyebrow">Templates</p>
+        <h2 class="section-title">Six designs, not six countries</h2>
+        <p class="section-body section-body-wide">
+          A template is a design. Where conventions differ — whether a photo belongs on the page,
+          how long it runs — that is a property of the design you picked, applied for you, not a
+          country you have to choose first. Open any of them.
+        </p>
+        <ul class="template-strip stagger">
+          {
+            templates.map((template) => (
+              <li class="template">
+                <a
+                  class="sheet"
+                  href={`/templates/${template.id}.pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    src={`/templates/thumbs/${template.id}.webp`}
+                    alt={`The ${template.label} template, rendered as a PDF`}
+                    width={thumbs[template.id].w}
+                    height={thumbs[template.id].h}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </a>
+                <span class="template-label">
+                  {template.label}
+                  <span class="template-note">{template.note}</span>
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <!--
+        The band.
+
+        The page runs white from the nav to the footer, which gives it one act
+        and one tempo. This is the second: the two sections that argue the
+        thing is trustworthy — nothing is fabricated, and you can run the whole
+        thing yourself — on inverted ground, full bleed, so the page changes
+        mood exactly where the argument does.
+
+        `theme-invert` flips whichever palette is in force (tokens.css), so in
+        the dark theme this band goes light rather than disappearing into the
+        page around it.
+      -->
+      <div class="band theme-invert">
+        <section class="grounding reveal">
         <div class="grounding-copy">
           <p class="eyebrow">Grounding</p>
           <h2 class="section-title">Nothing it writes is unattributable</h2>
@@ -751,34 +1152,65 @@ release.
             <span class="fact-v">flagged, never fabricated</span>
           </li>
         </ul>
-      </section>
 
-      <section class="templates reveal">
-        <p class="eyebrow">Templates</p>
-        <h2 class="section-title">Six designs, not six countries</h2>
-        <p class="section-body section-body-wide">
-          A template is a design. Where conventions differ — whether a photo belongs on the page,
-          how long it runs — that is a property of the design you picked, applied for you, not a
-          country you have to choose first.
-        </p>
-        <ul class="template-strip">
-          {
-            templates.map((template) => (
-              <li class="template">
-                <div class={`sheet sheet-${template.id}`} aria-hidden="true">
-                  <span class="sheet-head">
-                    <span class="sheet-name" />
-                  </span>
-                  <span class="sheet-main">
-                    {template.hint && <span class="sheet-hint" />}
-                    <span class="sheet-body" />
-                  </span>
-                </div>
-                <span class="template-label">{template.label}</span>
-              </li>
-            ))
-          }
-        </ul>
+        <!--
+          The thread.
+
+          The one claim on this page nobody else is making, and until now it was
+          carried by two <mark> background colours. Drawn properly it is the
+          page's motif: teal runs from a fact you wrote to the line built out of
+          it, ochre runs from the requirement that line answers, and the ochre
+          threads cross because a posting is not written in the order your CV is.
+
+          Geometry comes from the frontmatter, not from measurement — fixed row
+          heights put the HTML rows and the SVG gutters in the same coordinate
+          space, so the curves stay on their rows when the copy changes.
+        -->
+        <figure class="thread" aria-hidden="true">
+          <div class="thread-grid">
+            <div class="thread-col">
+              <p class="thread-h thread-h-cv">Your CV, read as facts</p>
+              <div class="thread-rows">
+                {threadFacts.map((fact) => <p class="thread-row thread-row-cv">{fact}</p>)}
+              </div>
+            </div>
+
+            <svg class="thread-gutter" viewBox={`0 0 120 ${THREAD_H}`} preserveAspectRatio="none">
+              {
+                threadLines.map((row, i) => (
+                  <path class="wire wire-cv" pathLength="1" d={threadPath(row.fact, i, 120)} />
+                ))
+              }
+            </svg>
+
+            <div class="thread-col thread-col-out">
+              <p class="thread-h">Written for this posting</p>
+              <div class="thread-rows">
+                {threadLines.map((row) => <p class="thread-row thread-row-out">{row.text}</p>)}
+              </div>
+            </div>
+
+            <svg class="thread-gutter" viewBox={`0 0 120 ${THREAD_H}`} preserveAspectRatio="none">
+              {
+                threadLines.map((row, i) => (
+                  <path class="wire wire-jd" pathLength="1" d={threadPath(i, row.need, 120)} />
+                ))
+              }
+            </svg>
+
+            <div class="thread-col">
+              <p class="thread-h thread-h-jd">What the posting asked for</p>
+              <div class="thread-rows">
+                {threadNeeds.map((need) => <p class="thread-row thread-row-jd">{need}</p>)}
+              </div>
+            </div>
+          </div>
+
+          <figcaption>
+            A line with nothing on its right is not written. That is the whole of the
+            anti-hallucination policy, and it is a data structure rather than a prompt.
+          </figcaption>
+        </figure>
       </section>
 
       <section class="oss reveal">
@@ -808,7 +1240,7 @@ release.
         -->
         <div class="oss-model">
           <p class="eyebrow">Your model</p>
-          <ul class="providers">
+          <ul class="providers stagger">
             {
               providers.map((provider) => (
                 <li>
@@ -823,7 +1255,8 @@ release.
             local Ollama and no part of a posting or a CV leaves the machine.
           </p>
         </div>
-      </section>
+        </section>
+      </div>
 
       <!--
         Plans.
@@ -863,17 +1296,70 @@ release.
         </div>
       </section>
 
+      <!--
+        The closer.
+
+        This was set at --text-2xl, the same size as a mid-page subhead — the
+        last line anyone reads, delivered in the same voice as a caption. It is
+        the one place on the page where the type is allowed to be the graphic,
+        so it is set against the viewport rather than against a type scale, and
+        it breaks the 1128px measure the rest of the page keeps.
+      -->
       <section class="closer reveal">
-        <h2 class="closer-title">Start with the applications you have open now.</h2>
-        <a href="/login" class="btn btn-primary btn-lg">Get started free</a>
+        <h2 class="closer-title">
+          <span class="ln"><span class="w">Start</span> <span class="w">with</span> <span class="w">the</span></span>
+          <span class="ln"><span class="w">applications</span> <span class="w">you</span></span>
+          <span class="ln"><span class="w">have</span> <span class="w">open</span> <span class="w">now.</span></span>
+        </h2>
+        <div class="cta-row">
+          <a href="/login" class="btn btn-primary btn-lg">Get started free</a>
+          <a href={GITHUB_URL} class="btn btn-ghost btn-lg" target="_blank" rel="noopener noreferrer">
+            View on GitHub
+          </a>
+        </div>
+        <p class="closer-note">Free to track, for as long as you use it. No card to start.</p>
       </section>
     </main>
 
+    <!--
+      The footer carried the whole ending in one 12px line. It is the last thing
+      on a long page and it is where someone who read all of it arrives, so it
+      gets the mark, the three things worth linking, and the one sentence that
+      says what the deal is.
+    -->
     <footer class="footer">
-      <span>jlog · MIT licensed</span>
-      <span class="footer-sep" aria-hidden="true"></span>
-      <span>Tracking is free. Tailored documents are a paid feature.</span>
-      <a href={GITHUB_URL} class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <div class="footer-top">
+        <a href="/" class="wordmark footer-mark" aria-label="jlog home">
+          <svg class="wordmark-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <rect class="mark-ground" width="32" height="32" rx="7"></rect>
+            <circle class="mark-dot" cx="20" cy="6.5" r="2.2"></circle>
+            <path
+              class="mark-j"
+              d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5"
+              stroke-width="4"
+              stroke-linecap="round"></path>
+          </svg>
+          <span>jlog</span>
+        </a>
+        <nav class="footer-nav">
+          <a class="footer-link" href="/login">Sign in</a>
+          <a class="footer-link" href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>
+          <a
+            class="footer-link"
+            href={`${GITHUB_URL}/blob/main/LICENSE`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            MIT licence
+          </a>
+        </nav>
+      </div>
+      <div class="footer-base">
+        <span>Tracking is free and stays free. Tailored documents are the paid part.</span>
+        <span>Self-hostable on Cloudflare's free tier.</span>
+      </div>
     </footer>
   </div>
 </Layout>
@@ -895,17 +1381,26 @@ release.
     const root = document.documentElement;
     root.classList.add('motion');
 
-    /* ---- the headline resolves once, on load ---- */
-    const headline = document.querySelector('.headline');
-    if (headline) {
-      const words = headline.querySelectorAll('.w');
-      words.forEach((w, i) => {
-        w.style.transitionDelay = `${40 + i * 38}ms`;
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+    /* ---- type that resolves a word at a time ---- */
+
+    /*
+     * Used twice: the headline on load, and the closer when it arrives. Both
+     * are marked up as .w spans that are inert until this runs, so with the
+     * script removed the type is simply set.
+     */
+    const light = (el, step = 38) => {
+      if (!el || el.classList.contains('lit')) return;
+      el.querySelectorAll('.w').forEach((w, i) => {
+        w.style.transitionDelay = `${40 + i * step}ms`;
       });
       // Two frames: one for the hidden state to be committed, one to leave it,
       // or the browser coalesces both and there is no transition to watch.
-      requestAnimationFrame(() => requestAnimationFrame(() => headline.classList.add('lit')));
-    }
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('lit')));
+    };
+
+    light(document.querySelector('.headline'));
 
     /* ---- counters ---- */
     const runCount = (el) => {
@@ -932,12 +1427,16 @@ release.
           el.classList.add('revealed');
           pending.delete(el);
           for (const c of el.querySelectorAll('[data-count]')) runCount(c);
+          // The closer is display type, so its words resolve more slowly than
+          // the headline's — there are fewer of them and each one is bigger.
+          light(el.querySelector('.closer-title'), 52);
         }
       }
     };
 
     /* ---- hero: scroll-linked settle and per-layer parallax ---- */
     const stage = document.querySelector('.stage');
+    const stack = document.querySelector('.stack');
     const hero = document.querySelector('.hero');
 
     const heroCheck = () => {
@@ -957,44 +1456,216 @@ release.
       stage.style.setProperty('--p', p.toFixed(4));
     };
 
+    /* ---- the pinned act ---- */
+
+    /*
+     * One number per beat, written on the stage each frame, and every position,
+     * fade and highlight in the scene is a CSS calc against them. Holding the
+     * choreography in five numbers rather than in a timeline is what makes it
+     * scrub backwards as cleanly as forwards — there is no state to unwind,
+     * only a different value of q.
+     *
+     * The windows overlap by a couple of points so each beat has begun before
+     * the one before it has finished. Butted up exactly, the scene visibly
+     * stops between beats.
+     */
+    const ACT_WINDOWS = [
+      [0, 0.14],
+      [0.14, 0.36],
+      [0.34, 0.58],
+      [0.56, 0.8],
+      [0.78, 1],
+    ];
+    const STICKY_TOP = 56;
+
+    /*
+     * Where the camera sits for each beat, in the scene's own coordinates.
+     *
+     * One value per beat rather than a continuous function of scroll: framing
+     * the subject is a decision, and interpolating it meant the pipeline panel
+     * was still sliding in, half outside the frame, throughout the beat that is
+     * about the pipeline. Beats one and two share a camera because the capture
+     * card is deliberately shown next to the posting it read.
+     */
+    const ACT_CAMERA = [0, 0, -750, -1240, -1240];
+
+    const actRail = document.querySelector('.act-rail');
+    const actStage = document.querySelector('.act-stage');
+    const actSteps = actStage ? [...actStage.querySelectorAll('.act-step')] : [];
+    const actCount = actStage ? actStage.querySelector('.act-count') : null;
+
+    /*
+     * Below 1040px the stylesheet puts the act back to a static column, and
+     * then the rail is barely taller than the stage and this maths would be
+     * noise. Asking the element whether it is actually sticky is more honest
+     * than duplicating the breakpoint here, where it would rot.
+     */
+    let actPinned = false;
+    const actMeasure = () => {
+      actPinned = !!actStage && getComputedStyle(actStage).position === 'sticky';
+    };
+
+    let actBeat = -1;
+    const actCheck = () => {
+      if (!actPinned || !actRail || !actStage) return;
+      const travel = actRail.offsetHeight - actStage.offsetHeight;
+      if (travel <= 0) return;
+
+      const q = clamp((STICKY_TOP - actRail.getBoundingClientRect().top) / travel, 0, 1);
+
+      let active = 0;
+      for (let i = 0; i < ACT_WINDOWS.length; i++) {
+        const [from, to] = ACT_WINDOWS[i];
+        const v = clamp((q - from) / (to - from), 0, 1);
+        actStage.style.setProperty(`--b${i}`, v.toFixed(4));
+        // The leading beat, not the nearest one: where two windows overlap the
+        // later beat has started, and that is the one the rail should name.
+        if (v > 0) active = i;
+      }
+
+      if (active !== actBeat) {
+        actBeat = active;
+        actStage.dataset.beat = String(active);
+        actStage.style.setProperty('--cam', `${ACT_CAMERA[active]}px`);
+        actSteps.forEach((el, i) => {
+          el.classList.toggle('on', i === active);
+          el.classList.toggle('done', i < active);
+        });
+      }
+
+      // The pipeline count goes up by one when the row lands. A list that
+      // gains a row and keeps the same total is the kind of detail that tells
+      // a reader the whole thing is a drawing.
+      if (actCount) {
+        const n = q > ACT_WINDOWS[2][0] + 0.07 ? '73' : '72';
+        if (actCount.textContent !== n) actCount.textContent = n;
+      }
+    };
+
     let frame = 0;
     const onScroll = () => {
       if (frame) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
         heroCheck();
-        // The reveal set empties itself; the hero half runs for the life of
-        // the page, so the listeners stay attached either way.
+        actCheck();
+        // The reveal set empties itself; the hero and act halves run for the
+        // life of the page, so the listeners stay attached either way.
         if (pending.size) revealCheck();
       });
     };
 
+    const onResize = () => {
+      actMeasure();
+      onScroll();
+    };
+
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
+    actMeasure();
     heroCheck();
+    actCheck();
     revealCheck();
 
-    /* ---- hero: pointer tilt ---- */
+    /* ---- hero: the stack assembles itself, once ---- */
+
+    /*
+     * The headline resolved word by word and the stack simply existed. Now the
+     * four panels arrive from a collapsed pile, nearest last, which is the one
+     * moment that says the composition has depth before anyone has moved the
+     * pointer over it.
+     */
+    if (stack) {
+      stack.querySelectorAll('.layer').forEach((el, i) => {
+        el.style.transitionDelay = `${120 + i * 90}ms`;
+      });
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          stage.classList.add('set');
+          // The delays are for the entrance only. Left on, every later change
+          // of --p arrives a beat late and the parallax drags behind the
+          // scroll, so they come off once the panels have landed.
+          window.setTimeout(() => {
+            for (const el of stack.querySelectorAll('.layer')) el.style.transitionDelay = '';
+          }, 900);
+        }),
+      );
+    }
+
+    /* ---- hero: pointer tilt, and drag to orbit ---- */
     // Fine pointers only. A touch screen has no hover to answer, and the
     // handler would be pure battery cost.
     if (!stage || !window.matchMedia('(pointer: fine)').matches) return;
 
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let heldY = 0;
+    let heldX = 0;
     let tiltFrame = 0;
+
+    const setTilt = (x, y) => {
+      stage.style.setProperty('--tilt-y', `${x.toFixed(2)}deg`);
+      stage.style.setProperty('--tilt-x', `${y.toFixed(2)}deg`);
+    };
+
     stage.addEventListener('pointermove', (e) => {
       if (tiltFrame) return;
       tiltFrame = requestAnimationFrame(() => {
         tiltFrame = 0;
         const box = stage.getBoundingClientRect();
+
+        if (dragging) {
+          /*
+           * Dragging accumulates on top of wherever the stack was grabbed, and
+           * is clamped: past about 26 degrees the far panel turns edge-on and
+           * the composition stops being readable, which is a worse toy than a
+           * bounded one.
+           */
+          setTilt(
+            clamp(heldY + (e.clientX - startX) * 0.16, -26, 26),
+            clamp(heldX - (e.clientY - startY) * 0.1, -16, 16),
+          );
+          return;
+        }
+
         const x = (e.clientX - box.left) / box.width - 0.5;
         const y = (e.clientY - box.top) / box.height - 0.5;
-        stage.style.setProperty('--tilt-y', `${x * 8}deg`);
-        stage.style.setProperty('--tilt-x', `${-y * 5.5}deg`);
+        setTilt(x * 8, -y * 5.5);
       });
     });
 
+    const readTilt = (name) => Number.parseFloat(stage.style.getPropertyValue(name)) || 0;
+
+    stage.addEventListener('pointerdown', (e) => {
+      // Left button only, and never on a link — the stack is decorative, but
+      // the nav sits above it and a drag that swallows a click is worse than
+      // no drag at all.
+      if (e.button !== 0) return;
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      heldY = readTilt('--tilt-y');
+      heldX = readTilt('--tilt-x');
+      stage.classList.add('dragging');
+      stage.setPointerCapture(e.pointerId);
+    });
+
+    const release = () => {
+      if (!dragging) return;
+      dragging = false;
+      stage.classList.remove('dragging');
+      // Back to square, on the stack's own easing. A toy you can leave
+      // crooked makes every later screenshot of the page look broken.
+      setTilt(0, 0);
+    };
+
+    stage.addEventListener('pointerup', release);
+    stage.addEventListener('pointercancel', release);
+
     stage.addEventListener('pointerleave', () => {
-      stage.style.setProperty('--tilt-y', '0deg');
-      stage.style.setProperty('--tilt-x', '0deg');
+      if (dragging) return;
+      setTilt(0, 0);
     });
   })();
 </script>
@@ -1165,7 +1836,8 @@ release.
    * failure mode of every word-reveal that ships as a plain "start at opacity
    * zero" rule.
    */
-  :global(.motion) .headline:not(.lit) .w {
+  :global(.motion) .headline:not(.lit) .w,
+  :global(.motion) .closer-title:not(.lit) .w {
     opacity: 0;
     transform: translateY(0.42em);
     filter: blur(6px);
@@ -1437,7 +2109,45 @@ release.
       translateY(calc(var(--p, 0) * var(--par) * -130px));
     /* The same easing the stack's rotation uses. Both are driven by --p, and a
        container that eases while its children snap reads as two objects. */
-    transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition:
+      transform 500ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 500ms ease-out;
+  }
+
+  /*
+   * The stack assembles itself, once.
+   *
+   * The headline resolved a word at a time and the composition beside it simply
+   * existed on the first frame. The panels start collapsed at z zero and fly
+   * out to their own depths on a stagger the script sets — the one moment that
+   * says the thing has depth before anyone has moved a pointer over it.
+   *
+   * Scoped to html.motion and to :not(.set), so without the script the panels
+   * are never hidden in the first place.
+   */
+  :global(.motion) .stage:not(.set) .layer {
+    opacity: 0;
+    transform: translateZ(0) translateY(34px) scale(0.97);
+  }
+
+  /* While a drag is in progress the tilt must track the pointer exactly. The
+     500ms ease that makes the release feel weighted makes the grab feel
+     broken. */
+  .stage.dragging .stack {
+    transition: none;
+  }
+
+  /* Only where the drag handler is actually attached: the script binds it
+     behind the same two conditions, and a grab cursor on something that cannot
+     be grabbed is worse than no affordance. */
+  @media (pointer: fine) {
+    :global(.motion) .stage {
+      cursor: grab;
+    }
+
+    :global(.motion) .stage.dragging {
+      cursor: grabbing;
+    }
   }
 
   /* Staggered so the four never bob in unison, which is what makes float
@@ -2051,7 +2761,10 @@ release.
     /* Tabular figures: without them the box reflows on every frame of the
        count-up as digit widths change, and the label under it twitches. */
     font-variant-numeric: tabular-nums;
-    font-size: var(--text-3xl);
+    /* Display size. These count up on reveal, and a counting numeral set at
+       30px is a detail nobody looks at; set against the viewport it is the
+       first thing under the hero worth stopping for. */
+    font-size: clamp(2.25rem, 5.5vw, 4.25rem);
     font-weight: 600;
     letter-spacing: -0.03em;
     line-height: 1;
@@ -2230,6 +2943,15 @@ release.
 
   /* ---------- templates ---------- */
 
+  /*
+   * Six real pages, fanned.
+   *
+   * These were six abstract skeletons drawn with repeating gradients, on the
+   * reasoning that six pdf.js canvases is too much JavaScript for a marketing
+   * page. True, and the wrong conclusion: `render-thumbs.mjs` renders the
+   * committed PDFs to WebP once, by hand, so the page ships 18KB pictures of
+   * the actual documents and no JavaScript at all.
+   */
   .template-strip {
     list-style: none;
     display: grid;
@@ -2244,129 +2966,81 @@ release.
   }
 
   /*
-   * Each sheet is a diagram of one design's skeleton. The differences that
-   * matter when picking are where the name sits and whether there is a hint
-   * column beside the body — moderncv's classic and casual carry one, the rest
-   * run full width — so those are the only things drawn. Anything more detailed
-   * would be inventing output the compiler has not produced.
+   * Square, not fanned.
+   *
+   * These were turned a degree or two each, on the idea that six documents
+   * should read as a stack someone spread out. At that angle, under six
+   * perfectly level labels, it read as six cards that had slipped — and a
+   * gallery's actual job is comparison, which wants them all on the same
+   * baseline. The life comes from the pages themselves and from the one you
+   * point at lifting off the row.
    */
   .sheet {
-    aspect-ratio: 1 / 1.414;
-    background: var(--color-paper);
+    position: relative;
+    display: block;
+    aspect-ratio: 1 / 1.28;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    padding: 11%;
-    display: flex;
-    flex-direction: column;
-    gap: 8%;
     overflow: hidden;
+    background: var(--color-paper);
+    box-shadow: var(--shadow-sm);
+    transition:
+      transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 340ms ease,
+      border-color var(--transition-fast);
   }
 
-  .sheet-head {
+  .sheet img {
     display: block;
-    flex: none;
+    width: 100%;
+    height: 100%;
+    /* The sample CV is one short page, so the bottom third of every render is
+       blank paper. The card frames the part that has typesetting in it. */
+    object-fit: cover;
+    object-position: top center;
   }
 
-  .sheet-name {
-    display: block;
-    height: 7px;
-    border-radius: 1px;
-    background: color-mix(in srgb, var(--color-paper-ink) 34%, transparent);
+  .sheet:hover,
+  .sheet:focus-visible {
+    transform: translateY(-12px) scale(1.06);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-border-strong);
+    z-index: 2;
   }
 
-  .sheet-main {
-    display: flex;
-    flex: 1;
-    gap: 8%;
-    min-height: 0;
+  /* The affordance, drawn on the card rather than written under it. */
+  .sheet::after {
+    content: 'Open PDF';
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 22px var(--space-3) 9px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.62), transparent);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
   }
 
-  .sheet-hint,
-  .sheet-body {
-    display: block;
-    background: repeating-linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-paper-ink) 15%, transparent) 0 2px,
-      transparent 2px 7px
-    );
-  }
-
-  .sheet-body {
-    flex: 1;
-  }
-
-  /* The narrow dates/keywords column moderncv puts left of the entries. */
-  .sheet-hint {
-    width: 27%;
-    flex: none;
-    background: repeating-linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-paper-ink) 15%, transparent) 0 2px,
-      transparent 2px 21px
-    );
-  }
-
-  .sheet-classic .sheet-name {
-    width: 54%;
-  }
-
-  .sheet-banking .sheet-head {
-    border-bottom: 1.5px solid color-mix(in srgb, var(--color-paper-ink) 28%, transparent);
-    padding-bottom: 7%;
-  }
-
-  .sheet-banking .sheet-name {
-    width: 62%;
-    margin: 0 auto;
-  }
-
-  .sheet-casual .sheet-name {
-    width: 46%;
-    height: 12px;
-  }
-
-  .sheet-oldstyle .sheet-name {
-    width: 50%;
-    margin: 0 auto;
-  }
-
-  .sheet-oldstyle .sheet-body {
-    background: repeating-linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-paper-ink) 15%, transparent) 0 2px,
-      transparent 2px 10px
-    );
-  }
-
-  .sheet-fancy .sheet-head {
-    background: color-mix(in srgb, var(--color-paper-ink) 20%, transparent);
-    padding: 5% 6%;
-    border-radius: 1px;
-  }
-
-  .sheet-fancy .sheet-name {
-    width: 58%;
-    height: 6px;
-    background: color-mix(in srgb, var(--color-paper-ink) 45%, transparent);
-  }
-
-  .sheet-plain .sheet-name {
-    width: 36%;
-    height: 5px;
-    background: color-mix(in srgb, var(--color-paper-ink) 26%, transparent);
-  }
-
-  .sheet-plain .sheet-body {
-    background: repeating-linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-paper-ink) 15%, transparent) 0 2px,
-      transparent 2px 5px
-    );
+  .sheet:hover::after,
+  .sheet:focus-visible::after {
+    opacity: 1;
   }
 
   .template-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     font-size: var(--text-xs);
-    color: var(--color-text-secondary);
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+
+  .template-note {
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--color-text-tertiary);
   }
 
   /* ---------- open source ---------- */
@@ -2393,38 +3067,78 @@ release.
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-6);
+    gap: var(--space-8);
+    padding-top: var(--space-16);
+    padding-bottom: var(--space-16);
   }
 
+  /*
+   * The one place on this page where the type is the graphic.
+   *
+   * It was --text-2xl: the last line anyone reads, set at the size of a
+   * mid-page subhead. Sized against the viewport instead, and let past the
+   * 1128px measure everything else keeps, because an ending that is the same
+   * size as a caption is not an ending.
+   */
   .closer-title {
-    font-size: var(--text-2xl);
+    font-size: clamp(2.5rem, 9vw, 7rem);
     font-weight: 600;
-    letter-spacing: -0.02em;
-    max-width: 24ch;
+    letter-spacing: -0.045em;
+    line-height: 0.97;
+    max-width: none;
+    text-wrap: balance;
+  }
+
+  .closer-note {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
   }
 
   /* ---------- footer ---------- */
 
+  /*
+   * This was one 12px line. It is the last thing on a long page and the place
+   * someone who read all of it arrives, so it carries the mark, the three
+   * things worth linking, and the one sentence that states the deal.
+   */
   .footer {
     border-top: 1px solid var(--color-border);
     background: var(--color-surface);
-    padding: var(--space-6);
+    padding: var(--space-12) var(--space-6) var(--space-8);
+  }
+
+  .footer-top,
+  .footer-base {
+    max-width: 1128px;
+    margin: 0 auto;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: var(--space-4);
+    justify-content: space-between;
+    gap: var(--space-5) var(--space-8);
     flex-wrap: wrap;
+  }
+
+  .footer-mark {
+    font-size: var(--text-lg);
+  }
+
+  .footer-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+  }
+
+  .footer-base {
+    margin-top: var(--space-8);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border);
     font-size: var(--text-xs);
     color: var(--color-text-tertiary);
   }
 
-  .footer-sep {
-    width: 1px;
-    height: 12px;
-    background: var(--color-border-strong);
-  }
-
   .footer-link {
+    font-size: var(--text-sm);
     color: var(--color-text-secondary);
     text-decoration: none;
   }
@@ -2432,7 +3146,6 @@ release.
   .footer-link:hover {
     color: var(--color-text-primary);
   }
-
 
   /* ---------- capture ---------- */
 
@@ -3024,6 +3737,753 @@ release.
     color: var(--color-text-tertiary);
   }
 
+  /* ---------- the pinned act ---------- */
+
+  /*
+   * Static by default, pinned only under html.motion.
+   *
+   * With no JS, under prefers-reduced-motion, in print, and on a phone this is
+   * a plain stacked composition: five panels in a column, every beat visible,
+   * nothing sticky. The scrubbed version is what the script opts into — the
+   * same rule the headline follows, for the same reason. An effect that leaves
+   * the page blank when it does not run is not an effect, it is a bug with a
+   * nice easing curve.
+   */
+  .act {
+    max-width: none;
+    padding: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .act-rail {
+    max-width: 1128px;
+    margin: 0 auto;
+    padding: var(--space-16) var(--space-6);
+  }
+
+  .act-stage {
+    display: grid;
+    gap: var(--space-10);
+  }
+
+  .act-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .act-steps {
+    list-style: none;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .act-step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    column-gap: var(--space-3);
+    padding: var(--space-3) 0 var(--space-3) var(--space-5);
+    transition: opacity var(--transition-base);
+  }
+
+  /* The travelling marker. Sits on the rail's own hairline rather than beside
+     it, so the line reads as one line with a lit segment. */
+  .act-step::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-accent);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+  }
+
+  .act-step-n {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--color-text-tertiary);
+  }
+
+  .act-step-l {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .act-step-c {
+    grid-column: 2;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+    margin-top: var(--space-2);
+  }
+
+  .act-frame {
+    min-width: 0;
+  }
+
+  .act-scene {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .act-panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
+  }
+
+  .act-ext {
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    background: var(--color-surface);
+  }
+
+  .act-paper {
+    position: relative;
+    background: var(--color-paper);
+  }
+
+  .act-chip {
+    position: relative;
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: var(--color-surface);
+  }
+
+  /*
+   * ---- pinned and scrubbed ----
+   *
+   * The rail is tall and the stage sticks to the top of it, so scroll drives
+   * the scene instead of scrolling past it. Everything below is a calc against
+   * five numbers the script writes on the stage once a frame — one 0-to-1
+   * progress per beat — which is what makes the whole thing run backwards as
+   * cleanly as it runs forwards.
+   */
+  :global(.motion) .act-rail {
+    position: relative;
+    max-width: none;
+    padding: 0;
+    /* Pinned distance. Five beats want roughly a screen each; much less and
+       the scene snaps between states, much more and it feels stuck. */
+    height: 480vh;
+  }
+
+  :global(.motion) .act-stage {
+    position: sticky;
+    top: 56px;
+    height: calc(100vh - 56px);
+    max-width: 1128px;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-6);
+    grid-template-columns: 300px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-10);
+    overflow: hidden;
+  }
+
+  :global(.motion) .act-step {
+    opacity: 0.42;
+  }
+
+  /* A beat you have been through stays legible; only the current one is lit. */
+  :global(.motion) .act-step.done {
+    opacity: 0.72;
+  }
+
+  :global(.motion) .act-step.on {
+    opacity: 1;
+  }
+
+  :global(.motion) .act-step.on::before {
+    opacity: 1;
+  }
+
+  :global(.motion) .act-step.on .act-step-n {
+    color: var(--color-accent);
+  }
+
+  /* The caption is an accordion in the rail rather than a separate box, so the
+     five beats stay one list and the reading eye never has to leave it. */
+  :global(.motion) .act-step-c {
+    overflow: hidden;
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+    transition:
+      max-height 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-top 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 260ms ease;
+  }
+
+  :global(.motion) .act-step.on .act-step-c {
+    max-height: 7em;
+    margin-top: var(--space-2);
+    opacity: 1;
+  }
+
+  /* The window. The scene behind it is wider than the frame and pans. */
+  :global(.motion) .act-frame {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    /*
+     * A panning camera slices whatever is crossing the frame edge, and a slice
+     * through a line of 11px type reads as a rendering fault rather than as a
+     * pan. Six percent of fade at each side turns the cut into a horizon.
+     */
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  }
+
+  :global(.motion) .act-scene {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    display: block;
+    width: 1980px;
+    /* Hugs the panels rather than the frame. The scene is centred in the
+       stage, so every pixel of scene that no panel occupies is dead air
+       pushing the composition off-centre — which is what 560 was doing. */
+    height: 480px;
+    margin-top: -240px;
+    /*
+     * --cam is a per-beat constant the script sets, not a calc against the
+     * beat progress.
+     *
+     * Interpolated continuously, the camera was always half a beat behind its
+     * subject: the pipeline panel was still sliding into frame, and clipped by
+     * the right edge, for the whole of the beat that is about the pipeline. A
+     * step per beat with this easing on it arrives with the subject instead,
+     * which is what a camera cut does and what the continuous version was
+     * pretending to be.
+     */
+    transform: translate3d(var(--cam, 0px), 0, 0);
+    /* The same easing the hero's stack uses. A camera that snaps while its
+       subjects ease reads as two separate objects. */
+    transition: transform 680ms cubic-bezier(0.32, 0.9, 0.3, 1);
+  }
+
+  /*
+   * Fixed positions in the scene's own 1400x520 space. Nothing here moves
+   * between beats; the camera moves, which is why the panels stay put relative
+   * to each other and the sequence reads as one place rather than five slides.
+   */
+  :global(.motion) .act-panel {
+    position: absolute;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent),
+      var(--shadow-lg);
+    transition:
+      opacity 320ms ease,
+      transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /*
+    * Scene coordinates, in a 1980x560 space the camera pans across. The frame
+    * the grid leaves is about 740px wide at the 1128px cap, so each beat's
+    * subject is sized and placed to sit inside that with a margin, and the
+    * camera targets in the script are simply "put this one in the middle".
+    */
+  :global(.motion) .act-jd {
+    left: 180px;
+    top: 115px;
+    width: 380px;
+  }
+
+  :global(.motion) .act-ext {
+    left: 440px;
+    top: 58px;
+    width: 280px;
+    z-index: 3;
+    opacity: calc(var(--b1, 0) * (1 - var(--b2, 0)));
+    transform: translate3d(calc((1 - var(--b1, 0)) * 44px), calc((1 - var(--b1, 0)) * -12px), 0)
+      scale(calc(0.94 + var(--b1, 0) * 0.06));
+  }
+
+  /* One field at a time. Filling all three together looks like a form being
+     shown; filling them in sequence looks like a page being read. */
+  :global(.motion) .act-ext .ext-fields div {
+    opacity: clamp(0, calc((var(--b1, 0) - 0.22 - var(--i) * 0.2) * 6), 1);
+    transition: opacity 200ms ease;
+  }
+
+  :global(.motion) .act-ext .ext-cta {
+    opacity: clamp(0, calc((var(--b1, 0) - 0.84) * 8), 1);
+  }
+
+  :global(.motion) .act-list {
+    left: 800px;
+    top: 115px;
+    width: 640px;
+    z-index: 2;
+    opacity: clamp(0, calc(var(--b2, 0) * 5), 1);
+    transform: translate3d(0, calc((1 - clamp(0, calc(var(--b2, 0) * 5), 1)) * 22px), 0);
+  }
+
+  :global(.motion) .act-row-new {
+    position: relative;
+    opacity: clamp(0, calc((var(--b2, 0) - 0.28) * 4), 1);
+    background: color-mix(
+      in srgb,
+      var(--color-accent-subtle) calc(100% - var(--b3, 0) * 100%),
+      transparent
+    );
+  }
+
+  /* The accent edge that marks the row as new, and fades once it is just
+     another row — which is the honest end state. */
+  :global(.motion) .act-row-new::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: var(--color-accent);
+    opacity: calc(1 - var(--b3, 0));
+  }
+
+  :global(.motion) .act-paper {
+    left: 1540px;
+    top: 80px;
+    width: 420px;
+    z-index: 2;
+    opacity: clamp(0, calc(var(--b3, 0) * 5), 1);
+    transform: translate3d(0, calc((1 - clamp(0, calc(var(--b3, 0) * 5), 1)) * 36px), 0)
+      scale(calc(0.96 + clamp(0, calc(var(--b3, 0) * 5), 1) * 0.04));
+  }
+
+  /*
+   * Lines compose one after another rather than arriving as a block.
+   *
+   * The sheet keeps its full height throughout — the children fade rather than
+   * being inserted — so nothing reflows as they land. The stagger is tight on
+   * purpose: spread any wider and the middle of this beat is a mostly empty
+   * page, which reads as a document that failed to load rather than one being
+   * written.
+   */
+  :global(.motion) .act-paper .cv > * {
+    --lit: clamp(0, calc((var(--b3, 0) - 0.14 - var(--i) * 0.11) * 7), 1);
+    opacity: var(--lit);
+    transform: translateY(calc((1 - var(--lit)) * 6px));
+    transition:
+      opacity 220ms ease,
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /*
+   * Citations light on the last beat, not with the line that carries them.
+   * That is the order the app works in — it writes first and attributes after
+   * — and showing it that way round is the difference between a highlight and
+   * a claim about provenance.
+   */
+  :global(.motion) .act-paper .cite {
+    background-color: transparent;
+    box-shadow: none;
+    transition:
+      background-color 420ms ease,
+      box-shadow 420ms ease;
+  }
+
+  :global(.motion) .act-stage[data-beat='4'] .act-paper .cite-cv {
+    background-color: var(--color-cite-cv-fill);
+    box-shadow: inset 0 -2px 0 var(--color-cite-cv);
+  }
+
+  :global(.motion) .act-stage[data-beat='4'] .act-paper .cite-jd {
+    background-color: var(--color-cite-jd-fill);
+    box-shadow: inset 0 -2px 0 var(--color-cite-jd);
+  }
+
+  :global(.motion) .act-comet {
+    opacity: clamp(0, calc((var(--b4, 0) - 0.2) * 5), 1);
+    transition: opacity 320ms ease;
+  }
+
+  /* Under the document's lower right, close enough to read as the thing that
+     just happened to it rather than as a fifth panel. */
+  :global(.motion) .act-chip {
+    left: 1680px;
+    top: 340px;
+    width: 240px;
+    z-index: 4;
+    opacity: clamp(0, calc((var(--b4, 0) - 0.45) * 5), 1);
+    transform: translate3d(0, calc((1 - clamp(0, calc((var(--b4, 0) - 0.45) * 5), 1)) * 16px), 0);
+  }
+
+  /* The requirement this whole sequence is answering, lit on the first beat so
+     the posting is not just scenery. */
+  :global(.motion) .act-jd .jd-hit {
+    background-color: color-mix(
+      in srgb,
+      var(--color-cite-jd-fill) calc(var(--b0, 0) * 100%),
+      transparent
+    );
+    box-shadow: inset calc(var(--b0, 0) * 2px) 0 0 var(--color-cite-jd);
+  }
+
+  /*
+   * Below this the stage has no room for a 300px rail beside a 1400px scene,
+   * and a scene scaled to fit would put 10px type at 6px. Straight back to the
+   * static composition, which was always the fallback rather than a lesser
+   * version of it.
+   */
+  @media (max-width: 1040px) {
+    :global(.motion) .act-rail {
+      position: static;
+      height: auto;
+      max-width: 1128px;
+      margin: 0 auto;
+      padding: var(--space-12) var(--space-5);
+    }
+
+    :global(.motion) .act-stage {
+      position: static;
+      height: auto;
+      grid-template-columns: 1fr;
+      padding: 0;
+      overflow: visible;
+      gap: var(--space-10);
+    }
+
+    :global(.motion) .act-step,
+    :global(.motion) .act-step.done {
+      opacity: 1;
+    }
+
+    :global(.motion) .act-step-c {
+      max-height: none;
+      margin-top: var(--space-2);
+      opacity: 1;
+      overflow: visible;
+    }
+
+    :global(.motion) .act-frame {
+      position: static;
+      height: auto;
+      overflow: visible;
+    }
+
+    :global(.motion) .act-scene {
+      position: static;
+      display: flex;
+      width: auto;
+      height: auto;
+      margin-top: 0;
+      transform: none;
+    }
+
+    :global(.motion) .act-panel {
+      position: static;
+      width: auto;
+      opacity: 1;
+      transform: none;
+      box-shadow: var(--shadow-sm);
+    }
+
+    :global(.motion) .act-ext .ext-fields div,
+    :global(.motion) .act-ext .ext-cta,
+    :global(.motion) .act-paper .cv > *,
+    :global(.motion) .act-comet {
+      opacity: 1;
+    }
+
+    :global(.motion) .act-paper .cite-cv {
+      background-color: var(--color-cite-cv-fill);
+      box-shadow: inset 0 -2px 0 var(--color-cite-cv);
+    }
+
+    :global(.motion) .act-paper .cite-jd {
+      background-color: var(--color-cite-jd-fill);
+      box-shadow: inset 0 -2px 0 var(--color-cite-jd);
+    }
+
+    :global(.motion) .act-jd .jd-hit {
+      background-color: var(--color-cite-jd-fill);
+      box-shadow: inset 2px 0 0 var(--color-cite-jd);
+    }
+
+    :global(.motion) .act-row-new,
+    :global(.motion) .act-row-new::before {
+      background: none;
+      opacity: 1;
+    }
+  }
+
+  /* ---------- the inverted band ---------- */
+
+  /*
+   * The page ran white from the nav to the footer, which gave it one act and
+   * one tempo. This is the second one, and it sits under the two sections that
+   * argue the thing is trustworthy — nothing is fabricated, and you can run the
+   * whole thing yourself. `theme-invert` (tokens.css) flips whichever palette
+   * is in force, so in the dark theme this band goes light rather than
+   * vanishing into the page around it.
+   *
+   * It has to paint its own ground: the tokens only change what `var()`
+   * resolves to, and the page background lives on <html>.
+   */
+  .band {
+    position: relative;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    padding: var(--space-8) 0;
+  }
+
+  /*
+   * The seams are hard edges, not fades.
+   *
+   * A gradient was the first instinct and it was wrong twice: inside the band
+   * every var() already resolves to the inverted palette, so a fade drawn here
+   * blends toward the wrong colour — and DESIGN.md's first rule is space before
+   * ornament. Two straight edges and the padding inside them say "a different
+   * ground starts here" more clearly than a 120px dissolve.
+   */
+
+  /* The hairline between sections belongs to the white page; inside the band
+     the change of ground is already the separation. */
+  .band .grounding {
+    border-top: none;
+  }
+
+  .band .oss {
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* ---------- the thread ---------- */
+
+  /*
+   * Grounding is the one claim on this page nobody else is making, and it was
+   * carried by two <mark> background colours. Drawn out it becomes the page's
+   * motif: teal from a fact you wrote to the line built out of it, ochre from
+   * the requirement that line answers.
+   *
+   * The ochre threads cross and the teal ones do not, because a posting is not
+   * written in the order your CV is — which is the actual shape of the problem
+   * and the reason a CV has to be rewritten per posting rather than reordered.
+   */
+  .thread {
+    grid-column: 1 / -1;
+    margin-top: var(--space-12);
+  }
+
+  .thread-grid {
+    display: grid;
+    grid-template-columns: 1fr 110px 1.3fr 110px 1fr;
+    align-items: end;
+  }
+
+  .thread-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+
+  .thread-h {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .thread-h-cv {
+    color: var(--color-cite-cv);
+  }
+
+  .thread-h-jd {
+    color: var(--color-cite-jd);
+  }
+
+  /*
+   * Fixed row heights, and the same 8px gap the frontmatter assumes. This is
+   * what lets the SVG gutters be drawn in the rows' own coordinate space
+   * instead of anything being measured at runtime — change one and change
+   * THREAD_ROW / THREAD_GAP with it.
+   */
+  .thread-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .thread-row {
+    height: 84px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .thread-row-cv {
+    box-shadow: inset 2px 0 0 var(--color-cite-cv);
+  }
+
+  .thread-row-jd {
+    box-shadow: inset -2px 0 0 var(--color-cite-jd);
+  }
+
+  /* The generated column is on paper, not on chrome — the same distinction the
+     app makes between a panel and a document it is showing you. */
+  .thread-row-out {
+    background: var(--color-paper);
+    border-color: var(--color-border-strong);
+    color: var(--color-paper-ink);
+    font-size: 12.5px;
+  }
+
+  .thread-gutter {
+    width: 100%;
+    height: 268px;
+    align-self: end;
+    overflow: visible;
+  }
+
+  /* pathLength="1" in the markup, so the dash maths is the same for every
+     curve regardless of how long it actually is. */
+  .wire {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-dasharray: 1;
+    vector-effect: non-scaling-stroke;
+    opacity: 0.9;
+  }
+
+  .wire-cv {
+    stroke: var(--color-cite-cv);
+  }
+
+  .wire-jd {
+    stroke: var(--color-cite-jd);
+  }
+
+  /*
+   * Both classes are on the element at once — the script adds `revealed`, it
+   * does not take `will-reveal` off — so the drawn state has to carry the
+   * `.motion` prefix too. Without it the hidden rule is one class more specific
+   * and simply wins, and the curves never appear at all.
+   */
+  :global(.motion) .grounding.will-reveal .wire {
+    stroke-dashoffset: 1;
+  }
+
+  :global(.motion) .grounding.revealed .wire {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  :global(.motion) .grounding.revealed .wire:nth-child(2) {
+    transition-delay: 130ms;
+  }
+
+  :global(.motion) .grounding.revealed .wire:nth-child(3) {
+    transition-delay: 260ms;
+  }
+
+  .thread figcaption {
+    margin-top: var(--space-8);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-text-tertiary);
+    max-width: 62ch;
+  }
+
+  /* ---------- the demo, given a stage ---------- */
+
+  .try-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-10);
+    align-items: end;
+    margin-bottom: var(--space-10);
+  }
+
+  .try-head .section-title {
+    margin-bottom: 0;
+  }
+
+  /*
+   * The strongest thing on the page was sitting inside the same measure as a
+   * paragraph. --pull is how far past the text column it is allowed to grow;
+   * it resolves to zero once the viewport is narrower than the column, so the
+   * same rule does both jobs.
+   */
+  .try-stage {
+    --pull: calc((min(1400px, 100vw - 3rem) - 100%) / 2);
+    margin-left: calc(var(--pull) * -1);
+    margin-right: calc(var(--pull) * -1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+
+  /* ---------- staggered entrances ---------- */
+
+  /*
+   * One 12px fade-up for eleven sections is what made them feel
+   * interchangeable. A list marked `stagger` resolves its children in sequence
+   * instead, so a row of six templates arrives as six things rather than as one
+   * rectangle. Scoped to html.motion, like everything else here: without the
+   * script the children were never hidden.
+   */
+  :global(.motion) .will-reveal .stagger > * {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  /*
+   * The `.motion` prefix is load-bearing on the visible rule too.
+   *
+   * Astro scopes every compound selector with a [data-astro-cid-*] attribute,
+   * so the hidden rule above counts six class-or-attribute selectors and this
+   * one would count five. Without the prefix the hidden rule is simply more
+   * specific and the children of a staggered list never come back — which is
+   * exactly how the provider list rendered as an empty column.
+   */
+  :global(.motion) .revealed .stagger > * {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 520ms ease-out,
+      transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  :global(.motion) .revealed .stagger > *:nth-child(1) {
+    transition-delay: 30ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(2) {
+    transition-delay: 90ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(3) {
+    transition-delay: 150ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(4) {
+    transition-delay: 210ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(5) {
+    transition-delay: 270ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(6) {
+    transition-delay: 330ms;
+  }
+
   /* ---------- narrow ---------- */
 
   /*
@@ -3267,6 +4727,107 @@ release.
 
     .cta-row .btn {
       flex: 1;
+    }
+  }
+
+  /* ---------- narrow: the new sections ---------- */
+
+  @media (max-width: 900px) {
+    /*
+     * The thread stacks.
+     *
+     * The curves are the diagram, and there is nowhere to draw them once the
+     * five columns fold into one — a gutter 300px tall and 40px wide is not a
+     * thread, it is a squiggle. The three columns still read in order (what you
+     * wrote, what was written, what they asked for) and the coloured edges keep
+     * the teal/ochre pairing, which is the part that has to survive.
+     */
+    .thread-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+    }
+
+    .thread-gutter {
+      display: none;
+    }
+
+    .thread-rows {
+      gap: var(--space-2);
+    }
+
+    .thread-row {
+      height: auto;
+      min-height: 64px;
+      padding: var(--space-3);
+    }
+
+    .thread-h {
+      white-space: normal;
+    }
+
+    .try-head {
+      grid-template-columns: 1fr;
+      gap: var(--space-5);
+    }
+
+    .footer-top,
+    .footer-base {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .footer-base {
+      gap: var(--space-2);
+    }
+  }
+
+  @media (max-width: 560px) {
+    /*
+     * Six fanned cards at 44px wide are six grey slivers. Two up, straightened,
+     * and the fan goes with them — a rotation that small on a card that narrow
+     * reads as a rendering fault rather than as a stack.
+     */
+    .template-strip {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-5);
+    }
+
+    .act-step {
+      grid-template-columns: 22px minmax(0, 1fr);
+      padding-left: var(--space-4);
+    }
+  }
+
+  /*
+   * Print.
+   *
+   * The pinned act cannot pin on paper — nothing scrolls — so the beat
+   * variables are never written and every panel after the first would come out
+   * at opacity zero. Same reasoning as the reveal rule above it.
+   */
+  @media print {
+    .act-rail,
+    .act-stage,
+    .act-frame,
+    .act-scene,
+    .act-panel {
+      position: static;
+      height: auto;
+      width: auto;
+      opacity: 1;
+      transform: none;
+      overflow: visible;
+    }
+
+    .act-step-c {
+      max-height: none;
+      opacity: 1;
+      overflow: visible;
+    }
+
+    .band {
+      background: none;
+      color: inherit;
     }
   }
 </style>
