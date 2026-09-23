@@ -2,8 +2,10 @@ import { createProRouter } from '@jlog/pro';
 import { HttpError } from '@jlog/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { Auth } from './lib/auth';
 import type { Tracing } from './lib/langfuse';
 import { makeTailor } from './lib/tailor';
+import { authInstanceMiddleware } from './middleware/authInstance';
 import { sessionMiddleware } from './middleware/session';
 import { tracingMiddleware } from './middleware/tracing';
 import applicationsRouter from './routes/applications';
@@ -29,6 +31,47 @@ export interface Env {
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
   SESSION_SECRET: string;
+  /**
+   * Optional: Better Auth's own signing secret. Left unset it falls back to
+   * SESSION_SECRET, so a deployment has one fewer thing to generate. Changing
+   * either signs everyone out, which is the point of it.
+   */
+  BETTER_AUTH_SECRET?: string;
+  /**
+   * Optional: the origin this worker is reachable at. Normally derived from the
+   * request, which is right for local, preview and production alike; set it
+   * only when something in front rewrites the Host header.
+   */
+  API_ORIGIN?: string;
+  /**
+   * Optional: Sign in with Google. Unset means the provider is not registered
+   * and the login page does not offer it.
+   */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /**
+   * Optional: Sign in with Apple. All four are required together — Apple issues
+   * no client secret, so one is signed per exchange from the downloaded `.p8`
+   * key (APPLE_PRIVATE_KEY) identified by APPLE_KEY_ID, on behalf of
+   * APPLE_TEAM_ID. APPLE_CLIENT_ID is the Services ID, not the app's bundle id.
+   *
+   * Apple answers its callback with a cross-site form POST and refuses
+   * localhost redirect URIs, so this provider cannot be exercised against a
+   * plain http://localhost origin — it needs a real HTTPS deployment.
+   */
+  APPLE_CLIENT_ID?: string;
+  APPLE_TEAM_ID?: string;
+  APPLE_KEY_ID?: string;
+  APPLE_PRIVATE_KEY?: string;
+  /** Optional: only needed for a native iOS app signing in with an identity token. */
+  APPLE_BUNDLE_ID?: string;
+  /**
+   * Optional: emailed sign-in links, sent through Resend. Both are required
+   * together; unset means the login page does not offer email sign-in at all.
+   * EMAIL_FROM must be on a domain verified in Resend.
+   */
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
   // Dedicated secret for encrypting stored LLM API keys — kept separate from
   // SESSION_SECRET so a change to one doesn't have blast radius on the other.
   ENCRYPTION_SECRET: string;
@@ -59,6 +102,14 @@ export interface Env {
 }
 
 export type Variables = {
+  /**
+   * This request's Better Auth instance.
+   *
+   * Built once by `authInstanceMiddleware` and shared, because constructing one
+   * is not free and both the session middleware and the `/api/auth/*` handler
+   * need it — without this, every sign-in request would build two.
+   */
+  auth: Auth;
   // what is sessionID?
   // `expiresAt`/`label` are carried here so the extension can ask when its key
   // dies without the route re-reading the row the middleware already fetched.
@@ -103,11 +154,22 @@ app.use(
     allowHeaders: ['Content-Type', 'Authorization'],
   }),
 );
+// Before anything that needs to know who is calling: build this request's auth
+// instance once, so the session lookup and the /api/auth/* handler share it.
+app.use('*', authInstanceMiddleware);
 app.use('*', sessionMiddleware);
 // After the session middleware: a trace is only worth correlating if it can
 // carry the userId that middleware resolves.
 app.use('*', tracingMiddleware);
+// jlog's own two auth endpoints go on FIRST. Hono runs matching handlers in
+// registration order, so /api/auth/providers and /api/auth/me are answered here
+// and every other path under /api/auth falls through to Better Auth below.
 app.route('/api/auth', authRouter);
+
+// Better Auth owns the rest: starting a social sign-in, the provider callbacks,
+// magic links, sign-out, session lookup. Its handler takes the raw Request and
+// returns a Response, so it is mounted rather than wrapped.
+app.on(['GET', 'POST'], '/api/auth/*', (c) => c.var.auth.handler(c.req.raw));
 app.route('/api/applications', applicationsRouter);
 app.route('/api/applications', eventsRouter);
 app.route('/api/stats', statsRouter);

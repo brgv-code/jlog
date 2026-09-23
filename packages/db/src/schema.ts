@@ -1,10 +1,25 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
+/**
+ * A person. Better Auth's `user` model is mapped onto this table rather than
+ * being given one of its own, so jlog's own columns (plan, Stripe ids) stay
+ * where every route already expects to find them.
+ *
+ * The three fields Better Auth insists on are `email` (unique), `emailVerified`
+ * and `updatedAt`. `avatarUrl` is mapped to its `image` field by name in the
+ * auth config, so the column did not have to be renamed.
+ */
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
-  githubId: integer('github_id').notNull().unique(),
-  email: text('email').notNull(),
+  email: text('email').notNull().unique(),
   name: text('name').notNull(),
+  /**
+   * Whether the address has been proven. Better Auth sets this when a provider
+   * vouches for the address or when someone follows an emailed link, and reads
+   * it back when deciding whether a second sign-in method may attach to an
+   * existing account.
+   */
+  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
   avatarUrl: text('avatar_url'),
   analyticsOptIn: integer('analytics_opt_in', { mode: 'boolean' }).notNull().default(false),
   // Entitlement for paid features (see @jlog/pro). Core/public field; the paywall
@@ -25,6 +40,8 @@ export const users = sqliteTable('users', {
   planStatus: text('plan_status'),
   currentPeriodEnd: integer('current_period_end', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  /** Required by Better Auth, which stamps it on every write to the row. */
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
 /**
@@ -50,30 +67,103 @@ export interface DocumentAsset {
   content: string;
 }
 
-export const sessions = sqliteTable('sessions', {
+/**
+ * A browser session, owned entirely by Better Auth.
+ *
+ * Nothing in jlog writes to this table. The session middleware reads it only
+ * through Better Auth's own API, because the cookie that points at a row here
+ * is signed and rotated by rules that live in the library, not here.
+ */
+export const authSessions = sqliteTable('auth_sessions', {
   id: text('id').primaryKey(),
   userId: text('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  // Real column instead of an 'ext_' id prefix — also lets the auth middleware
-  // reject a session used via the wrong channel (e.g. an extension token
-  // presented as a cookie session id).
-  type: text('type', { enum: ['cookie', 'extension'] })
+  /** The value carried in the cookie. Distinct from `id`, and the secret half. */
+  token: text('token').notNull().unique(),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * One sign-in method attached to a user — a GitHub account, a Google account,
+ * an Apple ID. Several rows may point at the same user, which is what makes
+ * "sign in with Google having previously used GitHub" land in the existing
+ * account rather than minting a second one.
+ *
+ * Better Auth owns this table. `accountId` is the provider's own immutable id
+ * (Google's and Apple's `sub`, GitHub's numeric id), never the email address —
+ * people change the address on an account and would otherwise arrive as a
+ * stranger.
+ */
+export const authAccounts = sqliteTable('auth_accounts', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
     .notNull()
-    .default('cookie'),
+    .references(() => users.id, { onDelete: 'cascade' }),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp' }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp' }),
+  scope: text('scope'),
+  idToken: text('id_token'),
   /**
-   * User-supplied name for an extension key ("work laptop"), so the revoke
-   * list in Settings is readable. Null for cookie sessions and for keys minted
-   * before the key list existed.
+   * Only ever set by Better Auth's email-and-password provider, which jlog does
+   * not enable. The column exists because the library's schema requires it.
+   */
+  password: text('password'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * Short-lived proofs in flight — an outstanding magic link, most of all.
+ *
+ * Better Auth stores the link's token here and deletes the row when it is
+ * spent, which is what makes a sign-in link work exactly once. jlog configures
+ * the plugin to store these hashed, so a dump of this table is a list of hashes
+ * rather than a bundle of working sign-in links.
+ */
+export const authVerifications = sqliteTable('auth_verifications', {
+  id: text('id').primaryKey(),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * A long-lived bearer key the Chrome extension presents instead of a cookie.
+ *
+ * Kept out of Better Auth deliberately. This is not a browser session: it is
+ * issued from Settings, it travels in an `Authorization` header from a
+ * chrome-extension:// origin, and it has its own lifetime. Folding it into the
+ * session table is what used to make "an extension key used as a cookie" a
+ * question the middleware had to ask; separate tables make it unaskable.
+ */
+export const extensionKeys = sqliteTable('extension_keys', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /**
+   * User-supplied name for a key ("work laptop"), so the revoke list in
+   * Settings is readable. Null for keys minted before the key list existed.
    */
   label: text('label'),
   /** When the key was minted. Null for rows predating the key list. */
   createdAt: integer('created_at', { mode: 'timestamp' }),
   /**
-   * A non-expiring extension key stores `NEVER_EXPIRES_AT` (year 9999) rather
-   * than null: this column is NOT NULL and the auth middleware compares every
-   * request against it, so a sentinel avoids a table rebuild. Use
-   * `isNeverExpiring()` from @jlog/shared before showing this to anyone.
+   * A non-expiring key stores `NEVER_EXPIRES_AT` (year 9999) rather than null:
+   * this column is NOT NULL and the auth middleware compares every request
+   * against it, so a sentinel avoids a table rebuild. Use `isNeverExpiring()`
+   * from @jlog/shared before showing this to anyone.
    */
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
 });

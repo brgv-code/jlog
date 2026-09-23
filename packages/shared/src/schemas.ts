@@ -15,6 +15,22 @@ export const githubEmailSchema = z.object({
   verified: z.boolean(),
 });
 
+/**
+ * Which sign-in methods an instance offers. Every one is optional — a
+ * self-hoster may run with GitHub alone and no mail domain at all — so the
+ * login page asks rather than assuming.
+ */
+export const authProvidersResponseSchema = z.object({
+  providers: z.object({
+    github: z.boolean(),
+    google: z.boolean(),
+    apple: z.boolean(),
+    email: z.boolean(),
+  }),
+});
+
+export type AuthProviderAvailability = z.infer<typeof authProvidersResponseSchema>['providers'];
+
 export const PLANS = ['free', 'pro'] as const;
 export type Plan = (typeof PLANS)[number];
 

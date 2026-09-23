@@ -1,4 +1,4 @@
-import { createDb, sessions } from '@jlog/db';
+import { createDb, extensionKeys } from '@jlog/db';
 import { HttpError, expiryFromLifetime, extensionTokenSchema, isNeverExpiring } from '@jlog/shared';
 import { and, eq, like, lt } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -26,17 +26,13 @@ const publicExpiry = (expiresAt: Date) =>
  * told *why* it is locked out. They get cleared here instead: these are the
  * cookie-authenticated paths, so the sweep costs a signed-in user one write and
  * never slows down the extension's own requests.
+ *
+ * No `type` filter any more — this table holds nothing but extension keys.
  */
 async function pruneExpired(db: ReturnType<typeof createDb>, userId: string): Promise<void> {
   await db
-    .delete(sessions)
-    .where(
-      and(
-        eq(sessions.userId, userId),
-        eq(sessions.type, 'extension'),
-        lt(sessions.expiresAt, new Date()),
-      ),
-    );
+    .delete(extensionKeys)
+    .where(and(eq(extensionKeys.userId, userId), lt(extensionKeys.expiresAt, new Date())));
 }
 
 /**
@@ -90,10 +86,9 @@ router.post('/token', async (c) => {
 
   const db = createDb(c.env.DB);
   await pruneExpired(db, session.userId);
-  await db.insert(sessions).values({
+  await db.insert(extensionKeys).values({
     id: token,
     userId: session.userId,
-    type: 'extension',
     label: label && label.length > 0 ? label : null,
     createdAt: new Date(),
     expiresAt,
@@ -115,8 +110,8 @@ router.get('/tokens', async (c) => {
 
   const rows = await db
     .select()
-    .from(sessions)
-    .where(and(eq(sessions.userId, session.userId), eq(sessions.type, 'extension')));
+    .from(extensionKeys)
+    .where(eq(extensionKeys.userId, session.userId));
 
   const tokens = rows
     .map((row) => ({
@@ -148,14 +143,8 @@ router.delete('/tokens/:prefix', async (c) => {
 
   const db = createDb(c.env.DB);
   await db
-    .delete(sessions)
-    .where(
-      and(
-        eq(sessions.userId, session.userId),
-        eq(sessions.type, 'extension'),
-        like(sessions.id, `${prefix}%`),
-      ),
-    );
+    .delete(extensionKeys)
+    .where(and(eq(extensionKeys.userId, session.userId), like(extensionKeys.id, `${prefix}%`)));
 
   return c.json({ ok: true });
 });
