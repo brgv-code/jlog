@@ -4801,28 +4801,77 @@ release.
   /*
    * Print.
    *
-   * The pinned act cannot pin on paper — nothing scrolls — so the beat
-   * variables are never written and every panel after the first would come out
-   * at opacity zero. Same reasoning as the reveal rule above it.
+   * Nothing scrolls on paper, so the beat variables are never written and
+   * every value derived from them resolves to zero. The whole motion layer has
+   * to be undone, not just the containers it moves: the panels, the capture
+   * fields, the composed document lines, the staggered list children and the
+   * thread curves are each faded or clipped by a separate rule.
+   *
+   * These carry !important, which is deliberate rather than lazy. Astro scopes
+   * styles by appending a [data-astro-cid-*] attribute to every compound
+   * selector, so a rule's real specificity is not what it looks like in this
+   * file — `:global(.motion) .act-ext` scores three where a plain `.act-panel`
+   * scores two, and the earlier version of this block lost every contest it
+   * entered while appearing to win them. Matching each motion rule's selector
+   * shape would work until the next rule is added and silently outscores its
+   * counterpart here. Print is the one place where the intent really is
+   * "override the lot, whatever it turned out to be", so it says that.
    */
   @media print {
-    .act-rail,
-    .act-stage,
-    .act-frame,
-    .act-scene,
-    .act-panel {
-      position: static;
-      height: auto;
-      width: auto;
-      opacity: 1;
-      transform: none;
-      overflow: visible;
+    :global(.motion) .act-rail,
+    :global(.motion) .act-stage,
+    :global(.motion) .act-frame,
+    :global(.motion) .act-scene,
+    :global(.motion) .act-panel {
+      position: static !important;
+      height: auto !important;
+      width: auto !important;
+      overflow: visible !important;
     }
 
-    .act-step-c {
-      max-height: none;
-      opacity: 1;
-      overflow: visible;
+    /* The frame's 6% edge fade is a horizon for a panning camera. On paper it
+       just dissolves the first and last centimetre of the content. */
+    :global(.motion) .act-frame {
+      mask-image: none !important;
+    }
+
+    /* Everything inside the act, rather than the five containers: the fades
+       that hide content are on the descendants. */
+    :global(.motion) .act,
+    :global(.motion) .act *,
+    :global(.motion) .will-reveal .stagger > * {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    :global(.motion) .act-step-c {
+      max-height: none !important;
+      margin-top: var(--space-2) !important;
+      overflow: visible !important;
+    }
+
+    /* Beat-keyed marks. Without these the document prints with its citations
+       unmarked and the posting with the matched requirement unhighlighted —
+       which is the one thing those two panels are on the page to show. */
+    :global(.motion) .act-paper .cite-cv {
+      background-color: var(--color-cite-cv-fill) !important;
+      box-shadow: inset 0 -2px 0 var(--color-cite-cv) !important;
+    }
+
+    :global(.motion) .act-paper .cite-jd {
+      background-color: var(--color-cite-jd-fill) !important;
+      box-shadow: inset 0 -2px 0 var(--color-cite-jd) !important;
+    }
+
+    :global(.motion) .act-jd .jd-hit {
+      background-color: var(--color-cite-jd-fill) !important;
+      box-shadow: inset 2px 0 0 var(--color-cite-jd) !important;
+    }
+
+    /* The curves are drawn by transitioning the dash offset on reveal, so on
+       paper the thread diagram prints as three columns joined by nothing. */
+    :global(.motion) .grounding .wire {
+      stroke-dashoffset: 0 !important;
     }
 
     .band {
