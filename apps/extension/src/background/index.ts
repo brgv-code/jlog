@@ -1,12 +1,11 @@
+import {
+  API_BASE,
+  type Connection,
+  checkConnection,
+  getToken,
+  setCachedConnection,
+} from '../lib/connection';
 import type { DetectedJob, ExtensionMessage, ExtractedJob } from '../types';
-
-const API_BASE: string =
-  (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:8787';
-
-async function getToken(): Promise<string | null> {
-  const result = await chrome.storage.local.get('jlog_token');
-  return (result.jlog_token as string | undefined) ?? null;
-}
 
 async function apiCall(path: string, init?: RequestInit): Promise<Response> {
   const token = await getToken();
@@ -18,14 +17,21 @@ async function apiCall(path: string, init?: RequestInit): Promise<Response> {
       ...(init?.headers ?? {}),
     },
   });
-  // Token expired or revoked — clear it so the popup shows the re-enter screen
+
+  // A 401 means the key is no longer good. It used to be deleted here and
+  // nowhere else, which is why the popup could only ever say "something went
+  // wrong" and then, after a reload, act as if a key had never been pasted.
+  // Now the key is kept and the reason is looked up, so the popup can say
+  // "expired on Tuesday, here is where to get a new one".
   if (res.status === 401) {
-    await chrome.storage.local.remove('jlog_token');
+    await checkConnection();
   }
   return res;
 }
 
-async function saveJob(job: DetectedJob): Promise<{ ok: boolean; error?: string }> {
+async function saveJob(
+  job: DetectedJob,
+): Promise<{ ok: boolean; error?: string; status?: number }> {
   try {
     const res = await apiCall('/api/applications', {
       method: 'POST',
@@ -46,7 +52,7 @@ async function saveJob(job: DetectedJob): Promise<{ ok: boolean; error?: string 
       const data = (await res.json().catch(() => ({ error: { message: res.statusText } }))) as {
         error?: { message?: string };
       };
-      return { ok: false, error: data.error?.message ?? `HTTP ${res.status}` };
+      return { ok: false, error: data.error?.message ?? `HTTP ${res.status}`, status: res.status };
     }
     return { ok: true };
   } catch (err: unknown) {
@@ -54,30 +60,43 @@ async function saveJob(job: DetectedJob): Promise<{ ok: boolean; error?: string 
   }
 }
 
-async function extractJob(text: string, url: string): Promise<ExtractedJob | null> {
+async function extractJob(
+  text: string,
+  url: string,
+): Promise<{ job: ExtractedJob | null; error?: string; status?: number }> {
   const res = await apiCall('/api/extract', {
     method: 'POST',
     body: JSON.stringify({ html: text, url }),
   });
-  if (!res.ok) return null;
+  // The status is carried back rather than flattened into `null`. Losing it was
+  // how an auth failure came to be reported as "could not extract job details".
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    return { job: null, error: data.error?.message ?? `HTTP ${res.status}`, status: res.status };
+  }
   const data = (await res.json()) as {
     company?: string;
     role?: string;
     location?: string | null;
     confidence?: number;
   };
-  if (!data.company || !data.role) return null;
+  if (!data.company || !data.role) return { job: null };
   return {
-    company: data.company,
-    role: data.role,
-    location: data.location ?? null,
-    confidence: data.confidence ?? 0,
+    job: {
+      company: data.company,
+      role: data.role,
+      location: data.location ?? null,
+      confidence: data.confidence ?? 0,
+    },
   };
 }
 
-async function handleMessage(
-  message: unknown,
-): Promise<{ ok: boolean; error?: string } | { job: ExtractedJob | null; error?: string }> {
+type MessageResult =
+  | { ok: boolean; error?: string; status?: number }
+  | { job: ExtractedJob | null; error?: string; status?: number }
+  | { connection: Connection };
+
+async function handleMessage(message: unknown): Promise<MessageResult> {
   if (typeof message !== 'object' || message === null) {
     return { ok: false, error: 'Invalid message' };
   }
@@ -88,10 +107,12 @@ async function handleMessage(
     case 'SAVE_JOB':
       return saveJob(msg.job);
 
+    case 'CHECK_CONNECTION':
+      return { connection: await checkConnection() };
+
     case 'EXTRACT_REQUEST': {
       try {
-        const job = await extractJob(msg.text, msg.url);
-        return { job };
+        return await extractJob(msg.text, msg.url);
       } catch (err: unknown) {
         return { job: null, error: String(err) };
       }
@@ -103,7 +124,9 @@ async function handleMessage(
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('jlog extension installed');
+  // A fresh install has no key, and saying so up front means the popup opens
+  // straight onto the paste screen instead of guessing.
+  void setCachedConnection({ status: 'no-key', expiresAt: null, label: null });
 });
 
 chrome.runtime.onMessage.addListener(

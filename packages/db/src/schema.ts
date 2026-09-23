@@ -61,6 +61,20 @@ export const sessions = sqliteTable('sessions', {
   type: text('type', { enum: ['cookie', 'extension'] })
     .notNull()
     .default('cookie'),
+  /**
+   * User-supplied name for an extension key ("work laptop"), so the revoke
+   * list in Settings is readable. Null for cookie sessions and for keys minted
+   * before the key list existed.
+   */
+  label: text('label'),
+  /** When the key was minted. Null for rows predating the key list. */
+  createdAt: integer('created_at', { mode: 'timestamp' }),
+  /**
+   * A non-expiring extension key stores `NEVER_EXPIRES_AT` (year 9999) rather
+   * than null: this column is NOT NULL and the auth middleware compares every
+   * request against it, so a sentinel avoids a table rebuild. Use
+   * `isNeverExpiring()` from @jlog/shared before showing this to anyone.
+   */
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
 });
 

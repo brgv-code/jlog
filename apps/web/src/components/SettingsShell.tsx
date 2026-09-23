@@ -1,7 +1,8 @@
 import { ArrowRightIcon, SettingsIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { Sidebar } from './Sidebar';
+import { ExtensionKeys } from './settings/ExtensionKeys';
 import { LLMConfigForm } from './settings/LLMConfigForm';
 import { PlanSection } from './settings/PlanSection';
 import { Spinner } from './ui/Spinner';
@@ -24,18 +25,10 @@ type AuthState =
   | { status: 'authenticated'; user: User }
   | { status: 'unauthenticated' };
 
-type ExtensionTokenState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'shown'; token: string }
-  | { status: 'hidden' };
-
 export default function SettingsShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
-  const [extToken, setExtToken] = useState<ExtensionTokenState>({ status: 'idle' });
   const [analyticsOptIn, setAnalyticsOptIn] = useState(false);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
-  const tokenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Also the refresh the plan section polls with after a checkout: the redirect
@@ -88,28 +81,6 @@ export default function SettingsShell() {
   async function handleSignOut() {
     await apiFetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/login';
-  }
-
-  function generateExtensionToken() {
-    if (tokenTimerRef.current) clearTimeout(tokenTimerRef.current);
-    setExtToken({ status: 'loading' });
-    apiFetch('/api/extension/token')
-      .then(async (res) => {
-        if (!res.ok) {
-          setExtToken({ status: 'idle' });
-          return;
-        }
-        const data = (await res.json()) as { token: string };
-        setExtToken({ status: 'shown', token: data.token });
-        tokenTimerRef.current = setTimeout(() => {
-          setExtToken({ status: 'hidden' });
-        }, 60_000);
-      })
-      .catch(() => setExtToken({ status: 'idle' }));
-  }
-
-  function copyToken(token: string) {
-    void navigator.clipboard.writeText(token);
   }
 
   if (auth.status === 'loading') {
@@ -344,65 +315,7 @@ export default function SettingsShell() {
             )}
           </section>
 
-          {/* Chrome extension */}
-          <section style={{ ...sectionStyle, borderBottom: 'none', marginBottom: 0 }}>
-            <p style={headingStyle}>Chrome extension</p>
-            {/* Consequence-first microcopy, at the point the decision is made. */}
-            <p style={helpStyle}>
-              A token connects the jlog extension to this account. It is shown once, expires after
-              24 hours, and anyone holding it can add applications as you.
-            </p>
-
-            {extToken.status === 'idle' && (
-              <div>
-                <Button size="sm" onClick={generateExtensionToken}>
-                  Generate token
-                </Button>
-              </div>
-            )}
-
-            {extToken.status === 'loading' && <Spinner size={16} />}
-
-            {extToken.status === 'shown' && (
-              <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <code
-                    style={{
-                      flex: 1,
-                      background: 'var(--color-surface)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '8px 10px',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 'var(--text-xs)',
-                      color: 'var(--color-text-primary)',
-                      wordBreak: 'break-all',
-                      userSelect: 'all',
-                    }}
-                  >
-                    {extToken.token}
-                  </code>
-                  <Button variant="outline" size="sm" onClick={() => copyToken(extToken.token)}>
-                    Copy
-                  </Button>
-                </div>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
-                  Shown once. Hides automatically after 60 seconds.
-                </p>
-              </div>
-            )}
-
-            {extToken.status === 'hidden' && (
-              <div style={{ display: 'grid', gap: 'var(--space-3)', justifyItems: 'start' }}>
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
-                  Token generated — paste it into the extension popup.
-                </p>
-                <Button variant="outline" size="sm" onClick={generateExtensionToken}>
-                  Generate new token
-                </Button>
-              </div>
-            )}
-          </section>
+          <ExtensionKeys />
         </main>
       </div>
     </div>

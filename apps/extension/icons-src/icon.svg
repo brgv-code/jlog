@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="jlog">
+  <!--
+    The toolbar mark. Same geometry as the web favicon (apps/web/public/favicon.svg)
+    so the extension and the site read as one product, drawn as paths rather than
+    <text> because an extension icon is rasterised where no font is guaranteed.
+
+    This SVG is the source; the manifest ships raster, because Chrome wants PNG
+    for the toolbar and the store listing. Regenerate with any SVG rasteriser
+    into ../public/icons/ as icon-<size>.png. This file is the source for 48 and
+    128; icon-small.svg beside it is the source for 16 and 32.
+
+    Colours are literals, not custom properties: the icon is painted by Chrome's
+    own UI, outside any page, so there is no stylesheet to read them from.
+  -->
+  <rect width="32" height="32" rx="7" fill="#18181b" />
+  <circle cx="20" cy="6.5" r="2.2" fill="#2563eb" />
+  <path
+    d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+</svg>

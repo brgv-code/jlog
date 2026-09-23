@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <title>jlog</title>
+  <!-- Shown when this page is opened in a tab, and on the devtools window that
+       "Inspect popup" creates. Reuses the shipped toolbar PNGs. -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -23,10 +27,57 @@
       border-bottom: 1px solid #222;
     }
     .logo {
+      display: flex;
+      align-items: center;
+      gap: 7px;
       font-weight: 700;
       font-size: 15px;
       letter-spacing: -0.02em;
       color: #EDEDED;
+    }
+    .logo-mark { display: block; border-radius: 4px; }
+    /* The connection line. Dim by default because a healthy connection is not
+       news; it only earns colour when the key is close to dying. */
+    .status {
+      font-size: 11px;
+      color: #666;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #3F6212;
+      flex-shrink: 0;
+    }
+    .status-warn { color: #FCD34D; }
+    .status-warn .status-dot { background: #FCD34D; }
+    .status-bad { color: #FCA5A5; }
+    .status-bad .status-dot { background: #DC2626; }
+    .notice {
+      background: #1A1A1A;
+      border: 1px solid #333;
+      border-left: 2px solid #FCD34D;
+      border-radius: 6px;
+      padding: 9px 11px;
+      font-size: 11px;
+      color: #AAA;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .headline {
+      font-size: 14px;
+      font-weight: 600;
+      color: #EDEDED;
+      margin-bottom: 6px;
+    }
+    .body-text {
+      color: #888;
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 12px;
     }
     .section-label {
       font-size: 11px;
@@ -169,7 +220,13 @@
 </head>
 <body>
   <div class="header">
-    <span class="logo">jlog</span>
+    <span class="logo">
+      <img class="logo-mark" src="/icons/icon-32.png" alt="" width="18" height="18" />
+      jlog
+    </span>
+    <!-- Filled in by popup.ts once the key has been checked. Empty until then,
+         so the popup never claims to be connected before it knows. -->
+    <span class="status" id="status"></span>
   </div>
   <div id="root"></div>
   <script type="module" src="./popup.ts"></script>
