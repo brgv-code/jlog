@@ -8,17 +8,8 @@
  * Light is :root because that is what jlog is now. Dark is an override, kept
  * complete rather than approximate: a text-heavy app that is unusable at night
  * is not a saving.
- *
- * `.theme-invert` flips whichever theme is in force for one subtree, and is
- * carried by the two selector lists below rather than by a third copy of the
- * palette. The landing page uses it for a single full-bleed band: a page that
- * is one tone from top to bottom has one act, and the trust argument is the
- * one that earns a change of ground. Note it is *invert*, not *dark* — in the
- * dark theme the band goes light, because a dark band on a dark page is not a
- * band at all.
  */
-:root,
-[data-theme="dark"] .theme-invert {
+:root {
   /*
    * Two neutrals, not a ramp. Content is white and chrome is off-white, and
    * the boundary between them is a hairline rather than a shadow. Everything
@@ -189,14 +180,8 @@
  * inverted, so chrome stays a step away from content in the same direction.
  * Status inks move up to the 400 level because an ink tuned for white
  * disappears against near-black.
- *
- * The second selector is `.theme-invert` under the light theme. It carries the
- * `:not()` so it cannot also match inside the dark theme, where the block
- * above has already handed that subtree the light palette — without it the two
- * rules tie on specificity and the later one wins in both directions.
  */
-[data-theme="dark"],
-:root:not([data-theme="dark"]) .theme-invert {
+[data-theme="dark"] {
   --color-bg: #0d0d10;
   --color-surface: #131316;
   --color-surface-raised: #1c1c21;

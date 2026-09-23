@@ -279,6 +279,12 @@ const threadPath = (from: number, to: number, width: number) => {
         </svg>
         <span>jlog</span>
       </a>
+      <!--
+        Read position, as a hairline on the nav's own bottom edge. It is the
+        one piece of chrome that can say how long this page is without a number
+        or a scrollbar, and it costs one element and one custom property.
+      -->
+      <span class="nav-progress" aria-hidden="true"></span>
       <nav class="nav-actions">
         <a href={GITHUB_URL} class="nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href="/login" class="nav-link">Sign in</a>
@@ -598,7 +604,7 @@ const threadPath = (from: number, to: number, width: number) => {
             <div class="act-side">
               <div>
                 <p class="eyebrow">Start to finish</p>
-                <h2 class="section-title" id="act-title">One posting, all the way through</h2>
+                <h2 class="section-title section-title-xl" id="act-title">One posting, all the way through</h2>
               </div>
 
               <!--
@@ -837,11 +843,11 @@ const threadPath = (from: number, to: number, width: number) => {
         screens, and a landing page that ships React before its own headline has
         painted is arguing against its first section.
       -->
-      <section class="try reveal">
+      <section class="try reveal section-roomy">
         <div class="try-head">
           <div>
             <p class="eyebrow">Try it</p>
-            <h2 class="section-title">The actual interface, with sample data</h2>
+            <h2 class="section-title section-title-xl">The actual interface, with sample data</h2>
           </div>
           <p class="section-body">
             Not a screenshot and not a drawing — the shipped component, running here. Filter it,
@@ -898,7 +904,7 @@ const threadPath = (from: number, to: number, width: number) => {
               <figcaption>Applications added<span>26 weeks</span></figcaption>
               <svg class="trend" viewBox={`0 0 ${TREND_W} ${TREND_H}`} preserveAspectRatio="none">
                 <polyline class="trend-area" points={trendArea}></polyline>
-                <polyline class="trend-line" points={trendLine}></polyline>
+                <polyline class="trend-line" pathLength="1" points={trendLine}></polyline>
               </svg>
               <div class="axis"><span>Apr</span><span>Sep</span></div>
             </figure>
@@ -975,7 +981,7 @@ const threadPath = (from: number, to: number, width: number) => {
             It is a heuristic and it will sometimes be wrong, so there is a toggle back to exactly
             what was captured. A formatter you cannot see through is worse than no formatter.
           </p>
-          <ul class="detail-rail">
+          <ul class="detail-rail stagger">
             <li><span>Notes</span>Markdown, rendered, and never inferred over — you wrote that on purpose</li>
             <li><span>Activity</span>Every status change, timestamped, in one column</li>
             <li><span>Follow-up</span>Drafted against the posting, and logged the moment you send it</li>
@@ -1036,7 +1042,7 @@ release.
             <span class="review-file">alex-rivera-cv.pdf</span>
             <span class="review-count">24 facts read · 22 kept</span>
           </div>
-          <ul class="review-rows">
+          <ul class="review-rows stagger">
             <li class="on">
               <span class="tick"></span>
               <span class="review-t">Senior Frontend Engineer, Acme · 2021 — 2025</span>
@@ -1061,69 +1067,10 @@ release.
         </div>
       </section>
 
-      <!--
-        Templates.
-
-        Moved above the band, and moved off drawings onto the real pages. Each
-        card links to the PDF it is a picture of, which is the only version of
-        this claim that can be checked: a gallery you cannot open is a gallery
-        you have to believe.
-      -->
-      <section class="templates reveal">
-        <p class="eyebrow">Templates</p>
-        <h2 class="section-title">Six designs, not six countries</h2>
-        <p class="section-body section-body-wide">
-          A template is a design. Where conventions differ — whether a photo belongs on the page,
-          how long it runs — that is a property of the design you picked, applied for you, not a
-          country you have to choose first. Open any of them.
-        </p>
-        <ul class="template-strip stagger">
-          {
-            templates.map((template) => (
-              <li class="template">
-                <a
-                  class="sheet"
-                  href={`/templates/${template.id}.pdf`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <img
-                    src={`/templates/thumbs/${template.id}.webp`}
-                    alt={`The ${template.label} template, rendered as a PDF`}
-                    width={thumbs[template.id].w}
-                    height={thumbs[template.id].h}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </a>
-                <span class="template-label">
-                  {template.label}
-                  <span class="template-note">{template.note}</span>
-                </span>
-              </li>
-            ))
-          }
-        </ul>
-      </section>
-
-      <!--
-        The band.
-
-        The page runs white from the nav to the footer, which gives it one act
-        and one tempo. This is the second: the two sections that argue the
-        thing is trustworthy — nothing is fabricated, and you can run the whole
-        thing yourself — on inverted ground, full bleed, so the page changes
-        mood exactly where the argument does.
-
-        `theme-invert` flips whichever palette is in force (tokens.css), so in
-        the dark theme this band goes light rather than disappearing into the
-        page around it.
-      -->
-      <div class="band theme-invert">
-        <section class="grounding reveal">
+      <section class="grounding reveal section-roomy">
         <div class="grounding-copy">
           <p class="eyebrow">Grounding</p>
-          <h2 class="section-title">Nothing it writes is unattributable</h2>
+          <h2 class="section-title section-title-xl">Nothing it writes is unattributable</h2>
           <p class="section-body">
             Generation runs against a corpus of facts mined from your own CVs, not against a CV as
             a block of text. Every line keeps a pointer back to the fact it came from and the
@@ -1134,7 +1081,7 @@ release.
             A CV that quietly embellishes is worse than no CV — you find out in the interview.
           </p>
         </div>
-        <ul class="grounding-facts">
+        <ul class="grounding-facts stagger">
           <li>
             <span class="fact-k">Traced to</span>
             <span class="fact-v">the sentence in your CV it was derived from</span>
@@ -1213,6 +1160,50 @@ release.
         </figure>
       </section>
 
+      <!--
+        Templates.
+
+        Moved off drawings and onto the real pages. Each card links to the PDF
+        it is a picture of, which is the only version of this claim that can be
+        checked: a gallery you cannot open is a gallery you have to believe.
+      -->
+      <section class="templates reveal">
+        <p class="eyebrow">Templates</p>
+        <h2 class="section-title">Six designs, not six countries</h2>
+        <p class="section-body section-body-wide">
+          A template is a design. Where conventions differ — whether a photo belongs on the page,
+          how long it runs — that is a property of the design you picked, applied for you, not a
+          country you have to choose first. Open any of them.
+        </p>
+        <ul class="template-strip stagger">
+          {
+            templates.map((template) => (
+              <li class="template">
+                <a
+                  class="sheet"
+                  href={`/templates/${template.id}.pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    src={`/templates/thumbs/${template.id}.webp`}
+                    alt={`The ${template.label} template, rendered as a PDF`}
+                    width={thumbs[template.id].w}
+                    height={thumbs[template.id].h}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </a>
+                <span class="template-label">
+                  {template.label}
+                  <span class="template-note">{template.note}</span>
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
       <section class="oss reveal">
         <div class="oss-copy">
           <p class="eyebrow">Self-hosting</p>
@@ -1255,8 +1246,7 @@ release.
             local Ollama and no part of a posting or a CV leaves the machine.
           </p>
         </div>
-        </section>
-      </div>
+      </section>
 
       <!--
         Plans.
@@ -1271,7 +1261,7 @@ release.
           <article class="plan">
             <p class="plan-k">Free</p>
             <p class="plan-lead">Everything that runs a search.</p>
-            <ul class="plan-list">
+            <ul class="plan-list stagger">
               <li>Automatic capture on six job boards</li>
               <li>Extraction on any other page, with your own model key</li>
               <li>Unlimited applications, statuses, notes and follow-ups</li>
@@ -1284,7 +1274,7 @@ release.
           <article class="plan">
             <p class="plan-k plan-k-pro">Pro</p>
             <p class="plan-lead">Everything above, plus documents.</p>
-            <ul class="plan-list">
+            <ul class="plan-list stagger">
               <li>A CV written for the posting in front of you</li>
               <li>A cover letter built from the same stored facts</li>
               <li>Six LaTeX designs, compiled to real PDF</li>
@@ -1478,16 +1468,6 @@ release.
     ];
     const STICKY_TOP = 56;
 
-    /*
-     * Where the camera sits for each beat, in the scene's own coordinates.
-     *
-     * One value per beat rather than a continuous function of scroll: framing
-     * the subject is a decision, and interpolating it meant the pipeline panel
-     * was still sliding in, half outside the frame, throughout the beat that is
-     * about the pipeline. Beats one and two share a camera because the capture
-     * card is deliberately shown next to the posting it read.
-     */
-    const ACT_CAMERA = [0, 0, -750, -1240, -1240];
 
     const actRail = document.querySelector('.act-rail');
     const actStage = document.querySelector('.act-stage');
@@ -1526,7 +1506,6 @@ release.
       if (active !== actBeat) {
         actBeat = active;
         actStage.dataset.beat = String(active);
-        actStage.style.setProperty('--cam', `${ACT_CAMERA[active]}px`);
         actSteps.forEach((el, i) => {
           el.classList.toggle('on', i === active);
           el.classList.toggle('done', i < active);
@@ -1542,6 +1521,49 @@ release.
       }
     };
 
+    /*
+     * The ticker leans into the scroll.
+     *
+     * A damped accumulation rather than raw delta: raw delta makes the strip
+     * twitch on every wheel notch, and an undamped accumulation drifts away
+     * and never comes back. This leans, then settles, which is what a physical
+     * object on a moving surface does.
+     */
+    const marquee = document.querySelector('.marquee-track');
+    let lastY = window.scrollY;
+    let nudge = 0;
+    let settling = 0;
+
+    /*
+     * The decay has to keep running after the scroll stops, or the strip
+     * freezes wherever the last wheel notch left it — permanently offset, for
+     * the life of the page. So the lean is applied on scroll and a short rAF
+     * loop walks it back to zero, ending itself once it gets there.
+     */
+    const settle = () => {
+      nudge *= 0.88;
+      marquee.style.setProperty('--mq-nudge', `${nudge.toFixed(1)}px`);
+      settling = Math.abs(nudge) > 0.4 ? requestAnimationFrame(settle) : 0;
+    };
+
+    const navProgress = document.querySelector('.nav-progress');
+
+    const readCheck = () => {
+      if (!navProgress) return;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const read = max > 0 ? Math.min(Math.max(window.scrollY / max, 0), 1) : 0;
+      navProgress.style.setProperty('--read', read.toFixed(4));
+    };
+
+    const marqueeCheck = () => {
+      if (!marquee) return;
+      const y = window.scrollY;
+      nudge = Math.max(-90, Math.min(90, nudge * 0.86 + (y - lastY) * 1.1));
+      lastY = y;
+      marquee.style.setProperty('--mq-nudge', `${nudge.toFixed(1)}px`);
+      if (!settling) settling = requestAnimationFrame(settle);
+    };
+
     let frame = 0;
     const onScroll = () => {
       if (frame) return;
@@ -1549,6 +1571,8 @@ release.
         frame = 0;
         heroCheck();
         actCheck();
+        marqueeCheck();
+        readCheck();
         // The reveal set empties itself; the hero and act halves run for the
         // life of the page, so the listeners stay attached either way.
         if (pending.size) revealCheck();
@@ -1565,6 +1589,7 @@ release.
     actMeasure();
     heroCheck();
     actCheck();
+    readCheck();
     revealCheck();
 
     /* ---- hero: the stack assembles itself, once ---- */
@@ -1752,6 +1777,55 @@ release.
     margin-bottom: var(--space-4);
   }
 
+  /*
+   * The middle tier.
+   *
+   * The page had exactly two type sizes below the hero — every heading at
+   * 24px, then the closer — so fourteen sections arrived at identical weight
+   * and the eye had nothing to rank them by. Three of them are the actual
+   * claims (the sequence, the live product, the grounding); they are set
+   * larger, and given more room around them, so the page has a shape you can
+   * feel before you have read a word of it. This is the rhythm that a change
+   * of ground would otherwise have carried.
+   */
+  .section-title-xl {
+    font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+    letter-spacing: -0.032em;
+    line-height: 1.12;
+    max-width: 18ch;
+    margin-bottom: var(--space-5);
+  }
+
+  /* Air is the other half of it. A bigger heading in the same box is just a
+     bigger heading. */
+  .section-roomy {
+    padding-top: calc(var(--space-16) * 1.6);
+    padding-bottom: calc(var(--space-16) * 1.6);
+  }
+
+  /* ---------- headings resolve ---------- */
+
+  /*
+   * A wipe up from the baseline, on every section heading.
+   *
+   * Done with clip-path rather than the hero's per-word spans because it needs
+   * no markup: fourteen headings cannot each be split by hand and stay
+   * editable. The negative bottom inset is deliberate — inset(… 0 …) would
+   * shave the descenders off a 'g' at the moment the transition ends.
+   */
+  :global(.motion) .will-reveal .section-title {
+    clip-path: inset(0 0 108% 0);
+    transform: translateY(0.16em);
+  }
+
+  :global(.motion) .revealed .section-title {
+    clip-path: inset(0 0 -30% 0);
+    transform: none;
+    transition:
+      clip-path 780ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   .section-body {
     font-size: var(--text-base);
     line-height: 1.65;
@@ -1846,6 +1920,7 @@ release.
   /* ---------- nav ---------- */
 
   .nav {
+    position: sticky;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1858,6 +1933,30 @@ release.
     position: sticky;
     top: 0;
     z-index: 20;
+  }
+
+  .nav-progress {
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    height: 1px;
+    width: 100%;
+    background: var(--color-accent);
+    transform: scaleX(var(--read, 0));
+    transform-origin: left center;
+    /* The rAF writes --read every frame, so this only has to smooth a wheel's
+       steps; any more and the line lags the page it is measuring. */
+    transition: transform 120ms linear;
+  }
+
+  /* The bar sits on the nav's own border, so at rest the border is all you
+     see and the page has gained no chrome. */
+  .nav::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 1px;
+    background: var(--color-border);
   }
 
   .wordmark {
@@ -2798,7 +2897,15 @@ release.
     mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
   }
 
+  /*
+   * --mq-nudge is a damped accumulation of scroll delta the script writes, and
+   * it rides on `translate` rather than `transform` so it composes with the
+   * keyframe animation instead of replacing it. The ticker keeps its own idle
+   * pace and leans into the direction you are scrolling, which is the cheapest
+   * way to make a decorative element feel attached to the reader.
+   */
   .marquee-track {
+    translate: var(--mq-nudge, 0px) 0;
     display: flex;
     width: max-content;
     animation: marquee 34s linear infinite;
@@ -3609,6 +3716,33 @@ release.
     background: var(--color-primary);
   }
 
+  /*
+   * The tick is drawn, not shown.
+   *
+   * This panel's whole claim is that a person confirmed each fact before it
+   * was stored, so the checkmarks arriving one after another is the argument.
+   * Scaling the rotated box from its own corner draws the two strokes in the
+   * order a hand would.
+   */
+  :global(.motion) .import.will-reveal .review-rows .on .tick::after {
+    transform: rotate(45deg) scale(0);
+  }
+
+  :global(.motion) .import.revealed .review-rows .on .tick::after {
+    transform: rotate(45deg) scale(1);
+    transition: transform 420ms cubic-bezier(0.34, 1.4, 0.5, 1);
+  }
+
+  :global(.motion) .import.revealed .review-rows li:nth-child(1) .tick::after {
+    transition-delay: 260ms;
+  }
+  :global(.motion) .import.revealed .review-rows li:nth-child(2) .tick::after {
+    transition-delay: 360ms;
+  }
+  :global(.motion) .import.revealed .review-rows li:nth-child(3) .tick::after {
+    transition-delay: 460ms;
+  }
+
   /* Two borders on a rotated box, not a glyph: it keeps its stroke weight at
      any size and takes the theme's foreground with its ground. */
   .review-rows .on .tick::after {
@@ -3621,6 +3755,7 @@ release.
     border: solid var(--color-primary-fg);
     border-width: 0 1.5px 1.5px 0;
     transform: rotate(45deg);
+    transform-origin: 60% 40%;
   }
 
   .review-t {
@@ -3954,20 +4089,29 @@ release.
     height: 480px;
     margin-top: -240px;
     /*
-     * --cam is a per-beat constant the script sets, not a calc against the
-     * beat progress.
+     * The camera: scroll-linked, and front-loaded inside its beat.
      *
-     * Interpolated continuously, the camera was always half a beat behind its
-     * subject: the pipeline panel was still sliding into frame, and clipped by
-     * the right edge, for the whole of the beat that is about the pipeline. A
-     * step per beat with this easing on it arrives with the subject instead,
-     * which is what a camera cut does and what the continuous version was
-     * pretending to be.
+     * This has now been wrong in both of the obvious ways. Spread evenly
+     * across a beat, the camera was always half a beat behind its subject —
+     * the pipeline panel was still sliding in, clipped by the right edge,
+     * throughout the beat that is about the pipeline. Stepped to a constant
+     * per beat and eased over 680ms it stopped being late and started being a
+     * cut: the move ran on its own clock while the scroll ran on the reader's,
+     * and the middle of it was an empty frame.
+     *
+     * So: still driven by scroll, so it can never be out of step with the hand
+     * doing the scrolling, but mapped so the whole pan happens in the first
+     * 40% of the beat and holds for the rest. The subject is framed almost
+     * immediately and stays framed, and nothing moves that the reader did not
+     * move.
      */
-    transform: translate3d(var(--cam, 0px), 0, 0);
-    /* The same easing the hero's stack uses. A camera that snaps while its
-       subjects ease reads as two separate objects. */
-    transition: transform 680ms cubic-bezier(0.32, 0.9, 0.3, 1);
+    --pan-list: clamp(0, calc(var(--b2, 0) * 2.5), 1);
+    --pan-paper: clamp(0, calc(var(--b3, 0) * 2.5), 1);
+    --cam: calc(var(--pan-list) * -750px + var(--pan-paper) * -490px);
+    transform: translate3d(var(--cam), 0, 0);
+    /* Just enough to smooth a wheel's discrete steps. Any longer and the
+       camera lags the scroll, which is the lurch this replaces. */
+    transition: transform 200ms linear;
   }
 
   /*
@@ -3997,12 +4141,18 @@ release.
     width: 380px;
   }
 
+  /*
+   * The card arrives on its own beat and is then simply left behind. It used
+   * to fade out again as the next beat started, which is exactly what put an
+   * empty frame in the middle of the pan. Nothing in this scene dissolves now:
+   * things enter once, and after that the camera alone decides what is visible.
+   */
   :global(.motion) .act-ext {
     left: 440px;
     top: 58px;
     width: 280px;
     z-index: 3;
-    opacity: calc(var(--b1, 0) * (1 - var(--b2, 0)));
+    opacity: clamp(0, calc(var(--b1, 0) * 3), 1);
     transform: translate3d(calc((1 - var(--b1, 0)) * 44px), calc((1 - var(--b1, 0)) * -12px), 0)
       scale(calc(0.94 + var(--b1, 0) * 0.06));
   }
@@ -4018,23 +4168,47 @@ release.
     opacity: clamp(0, calc((var(--b1, 0) - 0.84) * 8), 1);
   }
 
+  /* No entrance. It sits off frame until the camera pans to it, and a panel
+     that fades in as the camera arrives is two reveals of one thing. */
   :global(.motion) .act-list {
     left: 800px;
     top: 115px;
     width: 640px;
     z-index: 2;
-    opacity: clamp(0, calc(var(--b2, 0) * 5), 1);
-    transform: translate3d(0, calc((1 - clamp(0, calc(var(--b2, 0) * 5), 1)) * 22px), 0);
   }
 
+  /*
+   * The row opens; it does not appear.
+   *
+   * It used to be faded in where it already sat, which meant the list rendered
+   * for a third of a second as a complete list with a hole punched in it —
+   * Stripe, a blank gap, Vercel — and then patched itself. That reads as a
+   * rendering fault rather than as a row being written. Now the list is always
+   * a correct list: it opens a space, and the row is written into the space,
+   * which is what an inserted row actually looks like.
+   *
+   * 50px is the row's measured height. The padding and the hairline scale with
+   * it so the box closes to nothing rather than to a 19px band of padding.
+   */
   :global(.motion) .act-row-new {
+    --open: clamp(0, calc((var(--b2, 0) - 0.34) * 3.2), 1);
     position: relative;
-    opacity: clamp(0, calc((var(--b2, 0) - 0.28) * 4), 1);
+    overflow: hidden;
+    height: calc(var(--open) * 50px);
+    padding-top: calc(var(--open) * 9px);
+    padding-bottom: calc(var(--open) * 9px);
+    border-bottom-width: calc(var(--open) * 1px);
     background: color-mix(
       in srgb,
       var(--color-accent-subtle) calc(100% - var(--b3, 0) * 100%),
       transparent
     );
+  }
+
+  /* The contents land just after the space does, so it reads as "room is made,
+     then the row is filled" rather than as both at once. */
+  :global(.motion) .act-row-new > * {
+    opacity: clamp(0, calc((var(--b2, 0) - 0.5) * 4), 1);
   }
 
   /* The accent edge that marks the row as new, and fades once it is just
@@ -4045,30 +4219,29 @@ release.
     inset: 0 auto 0 0;
     width: 2px;
     background: var(--color-accent);
-    opacity: calc(1 - var(--b3, 0));
+    opacity: calc(var(--open) * (1 - var(--b3, 0)));
   }
 
+  /* Likewise. The sheet is already on the desk; what happens on its beat is
+     the writing, not the arrival of the paper. */
   :global(.motion) .act-paper {
     left: 1540px;
     top: 80px;
     width: 420px;
     z-index: 2;
-    opacity: clamp(0, calc(var(--b3, 0) * 5), 1);
-    transform: translate3d(0, calc((1 - clamp(0, calc(var(--b3, 0) * 5), 1)) * 36px), 0)
-      scale(calc(0.96 + clamp(0, calc(var(--b3, 0) * 5), 1) * 0.04));
   }
 
   /*
    * Lines compose one after another rather than arriving as a block.
    *
    * The sheet keeps its full height throughout — the children fade rather than
-   * being inserted — so nothing reflows as they land. The stagger is tight on
-   * purpose: spread any wider and the middle of this beat is a mostly empty
-   * page, which reads as a document that failed to load rather than one being
-   * written.
+   * being inserted — so nothing reflows as they land. Composition starts at
+   * 0.38 of the beat rather than 0.14: the camera pan finishes at 0.40, and a
+   * document that writes itself while the camera is still travelling is two
+   * events competing for the same moment.
    */
   :global(.motion) .act-paper .cv > * {
-    --lit: clamp(0, calc((var(--b3, 0) - 0.14 - var(--i) * 0.11) * 7), 1);
+    --lit: clamp(0, calc((var(--b3, 0) - 0.38 - var(--i) * 0.1) * 8), 1);
     opacity: var(--lit);
     transform: translateY(calc((1 - var(--lit)) * 6px));
     transition:
@@ -4085,19 +4258,29 @@ release.
   :global(.motion) .act-paper .cite {
     background-color: transparent;
     box-shadow: none;
-    transition:
-      background-color 420ms ease,
-      box-shadow 420ms ease;
   }
 
-  :global(.motion) .act-stage[data-beat='4'] .act-paper .cite-cv {
-    background-color: var(--color-cite-cv-fill);
-    box-shadow: inset 0 -2px 0 var(--color-cite-cv);
+  /* Driven by the beat's progress rather than switched on when the rail's
+     label changes: a mark that snaps on is the one thing in the scene that is
+     not answering the scroll. */
+  :global(.motion) .act-paper .cite-cv {
+    --mark: clamp(0, calc((var(--b4, 0) - 0.1) * 3), 1);
+    background-color: color-mix(
+      in srgb,
+      var(--color-cite-cv-fill) calc(var(--mark) * 100%),
+      transparent
+    );
+    box-shadow: inset 0 calc(var(--mark) * -2px) 0 var(--color-cite-cv);
   }
 
-  :global(.motion) .act-stage[data-beat='4'] .act-paper .cite-jd {
-    background-color: var(--color-cite-jd-fill);
-    box-shadow: inset 0 -2px 0 var(--color-cite-jd);
+  :global(.motion) .act-paper .cite-jd {
+    --mark: clamp(0, calc((var(--b4, 0) - 0.18) * 3), 1);
+    background-color: color-mix(
+      in srgb,
+      var(--color-cite-jd-fill) calc(var(--mark) * 100%),
+      transparent
+    );
+    box-shadow: inset 0 calc(var(--mark) * -2px) 0 var(--color-cite-jd);
   }
 
   :global(.motion) .act-comet {
@@ -4208,51 +4391,25 @@ release.
       box-shadow: inset 2px 0 0 var(--color-cite-jd);
     }
 
-    :global(.motion) .act-row-new,
+    /* The open-by-height animation has to be undone too, or the row is a
+       zero-height sliver in the static composition. */
+    :global(.motion) .act-row-new {
+      height: auto;
+      padding-top: 9px;
+      padding-bottom: 9px;
+      border-bottom-width: 1px;
+      background: none;
+      overflow: visible;
+    }
+
+    :global(.motion) .act-row-new > * {
+      opacity: 1;
+    }
+
     :global(.motion) .act-row-new::before {
       background: none;
       opacity: 1;
     }
-  }
-
-  /* ---------- the inverted band ---------- */
-
-  /*
-   * The page ran white from the nav to the footer, which gave it one act and
-   * one tempo. This is the second one, and it sits under the two sections that
-   * argue the thing is trustworthy — nothing is fabricated, and you can run the
-   * whole thing yourself. `theme-invert` (tokens.css) flips whichever palette
-   * is in force, so in the dark theme this band goes light rather than
-   * vanishing into the page around it.
-   *
-   * It has to paint its own ground: the tokens only change what `var()`
-   * resolves to, and the page background lives on <html>.
-   */
-  .band {
-    position: relative;
-    background: var(--color-bg);
-    color: var(--color-text-primary);
-    padding: var(--space-8) 0;
-  }
-
-  /*
-   * The seams are hard edges, not fades.
-   *
-   * A gradient was the first instinct and it was wrong twice: inside the band
-   * every var() already resolves to the inverted palette, so a fade drawn here
-   * blends toward the wrong colour — and DESIGN.md's first rule is space before
-   * ornament. Two straight edges and the padding inside them say "a different
-   * ground starts here" more clearly than a 120px dissolve.
-   */
-
-  /* The hairline between sections belongs to the white page; inside the band
-     the change of ground is already the separation. */
-  .band .grounding {
-    border-top: none;
-  }
-
-  .band .oss {
-    border-top: 1px solid var(--color-border);
   }
 
   /* ---------- the thread ---------- */
@@ -4432,6 +4589,97 @@ release.
     background: var(--color-bg);
     box-shadow: var(--shadow-md);
     overflow: hidden;
+  }
+
+  /* ---------- the charts draw themselves ---------- */
+
+  /*
+   * Four charts that simply existed, on a page whose whole argument is that it
+   * shows you the real thing. A chart that draws is not decoration: a trend
+   * that sweeps left to right and bars that grow from their baseline are the
+   * two gestures that say "this is a measurement", and they cost one transition
+   * each.
+   *
+   * Every rule here carries :global(.motion) on both the hidden and the shown
+   * state. Astro scopes each compound selector with a [data-astro-cid-*]
+   * attribute, so a pair that does not match in shape does not tie — the hidden
+   * half simply wins, which is how three separate effects on this page have
+   * already failed silently.
+   */
+  :global(.motion) .home.will-reveal .trend-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  :global(.motion) .home.revealed .trend-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1400ms cubic-bezier(0.33, 0.9, 0.3, 1);
+  }
+
+  /* The fill follows the line rather than arriving with it, so the shape is
+     read as a line first and a quantity second. */
+  :global(.motion) .home.will-reveal .trend-area {
+    opacity: 0;
+  }
+
+  :global(.motion) .home.revealed .trend-area {
+    opacity: 1;
+    transition: opacity 900ms ease-out 500ms;
+  }
+
+  /* Bars grow from the baseline, never from the middle: the rounded data end
+     travelling away from a square origin is the whole readability of the mark. */
+  :global(.motion) .home.will-reveal .bar-fill {
+    transform: scaleX(0);
+  }
+
+  :global(.motion) .home.revealed .bar-fill {
+    transform: scaleX(1);
+    transition: transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .bar-fill {
+    transform-origin: left center;
+  }
+
+  :global(.motion) .home.will-reveal .col {
+    transform: scaleY(0);
+  }
+
+  :global(.motion) .home.revealed .col {
+    transform: scaleY(1);
+    transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .col {
+    transform-origin: bottom center;
+  }
+
+  /* Left to right, one row at a time. Simultaneous growth reads as a loading
+     state; in sequence it reads as a chart being plotted. */
+  :global(.motion) .home.revealed .bars li:nth-child(1) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(1) .col {
+    transition-delay: 120ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(2) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(2) .col {
+    transition-delay: 190ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(3) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(3) .col {
+    transition-delay: 260ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(4) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(4) .col {
+    transition-delay: 330ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(5) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(5) .col {
+    transition-delay: 400ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(6) .bar-fill {
+    transition-delay: 470ms;
   }
 
   /* ---------- staggered entrances ---------- */
@@ -4844,6 +5092,14 @@ release.
       transform: none !important;
     }
 
+    :global(.motion) .act-row-new {
+      height: auto !important;
+      padding-top: 9px !important;
+      padding-bottom: 9px !important;
+      border-bottom-width: 1px !important;
+      overflow: visible !important;
+    }
+
     :global(.motion) .act-step-c {
       max-height: none !important;
       margin-top: var(--space-2) !important;
@@ -4872,11 +5128,6 @@ release.
        paper the thread diagram prints as three columns joined by nothing. */
     :global(.motion) .grounding .wire {
       stroke-dashoffset: 0 !important;
-    }
-
-    .band {
-      background: none;
-      color: inherit;
     }
   }
 </style>
