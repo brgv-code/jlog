@@ -154,6 +154,9 @@ export function TailorCvDialog({
    * `/documents/compile` renders the same spec and makes no model call.
    */
   async function downloadPdf() {
+    // A retry starts clean, the way generate() does: otherwise a failure's
+    // notice outlives it and sits over a download that then succeeded.
+    setError(null);
     if (!result?.spec) {
       setError({
         code: 'UNKNOWN',
