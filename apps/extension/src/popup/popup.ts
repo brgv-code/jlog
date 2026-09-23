@@ -713,15 +713,24 @@ async function init(): Promise<void> {
     return;
   }
 
-  // Otherwise draw the useful screen straight away — waiting on the network
-  // before showing anything is what makes a popup feel broken — and correct it
-  // if the check disagrees.
-  const optimistic: Connection = cached ?? {
-    status: 'active',
-    expiresAt: null,
-    label: null,
-    checkedAt: 0,
-  };
+  // Nothing has ever been verified: an install upgraded from a build that
+  // stored only the key, or a key written before this state existed. There is
+  // no earlier answer to be optimistic from, so drawing the tracking screen
+  // here would be inventing one — and a key that is in fact dead would offer
+  // actions that spend a doomed request, while the guard below suppressed the
+  // screen explaining why. Wait for the real answer; it is one request.
+  if (!cached) {
+    const first = await checkConnectionViaBackground();
+    renderStatus(first);
+    if (first.status === 'active') renderForTab(root, first);
+    else renderConnect(root, first);
+    return;
+  }
+
+  // With a prior answer in hand, draw the useful screen straight away —
+  // waiting on the network before showing anything is what makes a popup feel
+  // broken — and correct it if the fresh check disagrees.
+  const optimistic: Connection = cached;
   renderStatus(optimistic);
   renderForTab(root, optimistic);
 

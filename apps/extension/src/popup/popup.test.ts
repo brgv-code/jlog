@@ -15,22 +15,37 @@ interface Stubs {
   storage: Record<string, unknown>;
   connection: Connection | { __throw: true };
   tabUrl: string;
+  /** Withhold the background's answer until `release()` is called. */
+  hold?: boolean;
 }
 
 let stubs: Stubs;
+let pending: (() => void)[] = [];
+
+function release(): void {
+  const queued = pending;
+  pending = [];
+  for (const fn of queued) fn();
+}
 
 function installChromeStub(): void {
   const chromeStub = {
     runtime: {
       lastError: undefined as { message: string } | undefined,
       sendMessage: (_msg: unknown, cb: (r: unknown) => void) => {
-        if ('__throw' in stubs.connection) {
-          chromeStub.runtime.lastError = { message: 'Could not establish connection.' };
-          cb(undefined);
-          chromeStub.runtime.lastError = undefined;
-          return;
-        }
-        cb({ connection: stubs.connection });
+        const answer = () => {
+          if ('__throw' in stubs.connection) {
+            chromeStub.runtime.lastError = { message: 'Could not establish connection.' };
+            cb(undefined);
+            chromeStub.runtime.lastError = undefined;
+            return;
+          }
+          cb({ connection: stubs.connection });
+        };
+        // `hold` lets a test inspect what the popup shows while the check is
+        // still in flight, which is where an unverified key can be misreported.
+        if (stubs.hold) pending.push(answer);
+        else answer();
       },
       onMessage: { addListener: () => {} },
       onInstalled: { addListener: () => {} },
@@ -91,6 +106,7 @@ beforeEach(() => {
     connection: active(null),
     tabUrl: 'https://www.linkedin.com/jobs/view/123',
   };
+  pending = [];
   installChromeStub();
 });
 
@@ -190,5 +206,57 @@ describe('popup first screen', () => {
 
     const root = await openPopup();
     expect(root.textContent).toContain('Nothing to track here');
+  });
+});
+
+describe('an upgraded install, carrying a key but no cached verdict', () => {
+  it('does not claim the key is good before the server has said so', async () => {
+    // The state an existing user upgrades into: jlog_token is there from the
+    // old build, jlog_connection has never been written.
+    stubs.storage.jlog_token = 'key-from-the-old-build';
+    stubs.connection = {
+      status: 'expired',
+      expiresAt: Date.now() - 60_000,
+      label: null,
+      checkedAt: 0,
+    };
+
+    const root = await openPopup();
+    expect(root.textContent).toContain('Your jlog key expired');
+    expect(root.textContent).not.toContain('Track This Page');
+    expect(document.getElementById('status')?.textContent).not.toContain('no expiry');
+  });
+
+  it('offers no tracking actions while the key is still being checked', async () => {
+    // The window that matters: acting inside it spends a doomed request and
+    // suppresses the corrective screen until that request fails.
+    stubs.storage.jlog_token = 'key-from-the-old-build';
+    stubs.connection = {
+      status: 'expired',
+      expiresAt: Date.now() - 60_000,
+      label: null,
+      checkedAt: 0,
+    };
+    stubs.hold = true;
+
+    const root = await openPopup();
+    expect(root.textContent).not.toContain('Track This Page');
+    expect(root.textContent).not.toContain('Extract with AI');
+    expect(document.getElementById('status')?.textContent).not.toContain('no expiry');
+
+    release();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(root.textContent).toContain('Your jlog key expired');
+  });
+
+  it('still renders instantly for a returning user with a cached verdict', async () => {
+    // The optimism is justified here: there is a prior answer to stand on, so
+    // a held check must not delay the useful screen.
+    stubs.storage.jlog_token = 'good-key';
+    stubs.storage.jlog_connection = active(null);
+    stubs.hold = true;
+
+    const root = await openPopup();
+    expect(root.textContent).toContain('Track This Page');
   });
 });
