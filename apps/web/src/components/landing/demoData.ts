@@ -24,33 +24,57 @@ export interface DemoApplication {
   createdAt: string;
 }
 
-/** Fixed offsets from load time, so the list never looks stale. */
-const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toISOString();
+/*
+ * Each row's age in days, and where its "Posting" link goes.
+ *
+ * The links are the companies' real careers pages rather than a per-row
+ * `example.com/3`, which rendered as a live anchor on a public page and sent
+ * anyone who clicked it to the IANA placeholder domain.
+ */
+const ROWS: [string, string, string | null, ApplicationStatus, string | null, number, string | null][] =
+  [
+    ['Linear', 'Senior Product Engineer', 'Remote', 'applied', 'ashby', 6, 'https://linear.app/careers'],
+    ['Stripe', 'Staff Frontend Engineer', 'Remote — EU', 'interviewing', 'linkedin', 3, 'https://stripe.com/jobs'],
+    ['Vercel', 'Developer Experience Engineer', 'Berlin, DE', 'offer', 'greenhouse', 12, 'https://vercel.com/careers'],
+    ['Anthropic', 'Product Engineer', 'Remote — EU', 'interviewing', 'greenhouse', 5, 'https://www.anthropic.com/careers'],
+    ['Cloudflare', 'Systems Engineer, Workers', 'Lisbon, PT', 'applied', 'workday', 9, 'https://www.cloudflare.com/careers/'],
+    ['Raycast', 'Frontend Engineer', 'London, UK', 'saved', null, 1, null],
+    ['Supabase', 'Full-stack Engineer', 'Remote', 'rejected', 'lever', 21, 'https://supabase.com/careers'],
+    ['Resend', 'Founding Engineer', 'Remote', 'withdrawn', 'wellfound', 30, 'https://resend.com/careers'],
+  ];
 
-const ROWS: [string, string, string | null, ApplicationStatus, string | null, number][] = [
-  ['Linear', 'Senior Product Engineer', 'Remote', 'applied', 'ashby', 6],
-  ['Stripe', 'Staff Frontend Engineer', 'Remote — EU', 'interviewing', 'linkedin', 3],
-  ['Vercel', 'Developer Experience Engineer', 'Berlin, DE', 'offer', 'greenhouse', 12],
-  ['Anthropic', 'Product Engineer', 'Remote — EU', 'interviewing', 'greenhouse', 5],
-  ['Cloudflare', 'Systems Engineer, Workers', 'Lisbon, PT', 'applied', 'workday', 9],
-  ['Raycast', 'Frontend Engineer', 'London, UK', 'saved', null, 1],
-  ['Supabase', 'Full-stack Engineer', 'Remote', 'rejected', 'lever', 21],
-  ['Resend', 'Founding Engineer', 'Remote', 'withdrawn', 'wellfound', 30],
-];
+/*
+ * The baseline SSR and the first client render agree on.
+ *
+ * Dates want to be relative to now, so the demo never reads as abandoned — but
+ * this island is `client:visible`, which Astro still server-renders, and
+ * `Date.now()` at module scope bakes the build date into the HTML. Every
+ * visitor after that day hydrated with different dates, which is a mismatch
+ * React resolves by throwing the table away and re-rendering it.
+ *
+ * So the dates are built from an argument instead. The constant is what ships
+ * in the HTML; `ProductDemo` re-dates once, after mount, where a change is just
+ * a render rather than a torn hydration.
+ */
+export const DEMO_EPOCH = Date.parse('2026-09-22T12:00:00.000Z');
 
-export const DEMO_APPLICATIONS: DemoApplication[] = ROWS.map(
-  ([company, role, location, status, sourceSite, d], i) => ({
+export function demoApplications(now: number = DEMO_EPOCH): DemoApplication[] {
+  const daysAgo = (n: number) => new Date(now - n * 864e5).toISOString();
+
+  return ROWS.map(([company, role, location, status, sourceSite, d, sourceUrl], i) => ({
     id: `demo_${i}`,
     company,
     role,
     location,
     status,
     sourceSite,
-    sourceUrl: sourceSite ? `https://example.com/${i}` : null,
+    sourceUrl,
     appliedAt: status === 'saved' ? null : daysAgo(d),
     createdAt: daysAgo(d),
-  }),
-);
+  }));
+}
+
+export const DEMO_APPLICATIONS: DemoApplication[] = demoApplications();
 
 /* ------------------------------------------------------------------ */
 /* The tailoring demo: one application, its posting, and the base CV.  */

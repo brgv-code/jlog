@@ -1,6 +1,6 @@
 import type { ApplicationStatus } from '@jlog/shared';
 import type { CSSProperties } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { ApplicationsTable } from '../applications/ApplicationsTable';
 import {
   DEMO_APPLICATIONS,
@@ -9,6 +9,7 @@ import {
   DEMO_JD,
   DEMO_TARGET,
   type DemoApplication,
+  demoApplications,
 } from './demoData';
 
 /**
@@ -41,6 +42,29 @@ const STATUS_TABS: { value: ApplicationStatus | 'all'; label: string }[] = [
   { value: 'interviewing', label: 'Interviewing' },
   { value: 'offer', label: 'Offer' },
 ];
+
+/*
+ * The tailoring pane's two columns are an inline style, so the page's own
+ * media queries cannot fold them the way they fold every other two-column
+ * section. Subscribed to rather than read once, because a rotation has to
+ * reach it, and through `useSyncExternalStore` so the server and the first
+ * client render agree on the wide layout instead of tearing.
+ */
+const NARROW = '(max-width: 860px)';
+
+function subscribeNarrow(onChange: () => void) {
+  const query = window.matchMedia(NARROW);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+function useNarrow(): boolean {
+  return useSyncExternalStore(
+    subscribeNarrow,
+    () => window.matchMedia(NARROW).matches,
+    () => false,
+  );
+}
 
 const panel: CSSProperties = {
   background: 'var(--color-bg)',
@@ -91,8 +115,32 @@ function pillButton(active: boolean): CSSProperties {
   };
 }
 
+const PANES: { id: Pane; label: string }[] = [
+  { id: 'applications', label: 'Applications' },
+  { id: 'tailoring', label: 'Tailored CV' },
+];
+
 export function ProductDemo() {
   const [pane, setPane] = useState<Pane>('applications');
+
+  /*
+   * The whole tab pattern, not just its roles.
+   *
+   * It announced itself as a tablist and then behaved like two buttons: no
+   * panel association, and every tab in the tab order. Screen-reader users were
+   * told to expect arrow keys and a linked panel and got neither, which is
+   * worse than plain buttons would have been.
+   */
+  function onTabKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+    const delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (delta === 0) return;
+    e.preventDefault();
+    const i = PANES.findIndex((p) => p.id === pane);
+    const next = PANES[(i + delta + PANES.length) % PANES.length];
+    if (!next) return;
+    setPane(next.id);
+    document.getElementById(`demo-tab-${next.id}`)?.focus();
+  }
 
   return (
     <div>
@@ -109,27 +157,33 @@ export function ProductDemo() {
           borderRadius: 'var(--radius-lg)',
         }}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={pane === 'applications'}
-          onClick={() => setPane('applications')}
-          style={segButton(pane === 'applications')}
-        >
-          Applications
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={pane === 'tailoring'}
-          onClick={() => setPane('tailoring')}
-          style={segButton(pane === 'tailoring')}
-        >
-          Tailored CV
-        </button>
+        {PANES.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`demo-tab-${id}`}
+            aria-selected={pane === id}
+            aria-controls={`demo-panel-${id}`}
+            // Roving: one stop for the whole group, then arrows within it.
+            tabIndex={pane === id ? 0 : -1}
+            onClick={() => setPane(id)}
+            onKeyDown={onTabKeyDown}
+            style={segButton(pane === id)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {pane === 'applications' ? <ApplicationsPane /> : <TailoringPane />}
+      <div
+        role="tabpanel"
+        id={`demo-panel-${pane}`}
+        aria-labelledby={`demo-tab-${pane}`}
+        tabIndex={-1}
+      >
+        {pane === 'applications' ? <ApplicationsPane /> : <TailoringPane />}
+      </div>
 
       <p
         style={{
@@ -153,6 +207,18 @@ function ApplicationsPane() {
   // Status changes are local and real: the control writes back here, so the row
   // moves between filters exactly as it would against the API.
   const [rows, setRows] = useState<DemoApplication[]>(DEMO_APPLICATIONS);
+
+  /*
+   * Re-date the fixtures against the visitor's clock, once, after mount.
+   *
+   * It cannot happen during render: this island is server-rendered, and dates
+   * that differ between the HTML and the first client render are a hydration
+   * mismatch. After mount it is an ordinary update. Nothing can have been
+   * edited yet, so replacing the array wholesale is safe.
+   */
+  useEffect(() => {
+    setRows(demoApplications(Date.now()));
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -213,6 +279,7 @@ function ApplicationsPane() {
           setQuery('');
         }}
         showLogos={false}
+        persistStatus={false}
       />
     </div>
   );
@@ -221,6 +288,7 @@ function ApplicationsPane() {
 function TailoringPane() {
   const [selected, setSelected] = useState<string | null>('b1');
   const [tab, setTab] = useState<SourceTab>('cv');
+  const narrow = useNarrow();
 
   const active = DEMO_BULLETS.find((b) => b.id === selected) ?? null;
   const blocks = tab === 'cv' ? DEMO_CV : DEMO_JD;
@@ -230,10 +298,20 @@ function TailoringPane() {
 
   return (
     <div
-      style={{ ...panel, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}
+      style={{
+        ...panel,
+        display: 'grid',
+        gridTemplateColumns: narrow ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)',
+      }}
     >
       {/* Generated side */}
-      <div style={{ borderRight: '1px solid var(--color-border)', minWidth: 0 }}>
+      <div
+        style={{
+          // Stacked, the divider belongs under the pane rather than down its side.
+          [narrow ? 'borderBottom' : 'borderRight']: '1px solid var(--color-border)',
+          minWidth: 0,
+        }}
+      >
         <div style={{ ...toolbar, justifyContent: 'space-between' }}>
           <span
             style={{
