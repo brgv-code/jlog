@@ -71,6 +71,19 @@ cd ../..
 echo "PUBLIC_API_URL=http://localhost:8787" > apps/web/.env
 ```
 
+`PUBLIC_SITE_URL` is the other one, and it is set in the **build environment**
+rather than in `.env` — Astro loads `.env` for the app through Vite, but
+`astro.config.mjs` is evaluated before that and sees only `process.env`:
+
+```bash
+PUBLIC_SITE_URL=https://jobs.example.com pnpm --filter @jlog/web build
+```
+
+It is the origin the site publishes as its canonical link and in its Open Graph
+and Twitter cards. Leave it unset and those tags are omitted entirely, which is
+the right default for a local or preview build — set it for anything public, or
+search engines and link previews have nothing to attribute the pages to.
+
 ### 5. Start everything
 
 ```bash
@@ -106,6 +119,10 @@ See [`docs/DEPLOY.md`](docs/DEPLOY.md) for a step-by-step guide covering:
 - Cloudflare Pages for the web frontend
 - Custom domain configuration
 - Environment variables and secrets
+
+On Pages, set `PUBLIC_SITE_URL` to the origin you serve from — it is a build
+variable, so a deployment made before it is set will carry no canonical link
+and no social card.
 
 ---
 

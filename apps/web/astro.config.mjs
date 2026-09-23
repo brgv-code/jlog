@@ -16,11 +16,16 @@ import { defineConfig } from 'astro/config';
  * `process.env`. On Cloudflare Pages it is a project environment variable; from
  * a shell it is `PUBLIC_SITE_URL=https://example.com pnpm build`.
  *
- * The fallback is this project's own deployment. Unset it and the build emits
- * no canonical and no absolute image URL at all, which Layout.astro already
- * handles — a missing canonical is harmless where a wrong one is not.
+ * Deliberately without a fallback. Defaulting to this project's own origin
+ * meant a self-hoster who never heard of the variable published metadata
+ * naming someone else's deployment as the authoritative copy of their pages.
+ * Left unset, Layout.astro emits no canonical and no absolute image URL, and a
+ * missing canonical is harmless where a wrong one is not.
+ *
+ * Which does mean every deployment that wants social cards has to set it,
+ * jlog.bhargav.dev included.
  */
-const site = process.env.PUBLIC_SITE_URL ?? 'https://jlog.bhargav.dev';
+const site = process.env.PUBLIC_SITE_URL;
 
 export default defineConfig({
   site,
