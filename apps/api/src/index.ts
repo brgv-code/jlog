@@ -60,7 +60,22 @@ export interface Env {
 
 export type Variables = {
   // what is sessionID?
-  session: { userId: string; sessionId: string } | null;
+  // `expiresAt`/`label` are carried here so the extension can ask when its key
+  // dies without the route re-reading the row the middleware already fetched.
+  session: {
+    userId: string;
+    sessionId: string;
+    type: 'cookie' | 'extension';
+    expiresAt: Date;
+    label: string | null;
+  } | null;
+  /**
+   * Set only when the caller presented an extension key that exists but has
+   * run out. Lets /api/extension/session tell "expired" apart from "never seen
+   * this key", which is the difference between a useful popup message and a
+   * confusing one.
+   */
+  expiredSession: { expiresAt: Date; label: string | null } | null;
   // Null whenever Langfuse isn't configured, which is the normal state locally.
   tracing: Tracing | null;
 };

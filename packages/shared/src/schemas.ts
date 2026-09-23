@@ -315,3 +315,42 @@ export const cvProfileSchema = z.object({
 });
 
 export type CvProfileInput = z.infer<typeof cvProfileSchema>;
+
+/**
+ * How long a freshly minted extension key stays valid. Mirrors GitHub's
+ * personal-access-token picker, including the "never" escape hatch: a key that
+ * dies every 24h means re-pasting into the popup every single day, which is
+ * the kind of friction that gets an extension uninstalled.
+ */
+export const EXTENSION_TOKEN_LIFETIMES = ['1d', '7d', '30d', 'never'] as const;
+export type ExtensionTokenLifetime = (typeof EXTENSION_TOKEN_LIFETIMES)[number];
+
+/** Milliseconds each lifetime is worth. `never` is absent on purpose — see NEVER_EXPIRES_AT. */
+const LIFETIME_MS: Record<Exclude<ExtensionTokenLifetime, 'never'>, number> = {
+  '1d': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+};
+
+/**
+ * The sentinel a non-expiring key is stored with. `sessions.expires_at` is NOT
+ * NULL and the auth middleware compares against it on every request, so the
+ * cheapest way to say "never" without a nullable-column rebuild is a date no
+ * clock will reach. Anything at or past this is reported to clients as
+ * `expiresAt: null`, never as a year-9999 date.
+ */
+export const NEVER_EXPIRES_AT = new Date('9999-12-31T23:59:59.000Z');
+
+export function isNeverExpiring(expiresAt: Date): boolean {
+  return expiresAt.getTime() >= NEVER_EXPIRES_AT.getTime();
+}
+
+export function expiryFromLifetime(lifetime: ExtensionTokenLifetime, now = new Date()): Date {
+  if (lifetime === 'never') return NEVER_EXPIRES_AT;
+  return new Date(now.getTime() + LIFETIME_MS[lifetime]);
+}
+
+export const extensionTokenSchema = z.object({
+  expiresIn: z.enum(EXTENSION_TOKEN_LIFETIMES).default('30d'),
+  label: z.string().trim().max(60).optional(),
+});

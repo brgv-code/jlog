@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NEVER_EXPIRES_AT,
   createBaseDocumentSchema,
   createProfileFactSchema,
+  expiryFromLifetime,
+  extensionTokenSchema,
   findTraversingAssetRefs,
+  isNeverExpiring,
   normaliseVariantContent,
 } from './schemas';
 
@@ -87,5 +91,47 @@ describe('profile facts', () => {
     const a = normaliseVariantContent('  Shipped an  in-app messenger bot.\n');
     const b = normaliseVariantContent('Shipped an in-app Messenger bot.');
     expect(a).toBe(b);
+  });
+});
+
+describe('extension key lifetimes', () => {
+  const now = new Date('2026-01-01T00:00:00.000Z');
+
+  it('turns each dated lifetime into the right expiry', () => {
+    expect(expiryFromLifetime('1d', now).toISOString()).toBe('2026-01-02T00:00:00.000Z');
+    expect(expiryFromLifetime('7d', now).toISOString()).toBe('2026-01-08T00:00:00.000Z');
+    expect(expiryFromLifetime('30d', now).toISOString()).toBe('2026-01-31T00:00:00.000Z');
+  });
+
+  it('parks a non-expiring key on the sentinel rather than a real date', () => {
+    expect(expiryFromLifetime('never', now)).toEqual(NEVER_EXPIRES_AT);
+    expect(isNeverExpiring(expiryFromLifetime('never', now))).toBe(true);
+  });
+
+  it('does not mistake a long-dated key for a non-expiring one', () => {
+    // The distinction drives what Settings shows and whether a warning appears,
+    // so a 30-day key must never read as "never expires".
+    expect(isNeverExpiring(expiryFromLifetime('30d', now))).toBe(false);
+  });
+
+  it('keeps the sentinel far enough out that the middleware treats it as live', () => {
+    expect(NEVER_EXPIRES_AT.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('defaults to 30 days when the caller sends nothing', () => {
+    // An empty body means "use the picker default", not "bad request" — the
+    // extension settings form always has a selection.
+    const res = extensionTokenSchema.safeParse({});
+    expect(res.success && res.data.expiresIn).toBe('30d');
+  });
+
+  it('rejects a lifetime that is not on the menu', () => {
+    expect(extensionTokenSchema.safeParse({ expiresIn: '99y' }).success).toBe(false);
+  });
+
+  it('trims a label and refuses an essay', () => {
+    const res = extensionTokenSchema.safeParse({ label: '  Work laptop  ' });
+    expect(res.success && res.data.label).toBe('Work laptop');
+    expect(extensionTokenSchema.safeParse({ label: 'x'.repeat(61) }).success).toBe(false);
   });
 });
