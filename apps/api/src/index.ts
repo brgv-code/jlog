@@ -3,6 +3,7 @@ import { HttpError } from '@jlog/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Auth } from './lib/auth';
+import { runScheduledCleanup } from './lib/cleanup';
 import type { Tracing } from './lib/langfuse';
 import { makeTailor } from './lib/tailor';
 import { authInstanceMiddleware } from './middleware/authInstance';
@@ -205,4 +206,33 @@ app.onError((err, c) => {
   );
 });
 
-export default app;
+/**
+ * Two entry points now, not one.
+ *
+ * `fetch` is the app. `scheduled` is the nightly sweep of expired credentials
+ * (see lib/cleanup.ts) — without it, an abandoned account's spent magic links
+ * and dead extension keys sit in the database forever, because every other
+ * cleanup path only runs when that same person comes back.
+ *
+ * `fetch` is wrapped rather than passed as `app.fetch` so it cannot be
+ * separated from its own `this`.
+ */
+export default {
+  fetch: (request: Request, env: Env, ctx: ExecutionContext) => app.fetch(request, env, ctx),
+
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      runScheduledCleanup(env)
+        .then((swept) => {
+          console.log(
+            `[cleanup] removed ${swept.verifications} sign-in links, ` +
+              `${swept.sessions} expired sessions, ${swept.extensionKeys} extension keys`,
+          );
+        })
+        // A failed sweep is worth knowing about and is not worth retrying into:
+        // the next run is tomorrow, and nothing downstream depends on it having
+        // happened.
+        .catch((err) => console.error('[cleanup] scheduled sweep failed', err)),
+    );
+  },
+};

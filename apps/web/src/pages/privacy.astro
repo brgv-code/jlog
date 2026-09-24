@@ -173,11 +173,16 @@ const contactEmail = 'hello@bhargav.dev';
       Your data stays until you delete it or ask for your account to be removed.
     </p>
     <p>
-      Credentials that have run out are removed as they are next encountered: a lapsed session the
-      next time it is presented, and expired extension keys the next time you open Settings. Until
-      that happens the row is still there in full — the key value itself, the account it belonged
-      to, its label and when it was made. An expired key stops working the moment it lapses, but it
-      has not been erased yet either, and opening Settings is what clears it.
+      Credentials that have run out are swept by a job that runs once a day. Spent and expired
+      sign-in links go as soon as they lapse, as do expired browser sessions. Expired extension
+      keys are kept for a further 30 days and then removed — deliberately, so that an extension
+      which has stopped working can still tell you <em>when</em> its key expired rather than saying
+      it has never seen it.
+    </p>
+    <p>
+      During those 30 days the row is still there in full: the key value itself, the account it
+      belonged to, its label and when it was made. An expired key stops working the moment it
+      lapses, but it has not been erased at that moment.
     </p>
 
     <h2>Changes</h2>

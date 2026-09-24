@@ -53,6 +53,15 @@ LANGFUSE_TRACING_ENVIRONMENT = "production"
 # "key"; repin this if the extension is reloaded from a different path or published.
 EXTENSION_ID = "enonliciopahgdejgpdjaeadebclgjom"
 
+# The nightly sweep of expired credentials (src/lib/cleanup.ts).
+#
+# Everything it removes was already cleared opportunistically — but only on the
+# owner's own next visit, which never comes for a dormant account. This is what
+# makes the privacy policy's "cleared automatically" true rather than nearly
+# true. 03:00 UTC: quiet, and nothing else runs then.
+[triggers]
+crons = ["0 3 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "jlog"
