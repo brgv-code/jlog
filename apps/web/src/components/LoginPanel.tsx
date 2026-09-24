@@ -1,6 +1,7 @@
 import { type AuthProviderAvailability, authProvidersResponseSchema } from '@jlog/shared';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { JlogMark } from './ui/JlogMark';
 
 /**
  * The sign-in card.
@@ -117,7 +118,12 @@ export default function LoginPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider,
-          callbackURL: `${window.location.origin}/dashboard`,
+          // `welcome` is what lets the dashboard know this is an arrival rather
+          // than a reload, so it can say so once and then clean itself out of
+          // the URL. Both sign-in routes set it, because both land in the same
+          // place and a magic link opened in a fresh tab carries no other trace
+          // that a sign-in just happened.
+          callbackURL: `${window.location.origin}/dashboard?welcome=1`,
           // Without this a failure ends on Better Auth's own error page, on the
           // API's domain, which is a dead end for the person looking at it.
           errorCallbackURL: `${window.location.origin}/login`,
@@ -149,7 +155,7 @@ export default function LoginPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          callbackURL: `${window.location.origin}/dashboard`,
+          callbackURL: `${window.location.origin}/dashboard?welcome=1`,
         }),
       });
 
@@ -185,6 +191,12 @@ export default function LoginPanel() {
   if (sentTo) {
     return (
       <div style={card}>
+        {/* The link is gone from here and sitting in their email; the mark
+            acknowledges that something happened, since otherwise this screen is
+            indistinguishable from the form having simply cleared itself. */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-5)' }}>
+          <JlogMark mode="tip" size={48} />
+        </div>
         <h1 style={headingStyle}>Check your inbox</h1>
         <p style={subheadingStyle}>
           We sent a sign-in link to{' '}

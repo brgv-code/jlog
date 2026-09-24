@@ -16,6 +16,7 @@ import { BarList } from './charts/BarList';
 import { Columns } from './charts/Columns';
 import { TrendChart } from './charts/TrendChart';
 import { EmptyState } from './ui/EmptyState';
+import { JlogMark } from './ui/JlogMark';
 import { Spinner } from './ui/Spinner';
 import { Button } from './ui/button';
 
@@ -65,8 +66,22 @@ function weekLabel(key: string): string {
   return d.toLocaleDateString('en-US', { month: 'short' });
 }
 
+/** How long the arrival greeting holds before the dashboard takes over. */
+const WELCOME_HOLD_MS = 2100;
+
 export default function HomeShell() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
+  /*
+   * Whether this page view is an arrival from sign-in rather than an ordinary
+   * visit. Read once, in the initialiser, because the effect below removes the
+   * query parameter immediately — a later read would always find it gone, and
+   * a reload after that should not replay the greeting.
+   */
+  const [welcoming, setWelcoming] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('welcome') === '1',
+  );
   const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [cv, setCv] = useState<CvProfile | null>(null);
@@ -87,6 +102,18 @@ export default function HomeShell() {
   useEffect(() => {
     if (auth.status === 'unauthenticated') window.location.href = '/login';
   }, [auth.status]);
+
+  useEffect(() => {
+    if (!welcoming) return;
+    // Out of the URL straight away, so a refresh or a shared link is just the
+    // dashboard. replaceState rather than a navigation: nothing should reload.
+    window.history.replaceState({}, '', '/dashboard');
+    // Only start the clock once there is a name to greet, or someone on a slow
+    // connection watches the greeting expire before their dashboard arrives.
+    if (auth.status !== 'authenticated') return;
+    const t = setTimeout(() => setWelcoming(false), WELCOME_HOLD_MS);
+    return () => clearTimeout(t);
+  }, [welcoming, auth.status]);
 
   useEffect(() => {
     if (auth.status !== 'authenticated') return;
@@ -122,11 +149,58 @@ export default function HomeShell() {
           backgroundColor: 'var(--color-bg)',
         }}
       >
-        <Spinner />
+        <JlogMark mode="think" size={44} label="Loading" />
       </div>
     );
   }
   if (auth.status === 'unauthenticated') return null;
+
+  /*
+   * The arrival. Signing in used to end with a plain navigation: the provider
+   * bounced you back and the dashboard was simply there, with nothing marking
+   * the thing you had just been waiting for. This says it once, by name, and
+   * then gets out of the way on a timer — there is nothing to dismiss and
+   * nothing to click.
+   */
+  if (welcoming) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 'var(--space-5)',
+          backgroundColor: 'var(--color-bg)',
+          fontFamily: 'var(--font-sans)',
+        }}
+      >
+        <JlogMark mode="tip" size={64} />
+        <div style={{ textAlign: 'center' }}>
+          <p
+            style={{
+              fontSize: 'var(--text-xl)',
+              fontWeight: 650,
+              color: 'var(--color-text-primary)',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Welcome back{auth.user.name ? `, ${auth.user.name.split(' ')[0]}` : ''}
+          </p>
+          <p
+            style={{
+              fontSize: 'var(--text-sm)',
+              color: 'var(--color-text-secondary)',
+              marginTop: 'var(--space-1)',
+            }}
+          >
+            Signed in as {auth.user.email}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const total = data?.funnel.reduce((n, f) => n + f.count, 0) ?? 0;
 

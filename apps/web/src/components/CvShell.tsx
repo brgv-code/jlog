@@ -4,7 +4,7 @@ import { apiFetch } from '../lib/api';
 import { Sidebar } from './Sidebar';
 import { CvProfileForm } from './settings/CvProfileForm';
 import { ImportCvForm } from './settings/ImportCvForm';
-import { Spinner } from './ui/Spinner';
+import { JlogMark } from './ui/JlogMark';
 
 interface User {
   id: string;
@@ -62,7 +62,7 @@ export default function CvShell() {
           backgroundColor: 'var(--color-bg)',
         }}
       >
-        <Spinner />
+        <JlogMark mode="think" size={44} label="Loading" />
       </div>
     );
   }

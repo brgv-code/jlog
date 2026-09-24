@@ -6,7 +6,7 @@ import { DeleteAccount } from './settings/DeleteAccount';
 import { ExtensionKeys } from './settings/ExtensionKeys';
 import { LLMConfigForm } from './settings/LLMConfigForm';
 import { PlanSection } from './settings/PlanSection';
-import { Spinner } from './ui/Spinner';
+import { JlogMark } from './ui/JlogMark';
 import { ThemeSegmented } from './ui/ThemeSegmented';
 import { Button } from './ui/button';
 
@@ -96,7 +96,7 @@ export default function SettingsShell() {
           fontFamily: 'var(--font-sans)',
         }}
       >
-        <Spinner />
+        <JlogMark mode="think" size={44} label="Loading" />
       </div>
     );
   }

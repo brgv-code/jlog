@@ -2,6 +2,7 @@ import { EXTENSION_TOKEN_LIFETIMES, type ExtensionTokenLifetime } from '@jlog/sh
 import { AlertTriangleIcon, CheckIcon, CopyIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../lib/api';
+import { JlogMark } from '../ui/JlogMark';
 import { Spinner } from '../ui/Spinner';
 import { Button } from '../ui/button';
 
@@ -276,6 +277,32 @@ export function ExtensionKeys() {
       {/* ---- The one-time reveal ---- */}
       {minted && (
         <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+          {/*
+            This key is shown exactly once and never again, so the moment it
+            appears is worth marking rather than letting a new row of monospace
+            text slide quietly into the page. The same mark tips its hat at the
+            other end of this handshake, in the extension popup, once the key is
+            pasted in and accepted.
+          */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-3)',
+              marginBottom: 'var(--space-1)',
+            }}
+          >
+            <JlogMark mode="tip" size={36} />
+            <p
+              style={{
+                fontSize: 'var(--text-sm)',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              Key created
+            </p>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <code
               style={{

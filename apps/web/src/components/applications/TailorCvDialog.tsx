@@ -12,6 +12,7 @@ import {
   loadFactOrigins,
 } from '../../lib/cvSource';
 import { photoAsset } from '../../lib/photo';
+import { JlogMark } from '../ui/JlogMark';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Skeleton } from '../ui/skeleton';
@@ -295,9 +296,20 @@ export function TailorCvDialog({
                       <Skeleton className="h-3.5 w-[85%]" />
                     </div>
                   ))}
-                  <p className="text-muted-foreground pt-1 text-center text-xs">
-                    Matching your facts against the posting…
-                  </p>
+                  {/*
+                    The mark sits with the status line rather than replacing the
+                    skeletons above it: those are shaped like the result and are
+                    what stops the dialog jumping when it arrives, which is a job
+                    a logo cannot do. This only says that the wait is real work
+                    still in progress — tailoring runs for seconds, which is long
+                    enough for a still page to read as a stalled one.
+                  */}
+                  <div className="flex items-center justify-center gap-2.5 pt-1">
+                    <JlogMark mode="think" size={22} label="Tailoring" />
+                    <p className="text-muted-foreground text-xs">
+                      Matching your facts against the posting…
+                    </p>
+                  </div>
                 </div>
               )}
 

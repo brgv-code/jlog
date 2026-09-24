@@ -1,0 +1,22 @@
+---
+import DesignSystem from '../components/DesignSystem';
+import Layout from '../layouts/Layout.astro';
+
+/*
+ * The design system, as a page rather than a document.
+ *
+ * Deliberately not in the sidebar: this is a reference for whoever is building
+ * jlog — a person, or a model being pointed at it — not a destination for
+ * someone tracking job applications. It is public rather than behind the login
+ * because the whole point is that the design can be read and copied, and jlog
+ * is open source; there is nothing here that is not already in the stylesheet
+ * anyone can view.
+ *
+ * `client:load` rather than `client:visible`: the page reads its own computed
+ * styles to render, so it has to be hydrated before it can show anything.
+ */
+---
+
+<Layout title="Design system — jlog">
+  <DesignSystem client:load />
+</Layout>

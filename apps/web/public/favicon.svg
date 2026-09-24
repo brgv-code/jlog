@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="jlog">
+  <!--
+    Drawn as geometry rather than <text>: a favicon is rasterised in contexts
+    with no guarantee about which fonts are available, and a missing Geist
+    falls back to whatever the OS has, which is a different mark.
+
+    Solid dark ground so it holds on both a light and a dark tab strip. The
+    dot takes --color-accent's blue as a literal, since a favicon is painted
+    outside the page and cannot read a custom property. It is the only thing
+    in the mark with a hue, which is what makes it findable in a row of tabs.
+  -->
+  <rect width="32" height="32" rx="7" fill="#18181b" />
+  <circle cx="20" cy="6.5" r="2.2" fill="#2563eb" />
+  <path
+    d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+</svg>

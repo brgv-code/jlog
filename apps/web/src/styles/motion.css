@@ -1,0 +1,390 @@
+/*
+ * Motion for jlog.
+ *
+ * The rules, in the same spirit as the rest of the design: motion is spent
+ * where it carries meaning and nowhere else. The test for any animation here is
+ * whether removing it would lose information — that something arrived, that
+ * something is still working, that something was rejected, that something
+ * finally went right. Anything that only makes the page livelier is ornament,
+ * and ornament loses to padding (DESIGN.md rule 1).
+ *
+ * Four durations and three easings, and no more. A fifth of either is always
+ * someone avoiding a decision about which of the existing ones this is.
+ */
+:root {
+  /*
+   * Direct manipulation: a hover, a press, a colour change under the cursor.
+   * Fast enough that it reads as the interface being responsive rather than as
+   * an animation you watched.
+   */
+  --motion-instant: 120ms;
+  /* Feedback on something you just did — a shake, a pill settling. */
+  --motion-fast: 220ms;
+  /* Something arriving: a row, a panel, a dialog. */
+  --motion-base: 320ms;
+  /* A moment worth marking. The only budget over half a second. */
+  --motion-celebrate: 1100ms;
+
+  /*
+   * Arrivals decelerate hard: fast in, gentle stop. This is the default, and
+   * the right answer for anything entering the screen.
+   */
+  --ease-arrive: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Slight overshoot. Reserved for celebration — it is the only easing here
+     that draws attention to itself, which is the whole point of it. */
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+  /* Symmetric, for anything that loops. A loop with an asymmetric curve
+     develops a limp over ten repetitions. */
+  --ease-loop: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* ---------------------------------------------------------------------------
+   Arrival — content entering the screen.
+
+   Use for: a row appearing in a list, a panel opening, a dialog's body, a
+   result replacing a skeleton. Not for: anything already on screen that merely
+   changed. Re-animating existing content on every render is what makes an app
+   feel restless.
+   --------------------------------------------------------------------------- */
+@keyframes jlog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.jlog-rise {
+  animation: jlog-rise var(--motion-base) var(--ease-arrive) both;
+}
+
+/*
+ * A list that arrives as a list rather than as one block. The delay is capped
+ * deliberately: past about six items a stagger stops reading as grace and
+ * starts reading as the page loading slowly, so everything after the sixth row
+ * arrives with the sixth.
+ */
+.jlog-stagger > * {
+  animation: jlog-rise var(--motion-base) var(--ease-arrive) both;
+}
+.jlog-stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.jlog-stagger > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+.jlog-stagger > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+.jlog-stagger > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+.jlog-stagger > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+.jlog-stagger > *:nth-child(n + 6) {
+  animation-delay: 200ms;
+}
+
+/* ---------------------------------------------------------------------------
+   Rejection — something you submitted was not accepted.
+
+   A short horizontal shake, on the field or the button that failed. It carries
+   real information: it says "this specific control", which a red message
+   somewhere else on the page does not. Never use it for a server error — that
+   is not the control's fault and shaking it blames the wrong thing.
+   --------------------------------------------------------------------------- */
+@keyframes jlog-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+.jlog-shake {
+  animation: jlog-shake var(--motion-fast) var(--ease-loop) both;
+}
+
+/* ---------------------------------------------------------------------------
+   Attention — a value on screen just changed underneath the reader.
+
+   For a number that updated while they were looking at it, or a row that moved
+   status. A brief wash of the accent at low opacity, fading out. It marks the
+   change without moving the layout, which matters because the thing that
+   changed is usually inside a table someone is reading.
+   --------------------------------------------------------------------------- */
+@keyframes jlog-attention {
+  0% {
+    background-color: var(--color-accent-subtle);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.jlog-attention {
+  animation: jlog-attention var(--motion-celebrate) var(--ease-arrive) both;
+}
+
+/* ---------------------------------------------------------------------------
+   Status settle — an application moved from one status to another.
+
+   The pill takes its new colour and settles into it. Scale rather than movement
+   because a status pill sits inline in a table row, and anything that moves it
+   moves the row.
+   --------------------------------------------------------------------------- */
+@keyframes jlog-settle {
+  0% {
+    transform: scale(0.94);
+    opacity: 0.5;
+  }
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.jlog-settle {
+  animation: jlog-settle var(--motion-fast) var(--ease-spring) both;
+}
+
+/* ---------------------------------------------------------------------------
+   Offer — the one unambiguously good thing that happens in this app.
+
+   Reserved. An offer is the outcome the whole product exists to produce, and it
+   is the only event that gets a celebration the user did not trigger by
+   clicking something. Do not reuse this for saving a form.
+   --------------------------------------------------------------------------- */
+@keyframes jlog-burst {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  35% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* The ring that expands away from it, once. */
+@keyframes jlog-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+.jlog-burst {
+  animation: jlog-burst var(--motion-celebrate) var(--ease-spring) both;
+}
+.jlog-burst-ring {
+  animation: jlog-ring 900ms var(--ease-arrive) both;
+}
+
+/* ---------------------------------------------------------------------------
+   Sweep — the skeleton highlight, for a wait whose shape is already known.
+
+   Paired with skeletons shaped like the result, so nothing jumps when the real
+   content lands. A pulse was tried first and reads as a stalled page at the
+   durations real model work takes.
+   --------------------------------------------------------------------------- */
+@keyframes jlog-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.jlog-sweep {
+  animation: jlog-sweep 1.6s var(--ease-loop) infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion.
+
+   Not "no animation": the same information, arrived at rather than performed.
+   Anything that only *reports* (a loader, a sweep) keeps a slow, low-amplitude
+   version, because a loader that does not move cannot say work is still
+   happening. Anything that only *decorates* stops entirely.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .jlog-rise,
+  .jlog-stagger > *,
+  .jlog-shake,
+  .jlog-settle,
+  .jlog-burst,
+  .jlog-burst-ring {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .jlog-attention {
+    animation-duration: 2s;
+  }
+  .jlog-sweep {
+    animation-duration: 3s;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The mark itself.
+
+   These live here rather than inside JlogMark.tsx because the component used to
+   ship them in an inline <style>, which meant the same keyframes were emitted
+   once per mark on the page — three times on /designsystem alone. Motion has a
+   home now, and this is it.
+   --------------------------------------------------------------------------- */
+.jlog-mark {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* --- thinking ---------------------------------------------------------
+     The dot traces a small circle around where it normally sits. Slow and
+     even, because this runs for as long as the work takes and anything
+     faster turns into a fidget. */
+@keyframes jlog-orbit {
+  0% {
+    transform: translate(1.8px, 0);
+  }
+  25% {
+    transform: translate(0, 1.8px);
+  }
+  50% {
+    transform: translate(-1.8px, 0);
+  }
+  75% {
+    transform: translate(0, -1.8px);
+  }
+  100% {
+    transform: translate(1.8px, 0);
+  }
+}
+/* The tile breathes very slightly, so the mark reads as alive rather than
+     as a still image with one moving part. */
+@keyframes jlog-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.82;
+  }
+}
+.jlog-mark--think .jlog-mark__dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: jlog-orbit 1.7s linear infinite;
+}
+.jlog-mark--think .jlog-mark__tile {
+  animation: jlog-breathe 1.7s ease-in-out infinite;
+}
+
+/* --- the hat tip ------------------------------------------------------ */
+@keyframes jlog-bow {
+  0% {
+    transform: rotate(0deg) translateY(4px);
+    opacity: 0;
+  }
+  18% {
+    transform: rotate(0deg) translateY(0);
+    opacity: 1;
+  }
+  45% {
+    transform: rotate(-11deg) translateY(0);
+  }
+  70% {
+    transform: rotate(-4deg) translateY(0);
+  }
+  100% {
+    transform: rotate(0deg) translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes jlog-lift {
+  0%,
+  18% {
+    transform: translate(0, 0);
+  }
+  45% {
+    transform: translate(-3.2px, -3.4px);
+  }
+  70% {
+    transform: translate(-1.2px, -1.4px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes jlog-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.jlog-mark--tip {
+  transform-origin: 50% 78%;
+  animation: jlog-bow 1100ms cubic-bezier(0.34, 1.3, 0.64, 1) 120ms both;
+}
+.jlog-mark--tip .jlog-mark__dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: jlog-lift 1100ms cubic-bezier(0.34, 1.3, 0.64, 1) 120ms both;
+}
+.jlog-mark__check {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+}
+.jlog-mark--tip .jlog-mark__check {
+  animation: jlog-draw 340ms ease-out 900ms forwards;
+}
+
+/* Someone who has asked their system for less movement gets the same
+     information, arrived at rather than performed. The thinking mark keeps a
+     slow pulse, because a loader that does not move at all cannot say that
+     anything is still happening. */
+@media (prefers-reduced-motion: reduce) {
+  .jlog-mark--tip,
+  .jlog-mark--tip .jlog-mark__dot,
+  .jlog-mark--think .jlog-mark__dot {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .jlog-mark--tip .jlog-mark__check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .jlog-mark--think .jlog-mark__tile {
+    animation: jlog-breathe 2.4s ease-in-out infinite;
+  }
+}
