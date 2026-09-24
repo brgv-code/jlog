@@ -27,6 +27,12 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 # Apple — https://developer.apple.com/account/resources/identifiers
 #
+# Needs a paid Apple Developer Program membership ($99/year); there is no free
+# tier for Sign in with Apple. Leaving all four unset is perfectly ordinary —
+# the provider is not registered and the login page does not offer it. (This is
+# unrelated to accepting Apple Pay, which hosted Stripe Checkout supports with
+# no Apple account at all.)
+#
 # Apple cannot be tested against http://localhost. It refuses localhost redirect
 # URIs and answers with a cross-site form POST, which needs a Secure cookie and
 # therefore HTTPS. Configure it for your deployed origin and test it there.

@@ -123,7 +123,7 @@ ordinary setup.
 | ------------ | -------------------------------------------------------------------------- |
 | GitHub       | An OAuth App: client id and secret                                         |
 | Google       | An OAuth 2.0 Web application client: client id and secret                  |
-| Apple        | A Services ID, your Team ID, a Key ID, and the downloaded `.p8` key        |
+| Apple        | A paid Apple Developer membership, plus a Services ID, Team ID, Key ID and `.p8` key |
 | Email        | A [Resend](https://resend.com) API key and a verified sending address      |
 
 Every provider's callback lives at `/api/auth/callback/<provider>`. Register
@@ -134,8 +134,17 @@ exactly that URL with the provider — for local GitHub, that is
 following it signs you in. The link works once and expires in 15 minutes. Only a
 hash of it is stored, so the copy in your inbox is the only working one.
 
-**Two caveats worth knowing:**
+**Three caveats worth knowing:**
 
+- **Sign in with Apple needs a paid Apple Developer Program membership**
+  ($99/year). There is no free tier for it, so this is a cost decision before it
+  is a configuration one. Leaving the four `APPLE_*` settings unset is a
+  perfectly ordinary way to run jlog: the provider is never registered and the
+  login page does not show the button.
+  
+  Note this is unrelated to accepting **Apple Pay**, which the hosted Stripe
+  Checkout used for the paid plan supports with no Apple account at all — Stripe
+  performs the Apple merchant validation on your behalf.
 - **Apple cannot be tested against `http://localhost`.** It refuses localhost
   redirect URIs, and it answers the callback with a cross-site form POST, which
   browsers only accompany with a `Secure` cookie — so it needs real HTTPS.
