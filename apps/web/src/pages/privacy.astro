@@ -1,0 +1,247 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// Google's OAuth consent screen requires a reachable privacy policy URL before
+// an external app can leave testing mode. It is also just the honest thing to
+// publish for a product that holds someone's job search.
+//
+// Everything below describes what jlog does TODAY. When a change alters what is
+// collected, who sees it, or how long it is kept, this page changes in the same
+// commit — a policy that describes last month's product is worse than none.
+const lastUpdated = '24 September 2026';
+
+// Where data access and deletion requests land. Also what is given to Google as
+// the app's support email, so the two agree.
+const contactEmail = 'hello@bhargav.dev';
+---
+
+<Layout title="Privacy — jlog">
+  <main class="prose">
+    <p class="back"><a href="/">← jlog</a></p>
+
+    <h1>Privacy</h1>
+    <p class="updated">Last updated: {lastUpdated}</p>
+
+    <p class="lede">
+      jlog holds your job search, which is about as personal as work data gets. This page says
+      plainly what is stored, who else sees it, and how to get rid of it. No cookie banners, no
+      advertising networks, no selling anything to anyone.
+    </p>
+
+    <h2>Who this covers</h2>
+    <p>
+      This policy covers the hosted instance at <strong>jlog.bhargav.dev</strong>. jlog is open
+      source and MIT licensed, so anyone can run their own copy — if you are using someone else's
+      instance, or your own, then whoever runs it holds the data and this page does not describe
+      their practices.
+    </p>
+
+    <h2>What is stored</h2>
+
+    <h3>Your account</h3>
+    <p>
+      Signing in is through GitHub. jlog receives and stores your name, your verified email
+      address, your avatar URL and GitHub's own numeric account id — the last of these so that
+      signing in again recognises you. No password is ever stored, because jlog has none to store.
+    </p>
+
+    <h3>Your job applications</h3>
+    <p>
+      Everything you record about an application: company, role, location, status, the link you
+      applied through, dates, salary ranges, your notes, and the job description if you saved one.
+      A timeline of status changes is kept alongside it.
+    </p>
+
+    <h3>Your CV and generated documents</h3>
+    <p>
+      If you import a CV, jlog stores the file itself and the text extracted from it, along with the
+      individual facts pulled out of it — roles, bullet points, skills — so that tailored documents
+      can be traced back to something you actually wrote. Generated CVs and cover letters are stored
+      against the application they were written for.
+    </p>
+
+    <h3>Your AI provider key</h3>
+    <p>
+      If you configure your own AI provider, the API key is <strong>encrypted with AES-GCM-256
+      before it is written to the database</strong> and is never returned to the browser after you
+      save it. The provider and model names are stored in the clear.
+    </p>
+
+    <h3>Billing</h3>
+    <p>
+      For the paid plan, jlog stores your Stripe customer and subscription identifiers, your plan,
+      and its renewal date. <strong>Card details never reach jlog</strong> — payment happens on
+      Stripe's own hosted checkout page, and jlog only ever sees the result.
+    </p>
+
+    <h3>Extension keys</h3>
+    <p>
+      Keys you generate for the Chrome extension, with their label and expiry, so you can see and
+      revoke them from Settings.
+    </p>
+
+    <h2>Analytics, which are off unless you turn them on</h2>
+    <p>
+      jlog has a single analytics setting, in Settings, and it is <strong>off by default</strong>.
+      Turning it on shares anonymised aggregates — response rates, time to offer, ghosting patterns
+      — so that jlog can tell job seekers what the market is actually doing. It does not include
+      company names, role titles, your notes, or anything identifying you. Leaving it off changes
+      nothing else about how jlog works.
+    </p>
+    <p>
+      There is no third-party analytics script on this site, no advertising pixel, and no
+      cross-site tracking.
+    </p>
+
+    <h2>Cookies</h2>
+    <p>
+      One cookie, holding your sign-in session. It is <code>HttpOnly</code>, so page scripts cannot
+      read it, and it expires after 30 days. Your light/dark theme preference is kept in your
+      browser's local storage and never sent anywhere. That is the lot.
+    </p>
+
+    <h2>Who else sees your data</h2>
+    <p>These are the only third parties involved, and each one gets only what its job requires:</p>
+    <ul>
+      <li>
+        <strong>Cloudflare</strong> — hosts the site, the API, the database and any uploaded CV
+        files.
+      </li>
+      <li>
+        <strong>GitHub</strong> — only as the way you sign in. jlog receives your name, verified
+        email address and avatar; GitHub does not receive your job data.
+      </li>
+      <li>
+        <strong>Stripe</strong> — handles payment for the paid plan, including all card details.
+      </li>
+      <li>
+        <strong>Your chosen AI provider</strong> — Anthropic, OpenAI or Google, depending on what
+        you configured. When you extract a job posting or generate a tailored document, the
+        relevant job description and CV content are sent to that provider to do the work. If you
+        point jlog at a self-hosted Ollama instance instead, nothing leaves your own machine. If
+        you configure no provider, no AI feature runs and nothing is sent anywhere.
+      </li>
+    </ul>
+    <p>
+      Nothing is sold, rented, or shared with advertisers. Data is disclosed otherwise only if the
+      law actually requires it.
+    </p>
+
+    <h2>Getting your data out, or deleting it</h2>
+    <p>
+      Email <a href={`mailto:${contactEmail}`}>{contactEmail}</a> to request a copy of everything
+      held about you, or to have your account and all of its data deleted. Deletion is permanent
+      and removes your applications, documents, CV data and stored keys along with the account.
+    </p>
+    <p>
+      If you self-host, none of this applies to you in the first place — the database is yours, and
+      deleting a row is the whole procedure.
+    </p>
+
+    <h2>How long things are kept</h2>
+    <p>
+      Your data stays until you delete it or ask for your account to be removed.
+    </p>
+    <p>
+      Credentials that have run out are removed as they are next encountered: a lapsed session the
+      next time it is presented, and expired extension keys the next time you open Settings. They
+      carry nothing beyond the fact that a key existed and when it died.
+    </p>
+
+    <h2>Changes</h2>
+    <p>
+      If this policy changes in a way that affects what is collected or who sees it, the date at
+      the top changes and material changes are announced in the app.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+    </p>
+  </main>
+</Layout>
+
+<style>
+  .prose {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: var(--space-12) var(--space-6) var(--space-16);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.7;
+  }
+
+  .back {
+    margin-bottom: var(--space-8);
+    font-size: var(--text-sm);
+  }
+
+  .back a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .back a:hover {
+    color: var(--color-text-primary);
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--space-2);
+  }
+
+  .updated {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-8);
+  }
+
+  .lede {
+    font-size: var(--text-lg);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-10);
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-top: var(--space-10);
+    margin-bottom: var(--space-3);
+  }
+
+  h3 {
+    font-size: var(--text-base);
+    font-weight: 650;
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-2);
+  }
+
+  p {
+    margin-bottom: var(--space-4);
+  }
+
+  ul {
+    margin: 0 0 var(--space-4) var(--space-6);
+  }
+
+  li {
+    margin-bottom: var(--space-3);
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.1em 0.35em;
+  }
+
+  a {
+    color: var(--color-accent);
+  }
+</style>
