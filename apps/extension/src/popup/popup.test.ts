@@ -345,6 +345,35 @@ describe('the screen for a page with nothing to track', () => {
     expect(root.textContent).not.toContain('Captures automatically on');
   });
 
+  it('does not offer the recent rows as controls', async () => {
+    // A clickable row promises to open that job, and nothing can keep that
+    // promise: there is no per-application route, and the dashboard uses the
+    // browser session rather than the extension key, so on a machine signed
+    // into another account the job would not even be there.
+    stubs.activity = {
+      items: [
+        {
+          id: '1',
+          company: 'Staffbase',
+          role: 'Staff Engineer',
+          status: 'applied',
+          createdAt: Date.now(),
+        },
+      ],
+      thisWeek: 1,
+      total: 1,
+    };
+
+    const root = await openPopup();
+    const rows = root.querySelectorAll('.recent-item');
+    expect(rows.length).toBe(1);
+    for (const row of Array.from(rows)) {
+      expect(row.tagName).toBe('DIV');
+    }
+    // The one honest offer is still there.
+    expect(root.textContent).toContain('Open dashboard');
+  });
+
   it('keeps a complete screen when the activity request comes back empty-handed', async () => {
     // A slow or unreachable API must not turn "nothing to track here" into an
     // error, or an outage looks like a broken extension.
@@ -385,5 +414,34 @@ describe('pasting a key that works', () => {
     // The mark is present to be animated against; without it there is no tip.
     expect(root.querySelector('.tip-mark')).toBeTruthy();
     expect(root.querySelector('.tip-dot')).toBeTruthy();
+  });
+
+  it('hands over to the tracking screen once the confirmation has had its moment', async () => {
+    // The confirmation is on a timer with nothing to dismiss it, so if the
+    // handover breaks the popup is simply stuck on a success screen forever.
+    stubs.connection = {
+      status: 'active',
+      expiresAt: null,
+      label: null,
+      account: { email: 'you@example.com', name: 'You' },
+      checkedAt: Date.now(),
+    };
+    stubs.tabUrl = 'https://www.linkedin.com/jobs/view/123';
+
+    const root = await openPopup();
+    const input = document.getElementById('token-input') as HTMLInputElement;
+    input.value = 'a-real-key';
+    Array.from(root.querySelectorAll('button'))
+      .find((b) => b.textContent === 'Connect')
+      ?.click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(root.textContent).toContain('Connected');
+
+    // CONNECTED_HOLD_MS is 1900; this waits past it rather than reaching into
+    // the module for the constant.
+    await new Promise((r) => setTimeout(r, 2100));
+    expect(root.textContent).not.toContain('Connected');
+    expect(root.textContent).toContain('Track this page');
   });
 });

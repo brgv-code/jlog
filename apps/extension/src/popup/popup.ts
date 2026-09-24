@@ -500,16 +500,24 @@ function renderRecentList(parent: HTMLElement, activity: RecentActivity): void {
   parent.appendChild(h('p', { class: 'section-label' }, 'Recent'));
   const list = h('div', { class: 'recent-list' });
 
+  /*
+   * Rows are deliberately not clickable.
+   *
+   * A row that responds to a click promises to take you to that job, and there
+   * is no honest way to keep that promise: there is no per-application URL to
+   * deep link to, and the popup authenticates with an extension key while the
+   * dashboard uses the browser's own session — so on a machine signed into a
+   * different jlog account, a work job would open a personal applications list
+   * that does not contain it. One "Open dashboard" link below makes the weaker,
+   * true offer instead.
+   */
   for (const item of activity.items) {
-    const row = h('button', { class: 'recent-item', type: 'button' });
+    const row = h('div', { class: 'recent-item' });
     row.appendChild(h('div', { class: 'recent-company' }, item.company));
     const when = relativeTime(item.createdAt);
     row.appendChild(
       h('div', { class: 'recent-meta' }, when ? `${item.role} · ${when}` : item.role),
     );
-    // No per-application URL exists to deep link to, so every row opens the
-    // list the row lives in rather than inventing a route that would 404.
-    row.addEventListener('click', openDashboard);
     list.appendChild(row);
   }
 
