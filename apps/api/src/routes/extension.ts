@@ -1,4 +1,4 @@
-import { createDb, extensionKeys } from '@jlog/db';
+import { createDb, extensionKeys, users } from '@jlog/db';
 import { HttpError, expiryFromLifetime, extensionTokenSchema, isNeverExpiring } from '@jlog/shared';
 import { and, eq, like, lt } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -53,10 +53,22 @@ async function pruneExpired(db: ReturnType<typeof createDb>, userId: string): Pr
 router.get('/session', async (c) => {
   const session = c.var.session;
   if (session?.type === 'extension') {
+    // Which account this key actually belongs to. One primary-key lookup, and
+    // it is what lets the popup say "connected as you@example.com" instead of
+    // an anonymous green dot — the difference between a key that works and a
+    // key that works *on the account you meant*, which matters to anyone who
+    // has ever had a personal and a work login open at once.
+    const db = createDb(c.env.DB);
+    const [account] = await db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(eq(users.id, session.userId));
+
     return c.json({
       status: 'active' as const,
       expiresAt: publicExpiry(session.expiresAt),
       label: session.label,
+      account: account ?? null,
     });
   }
 
@@ -66,10 +78,11 @@ router.get('/session', async (c) => {
       status: 'expired' as const,
       expiresAt: expired.expiresAt.toISOString(),
       label: expired.label,
+      account: null,
     });
   }
 
-  return c.json({ status: 'unknown' as const, expiresAt: null, label: null });
+  return c.json({ status: 'unknown' as const, expiresAt: null, label: null, account: null });
 });
 
 /**

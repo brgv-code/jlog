@@ -5,7 +5,7 @@ import {
   getToken,
   setCachedConnection,
 } from '../lib/connection';
-import type { DetectedJob, ExtensionMessage, ExtractedJob } from '../types';
+import type { DetectedJob, ExtensionMessage, ExtractedJob, RecentActivity } from '../types';
 
 async function apiCall(path: string, init?: RequestInit): Promise<Response> {
   const token = await getToken();
@@ -91,10 +91,58 @@ async function extractJob(
   };
 }
 
+/**
+ * The last few tracked jobs, plus this week's count, for the popup's idle
+ * screen. Both endpoints already accept an extension key, so this needs no new
+ * server route.
+ *
+ * Failure is deliberately soft: the idle screen has a perfectly good fallback
+ * that needs no data at all, so a slow or unreachable API should quietly fall
+ * back to it rather than turn "nothing to track on this page" into an error.
+ */
+async function recentActivity(): Promise<{ activity: RecentActivity | null }> {
+  try {
+    const [listRes, statsRes] = await Promise.all([
+      apiCall('/api/applications?limit=3'),
+      apiCall('/api/stats'),
+    ]);
+    if (!listRes.ok || !statsRes.ok) return { activity: null };
+
+    const list = (await listRes.json()) as {
+      applications?: {
+        id: string;
+        company: string;
+        role: string;
+        status: string;
+        createdAt: string | null;
+      }[];
+      total?: number;
+    };
+    const stats = (await statsRes.json()) as { thisWeek?: number; total?: number };
+
+    return {
+      activity: {
+        items: (list.applications ?? []).map((a) => ({
+          id: a.id,
+          company: a.company,
+          role: a.role,
+          status: a.status,
+          createdAt: a.createdAt ? new Date(a.createdAt).getTime() : null,
+        })),
+        thisWeek: stats.thisWeek ?? 0,
+        total: stats.total ?? list.total ?? 0,
+      },
+    };
+  } catch {
+    return { activity: null };
+  }
+}
+
 type MessageResult =
   | { ok: boolean; error?: string; status?: number }
   | { job: ExtractedJob | null; error?: string; status?: number }
-  | { connection: Connection };
+  | { connection: Connection }
+  | { activity: RecentActivity | null };
 
 async function handleMessage(message: unknown): Promise<MessageResult> {
   if (typeof message !== 'object' || message === null) {
@@ -109,6 +157,9 @@ async function handleMessage(message: unknown): Promise<MessageResult> {
 
     case 'CHECK_CONNECTION':
       return { connection: await checkConnection() };
+
+    case 'RECENT_ACTIVITY':
+      return recentActivity();
 
     case 'EXTRACT_REQUEST': {
       try {
@@ -126,7 +177,7 @@ async function handleMessage(message: unknown): Promise<MessageResult> {
 chrome.runtime.onInstalled.addListener(() => {
   // A fresh install has no key, and saying so up front means the popup opens
   // straight onto the paste screen instead of guessing.
-  void setCachedConnection({ status: 'no-key', expiresAt: null, label: null });
+  void setCachedConnection({ status: 'no-key', expiresAt: null, label: null, account: null });
 });
 
 chrome.runtime.onMessage.addListener(
