@@ -1,3 +1,4 @@
+import { loadRecentActivity } from '../lib/activity';
 import {
   API_BASE,
   type Connection,
@@ -91,53 +92,6 @@ async function extractJob(
   };
 }
 
-/**
- * The last few tracked jobs, plus this week's count, for the popup's idle
- * screen. Both endpoints already accept an extension key, so this needs no new
- * server route.
- *
- * Failure is deliberately soft: the idle screen has a perfectly good fallback
- * that needs no data at all, so a slow or unreachable API should quietly fall
- * back to it rather than turn "nothing to track on this page" into an error.
- */
-async function recentActivity(): Promise<{ activity: RecentActivity | null }> {
-  try {
-    const [listRes, statsRes] = await Promise.all([
-      apiCall('/api/applications?limit=3'),
-      apiCall('/api/stats'),
-    ]);
-    if (!listRes.ok || !statsRes.ok) return { activity: null };
-
-    const list = (await listRes.json()) as {
-      applications?: {
-        id: string;
-        company: string;
-        role: string;
-        status: string;
-        createdAt: string | null;
-      }[];
-      total?: number;
-    };
-    const stats = (await statsRes.json()) as { thisWeek?: number; total?: number };
-
-    return {
-      activity: {
-        items: (list.applications ?? []).map((a) => ({
-          id: a.id,
-          company: a.company,
-          role: a.role,
-          status: a.status,
-          createdAt: a.createdAt ? new Date(a.createdAt).getTime() : null,
-        })),
-        thisWeek: stats.thisWeek ?? 0,
-        total: stats.total ?? list.total ?? 0,
-      },
-    };
-  } catch {
-    return { activity: null };
-  }
-}
-
 type MessageResult =
   | { ok: boolean; error?: string; status?: number }
   | { job: ExtractedJob | null; error?: string; status?: number }
@@ -159,7 +113,7 @@ async function handleMessage(message: unknown): Promise<MessageResult> {
       return { connection: await checkConnection() };
 
     case 'RECENT_ACTIVITY':
-      return recentActivity();
+      return { activity: await loadRecentActivity(apiCall) };
 
     case 'EXTRACT_REQUEST': {
       try {
