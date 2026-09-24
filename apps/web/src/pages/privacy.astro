@@ -80,13 +80,18 @@ const contactEmail = 'hello@bhargav.dev';
       revoke them from Settings.
     </p>
 
-    <h2>Analytics, which are off unless you turn them on</h2>
+    <h2>Analytics, which currently do nothing</h2>
     <p>
       jlog has a single analytics setting, in Settings, and it is <strong>off by default</strong>.
-      Turning it on shares anonymised aggregates — response rates, time to offer, ghosting patterns
-      — so that jlog can tell job seekers what the market is actually doing. It does not include
-      company names, role titles, your notes, or anything identifying you. Leaving it off changes
-      nothing else about how jlog works.
+      It is worth being exact about what it does today: <strong>it records your preference and
+      nothing else. No analytics data is collected, aggregated or shared with anyone.</strong>
+    </p>
+    <p>
+      The intention behind it is to share anonymised aggregates one day — response rates, time to
+      offer, ghosting patterns, with no company names, role titles, notes or anything identifying
+      you — so that jlog can tell job seekers what the market is actually doing. None of that is
+      built. If it ever is, it will apply only to accounts that have switched the setting on, and
+      this page will say so before it starts rather than after.
     </p>
     <p>
       There is no third-party analytics script on this site, no advertising pixel, and no
@@ -95,9 +100,18 @@ const contactEmail = 'hello@bhargav.dev';
 
     <h2>Cookies</h2>
     <p>
-      One cookie, holding your sign-in session. It is <code>HttpOnly</code>, so page scripts cannot
-      read it, and it expires after 30 days. Your light/dark theme preference is kept in your
-      browser's local storage and never sent anywhere. That is the lot.
+      One cookie in normal use: the one holding your sign-in session. It is <code>HttpOnly</code>,
+      so page scripts cannot read it, and it expires after 30 days.
+    </p>
+    <p>
+      One more appears briefly while you are signing in. <code>jlog_oauth_state</code> holds a
+      random value for up to ten minutes, and exists so that the response coming back from GitHub
+      can be matched to the sign-in you actually started. It is deleted the moment you land back on
+      jlog.
+    </p>
+    <p>
+      Your light/dark theme preference is kept in your browser's local storage and never sent
+      anywhere. That is the lot — no tracking cookies of any kind.
     </p>
 
     <h2>Who else sees your data</h2>
@@ -112,14 +126,27 @@ const contactEmail = 'hello@bhargav.dev';
         email address and avatar; GitHub does not receive your job data.
       </li>
       <li>
-        <strong>Stripe</strong> — handles payment for the paid plan, including all card details.
+        <strong>Stripe</strong> — handles payment for the paid plan, including all card details. It
+        also receives your name, email address and jlog account id when a customer record is
+        created for you at your first checkout, so that a payment can be matched to an account.
       </li>
       <li>
         <strong>Your chosen AI provider</strong> — Anthropic, OpenAI or Google, depending on what
         you configured. When you extract a job posting or generate a tailored document, the
         relevant job description and CV content are sent to that provider to do the work. If you
-        point jlog at a self-hosted Ollama instance instead, nothing leaves your own machine. If
-        you configure no provider, no AI feature runs and nothing is sent anywhere.
+        configure no provider, no AI feature runs and nothing is sent anywhere.
+        <br />
+        Choosing Ollama sends the same content to whatever address you gave jlog for it. If that is
+        a machine on your own network, it stays there; if you pointed it at a hosted or tunnelled
+        instance, it goes there instead. jlog cannot tell the difference, so the destination is
+        whichever one you configured.
+      </li>
+      <li>
+        <strong>Langfuse</strong> — only when the instance is configured to trace AI calls, which
+        the hosted one is. It receives the content of the job posting or CV being worked on, the
+        prompt sent to the model and the answer that came back, and your jlog account id, so that a
+        failed or expensive generation can be investigated. It is not used for advertising or
+        analytics.
       </li>
     </ul>
     <p>
@@ -131,7 +158,10 @@ const contactEmail = 'hello@bhargav.dev';
     <p>
       Email <a href={`mailto:${contactEmail}`}>{contactEmail}</a> to request a copy of everything
       held about you, or to have your account and all of its data deleted. Deletion is permanent
-      and removes your applications, documents, CV data and stored keys along with the account.
+      and covers your applications and their timelines, your imported CV and the facts taken from
+      it, every generated document, your stored provider key and your extension keys — including
+      <strong> the uploaded and generated files themselves</strong>, which live outside the
+      database and are removed with it rather than left behind.
     </p>
     <p>
       If you self-host, none of this applies to you in the first place — the database is yours, and
@@ -144,8 +174,10 @@ const contactEmail = 'hello@bhargav.dev';
     </p>
     <p>
       Credentials that have run out are removed as they are next encountered: a lapsed session the
-      next time it is presented, and expired extension keys the next time you open Settings. They
-      carry nothing beyond the fact that a key existed and when it died.
+      next time it is presented, and expired extension keys the next time you open Settings. Until
+      that happens the row is still there in full — the key value itself, the account it belonged
+      to, its label and when it was made. An expired key stops working the moment it lapses, but it
+      has not been erased yet either, and opening Settings is what clears it.
     </p>
 
     <h2>Changes</h2>

@@ -266,10 +266,20 @@ export default function SettingsShell() {
           {/* Analytics */}
           <section style={sectionStyle}>
             <p style={headingStyle}>Analytics</p>
+            {/*
+              Present tense only for what actually happens. Nothing reads this
+              flag but the settings route: no aggregate is computed and nothing
+              is sent anywhere yet. Describing the intent as though it were the
+              behaviour is consent obtained for something that is not occurring.
+            */}
             <p style={helpStyle}>
-              Share anonymized data — response rates, time-to-offer, ghosting patterns. No company
-              names, no personal details. It is what lets jlog tell other job seekers what the
-              market is actually doing.
+              Agree to share anonymized data — response rates, time-to-offer, ghosting patterns. No
+              company names, no personal details. It is what would let jlog tell other job seekers
+              what the market is actually doing.
+            </p>
+            <p style={helpStyle}>
+              Nothing is shared yet: this records your preference, and the aggregate reporting it is
+              for has not been built. If it is, only accounts that turned this on are included.
             </p>
             {analyticsLoading ? null : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
