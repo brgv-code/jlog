@@ -50,6 +50,28 @@ export function availableProviders(env: Env) {
 }
 
 /**
+ * The same answer as {@link availableProviders}, except that Apple is only
+ * reported as available if its key can actually produce a client secret.
+ *
+ * Four settings being present is not the same as them being right. Without this
+ * check the login page would offer an Apple button that cannot work, and the
+ * person pressing it would get an opaque failure from Apple rather than simply
+ * not seeing the button. The signature is cached per key, so on the warm path
+ * this costs nothing.
+ */
+export async function resolvedProviders(env: Env) {
+  const providers = availableProviders(env);
+  if (!providers.apple) return providers;
+
+  try {
+    await getAppleClientSecret(env);
+    return providers;
+  } catch {
+    return { ...providers, apple: false };
+  }
+}
+
+/**
  * A readable display name from an address, for accounts whose sign-in method
  * gave us nothing better. "ada.lovelace@example.com" becomes "ada lovelace".
  */
@@ -260,6 +282,22 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
  * secret mid-exchange.
  */
 export async function getAuth(env: Env, requestUrl: string): Promise<Auth> {
-  const appleClientSecret = isAppleConfigured(env) ? await getAppleClientSecret(env) : null;
+  let appleClientSecret: string | null = null;
+
+  if (isAppleConfigured(env)) {
+    try {
+      appleClientSecret = await getAppleClientSecret(env);
+    } catch (err) {
+      // A malformed `.p8` makes importKey throw. This runs on the way into
+      // *every* request, so letting it propagate would turn one mistyped
+      // secret into a 500 on the health check, on GitHub sign-in, on the
+      // extension's requests and on the Stripe webhook — none of which involve
+      // Apple at all. One broken provider takes out that provider and nothing
+      // else: Apple is simply not registered, so the login page stops offering
+      // it and everything else carries on.
+      console.error('[auth] Apple sign-in disabled: could not sign a client secret', err);
+    }
+  }
+
   return createAuth(env, requestUrl, { appleClientSecret });
 }

@@ -28,7 +28,8 @@ jlog is an open-source job tracker built on Cloudflare's edge stack. Apply to a 
 
 ### Prerequisites
 
-- Node 20+, pnpm 9+
+- Node 22+, pnpm 9+ — Wrangler 4 requires Node 22, so an older runtime cannot
+  run the worker or apply migrations
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) (`npm i -g wrangler`)
 - At least one sign-in method. The quickest is a [GitHub OAuth App](https://github.com/settings/developers) with callback URL `http://localhost:8787/api/auth/callback/github`
 

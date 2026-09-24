@@ -3,7 +3,7 @@ import { HttpError } from '@jlog/shared';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
-import { availableProviders } from '../lib/auth';
+import { resolvedProviders } from '../lib/auth';
 
 /**
  * The two auth endpoints Better Auth does not provide.
@@ -20,7 +20,7 @@ const router = new Hono<{ Bindings: Env; Variables: Variables }>();
  * buttons that work and no others. Unauthenticated by design — it reveals only
  * which providers are configured, which is visible from the login page anyway.
  */
-router.get('/providers', (c) => c.json({ providers: availableProviders(c.env) }));
+router.get('/providers', async (c) => c.json({ providers: await resolvedProviders(c.env) }));
 
 /**
  * The signed-in user, in jlog's own shape.

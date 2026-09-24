@@ -136,6 +136,18 @@ describe('getAppleClientSecret', () => {
     expect(rotated).not.toBe(first);
   });
 
+  it('rejects a malformed private key rather than returning a bad token', async () => {
+    // The callers depend on this being a rejection: `getAuth` catches it and
+    // drops Apple, and `resolvedProviders` catches it and stops the login page
+    // offering a button that cannot work. A silently bogus token would defeat
+    // both and surface as an opaque `invalid_client` from Apple instead.
+    const broken = envWith(
+      '-----BEGIN PRIVATE KEY-----\nnot-a-key\n-----END PRIVATE KEY-----',
+      'KEYBROKEN1',
+    );
+    await expect(getAppleClientSecret(broken)).rejects.toThrow();
+  });
+
   it('refuses to sign when the configuration is incomplete', async () => {
     const { pem } = await makeKeyPair();
     const partial = { APPLE_CLIENT_ID: 'dev.jlog.web', APPLE_PRIVATE_KEY: pem } as unknown as Env;

@@ -17,36 +17,78 @@
 --      the first. What is left is only ever the second, so it is named for it.
 --
 -- Everyone signs in once more after this. Browser sessions were rows in the old
--- table and do not carry across; accounts, applications and documents are
--- untouched.
+-- table and do not carry across; accounts, applications and documents survive.
 --
--- NOTE: step 1 adds a UNIQUE constraint on `users.email`, which Better Auth
--- requires, and lowercases every address on the way across. If two rows share
--- an address — including two that differ only in case — this migration fails
--- rather than silently merging or dropping one. That is the intended
--- behaviour: resolve the duplicate by hand and re-run.
 --
--- Check for that before running, so you find out by reading rather than by
--- watching a migration fail:
+-- WHY THIS PARKS EVERY USER-OWNED TABLE FIRST
 --
---   SELECT lower(email) AS address, count(*) AS rows
---   FROM users GROUP BY lower(email) HAVING count(*) > 1;
+-- Replacing `users` cannot be done in place, and cannot be done naively.
 --
--- D1 applies a migration file atomically, so that failure leaves the database
--- exactly as it was — verified by running this against a seeded copy holding a
--- duplicate: the users table and every row hanging off it survived untouched,
--- and none of the new tables were left half-created. Note that the `sqlite3`
--- CLI does NOT behave this way: by default it continues past an error, which
--- here would carry on to the DROP below with nothing copied. Apply this with
--- wrangler, or with `sqlite3 -bail`, never with a bare `sqlite3 < file`.
+--   * `ALTER TABLE users DROP COLUMN github_id` is refused: SQLite will not
+--     drop a column carrying a UNIQUE constraint, and its implicit index has an
+--     internal name that cannot be dropped either. So the table must be rebuilt.
+--
+--   * `DROP TABLE users` is implemented as an implicit DELETE FROM, and foreign
+--     key *actions* run during it. Ten tables reference `users` with ON DELETE
+--     CASCADE, directly or through `applications`, so the drop empties all of
+--     them. `PRAGMA defer_foreign_keys` does not help: it defers the checking
+--     of constraint *violations*, and a CASCADE is not a violation.
+--
+--   * `PRAGMA foreign_keys = OFF` does not help either. D1 does not permit it —
+--     the statement is accepted and ignored, which is worse than an error.
+--
+--   * Renaming instead of dropping does not help. `PRAGMA legacy_alter_table`
+--     is likewise accepted and ignored on D1, so `ALTER TABLE users RENAME`
+--     rewrites the foreign keys in every child to point at the renamed table,
+--     dragging them along and putting the problem back.
+--
+-- All four of those were measured against a seeded D1 database, not reasoned
+-- about. The naive copy/drop/rename version took applications from 3 to 0 and
+-- emptied documents, CV sources, profile facts, the LLM config, the extension
+-- keys and even the GitHub account rows it had just written. It passed under
+-- the `sqlite3` CLI only because that tool leaves foreign keys OFF by default.
+--
+-- So the rows are copied into constraint-free `_park_` tables first, the drop
+-- is allowed to empty the real ones, and the rows go back afterwards. The parked
+-- copies carry no foreign keys, so nothing cascades into them.
 
 PRAGMA defer_foreign_keys = true;
 
--- 1. Rebuild `users` without `github_id`.
+-- 1. Park every table reachable from `users`.
 --
--- SQLite cannot drop a column carrying an implicit UNIQUE index (the index has
--- an internal name and cannot be dropped), so this is the standard
--- copy/drop/rename procedure rather than an ALTER.
+-- Eight reference it directly; `events` and `documents` reach it through
+-- `applications`. `company_logos` and `stripe_events` are global and are the
+-- only two tables deliberately absent from this list.
+--
+-- `CREATE TABLE ... AS SELECT` copies the rows and the column order but none of
+-- the constraints, which is exactly what is wanted: these copies must be
+-- immune to the cascade that is about to happen.
+CREATE TABLE `_park_sessions` AS SELECT * FROM `sessions`;
+CREATE TABLE `_park_applications` AS SELECT * FROM `applications`;
+CREATE TABLE `_park_llm_configs` AS SELECT * FROM `llm_configs`;
+CREATE TABLE `_park_user_documents` AS SELECT * FROM `user_documents`;
+CREATE TABLE `_park_documents` AS SELECT * FROM `documents`;
+CREATE TABLE `_park_events` AS SELECT * FROM `events`;
+CREATE TABLE `_park_cv_sources` AS SELECT * FROM `cv_sources`;
+CREATE TABLE `_park_cv_profiles` AS SELECT * FROM `cv_profiles`;
+CREATE TABLE `_park_profile_facts` AS SELECT * FROM `profile_facts`;
+CREATE TABLE `_park_profile_fact_variants` AS SELECT * FROM `profile_fact_variants`;
+
+-- The GitHub ids have to outlive the old table too — they are what step 5
+-- turns into sign-in methods.
+CREATE TABLE `_park_github` AS
+  SELECT `id`, `github_id`, `created_at` FROM `users`;
+
+-- 2. Build the replacement for `users`.
+--
+-- NOTE: `email` gains a UNIQUE constraint, which Better Auth requires, and
+-- every address is lowercased on the way across. If two rows share an address —
+-- including two differing only in case — this INSERT fails and the whole
+-- migration rolls back, rather than silently merging or dropping one. Check
+-- beforehand so you find out by reading rather than by watching it fail:
+--
+--   SELECT lower(email) AS address, count(*) AS rows
+--   FROM users GROUP BY lower(email) HAVING count(*) > 1;
 CREATE TABLE `users_new` (
   `id` text PRIMARY KEY NOT NULL,
   `email` text NOT NULL UNIQUE,
@@ -71,23 +113,36 @@ INSERT INTO `users_new` (
 )
 SELECT
   `id`,
-  -- Lowercased on the way across, because Better Auth lowercases an address
-  -- before looking a user up by it. A row still holding "Person@Example.com"
-  -- would simply not be found at sign-in, and the person would be handed a
-  -- fresh empty account instead of their own.
+  -- Lowercased because Better Auth lowercases an address before looking a user
+  -- up by it. A row still holding "Person@Example.com" would simply not be
+  -- found at sign-in, and the person would be handed a fresh empty account
+  -- instead of their own.
   lower(`email`),
   `name`,
   -- Every existing row was created from a *verified* GitHub address: the old
   -- callback rejected the sign-in outright when it could not find one. So these
-  -- are all genuinely verified, and marking them so is what lets someone add
-  -- Google to their existing account instead of starting a second one.
+  -- are genuinely verified, and saying so is what lets someone add Google to
+  -- their existing account instead of starting a second one.
   1,
   `avatar_url`, `analytics_opt_in`, `plan`, `plan_source`, `stripe_customer_id`,
   `stripe_subscription_id`, `plan_status`, `current_period_end`, `created_at`,
   `created_at`
 FROM `users`;
 
--- 2. Better Auth's tables.
+-- 3. Swap the table in.
+--
+-- This DROP empties all ten tables parked above. That is expected, and is the
+-- entire reason they were parked.
+DROP TABLE `users`;
+
+ALTER TABLE `users_new` RENAME TO `users`;
+
+-- The old table's indexes went with it. This one is load-bearing: the Stripe
+-- webhook's only route back from a customer id to our user is this lookup
+-- (ADR-011).
+CREATE UNIQUE INDEX `idx_users_stripe_customer` ON `users` (`stripe_customer_id`);
+
+-- 4. Better Auth's tables.
 
 CREATE TABLE `auth_sessions` (
   `id` text PRIMARY KEY NOT NULL,
@@ -142,8 +197,12 @@ CREATE TABLE `auth_verifications` (
 CREATE INDEX `idx_auth_verifications_identifier`
   ON `auth_verifications` (`identifier`);
 
--- 3. Give every existing account its GitHub sign-in method. This reads the old
--- table, hence its position before the drop.
+-- 5. Give every existing account its GitHub sign-in method.
+--
+-- `account_id` is the GitHub id as text, because that is what Better Auth looks
+-- up with: it takes the numeric `id` from the GitHub profile and calls String()
+-- on it before querying. Storing it any other way would hand an existing user a
+-- brand new empty account.
 INSERT INTO `auth_accounts` (
   `id`, `user_id`, `account_id`, `provider_id`, `created_at`, `updated_at`
 )
@@ -154,24 +213,24 @@ SELECT
   'github',
   `created_at`,
   `created_at`
-FROM `users`;
+FROM `_park_github`;
 
-DROP TABLE `users`;
+-- 6. Put the parked rows back, parents before children.
+INSERT INTO `cv_sources` SELECT * FROM `_park_cv_sources`;
+INSERT INTO `cv_profiles` SELECT * FROM `_park_cv_profiles`;
+INSERT INTO `applications` SELECT * FROM `_park_applications`;
+INSERT INTO `llm_configs` SELECT * FROM `_park_llm_configs`;
+INSERT INTO `user_documents` SELECT * FROM `_park_user_documents`;
+INSERT INTO `profile_facts` SELECT * FROM `_park_profile_facts`;
+INSERT INTO `profile_fact_variants` SELECT * FROM `_park_profile_fact_variants`;
+INSERT INTO `events` SELECT * FROM `_park_events`;
+INSERT INTO `documents` SELECT * FROM `_park_documents`;
 
-ALTER TABLE `users_new` RENAME TO `users`;
-
--- Dropping the old table dropped its indexes with it. This one is load-bearing:
--- the Stripe webhook's only route back from a customer id to our user is this
--- lookup (ADR-011).
-CREATE UNIQUE INDEX `idx_users_stripe_customer` ON `users` (`stripe_customer_id`);
-
--- 4. `sessions` becomes extension-only.
+-- 7. `sessions` becomes extension-only.
 --
--- Cookie rows are dropped rather than carried over: they belong to the session
--- scheme Better Auth has just replaced, and a stale row here would be a
+-- Cookie rows are left behind rather than carried over: they belong to the
+-- session scheme Better Auth has just replaced, and a stale row here would be a
 -- credential nothing can any longer validate.
-DELETE FROM `sessions` WHERE `type` = 'cookie';
-
 CREATE TABLE `extension_keys` (
   `id` text PRIMARY KEY NOT NULL,
   `user_id` text NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
@@ -185,8 +244,24 @@ CREATE TABLE `extension_keys` (
 );
 
 INSERT INTO `extension_keys` (`id`, `user_id`, `label`, `created_at`, `expires_at`)
-SELECT `id`, `user_id`, `label`, `created_at`, `expires_at` FROM `sessions`;
-
-DROP TABLE `sessions`;
+SELECT `id`, `user_id`, `label`, `created_at`, `expires_at`
+FROM `_park_sessions`
+WHERE `type` = 'extension';
 
 CREATE INDEX `idx_extension_keys_user` ON `extension_keys` (`user_id`);
+
+-- Safe to drop: nothing references `sessions`, and it is empty by now anyway.
+DROP TABLE `sessions`;
+
+-- 8. Clear the parking.
+DROP TABLE `_park_sessions`;
+DROP TABLE `_park_applications`;
+DROP TABLE `_park_llm_configs`;
+DROP TABLE `_park_user_documents`;
+DROP TABLE `_park_documents`;
+DROP TABLE `_park_events`;
+DROP TABLE `_park_cv_sources`;
+DROP TABLE `_park_cv_profiles`;
+DROP TABLE `_park_profile_facts`;
+DROP TABLE `_park_profile_fact_variants`;
+DROP TABLE `_park_github`;
