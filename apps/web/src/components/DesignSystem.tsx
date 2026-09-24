@@ -11,7 +11,7 @@
  * because that part genuinely lives nowhere else. It is kept in step with
  * `apps/web/DESIGN.md`, which stays the file you edit while writing a component.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from './ui/Badge';
 import { JlogMark } from './ui/JlogMark';
 
@@ -19,19 +19,41 @@ import { JlogMark } from './ui/JlogMark';
 // Reading the live stylesheet
 // ---------------------------------------------------------------------------
 
-function useTokens(deps: unknown[]): (name: string) => string {
-  const [, force] = useState(0);
-
-  // Re-read whenever the theme flips, so every swatch on the page is the value
-  // actually in force rather than the one that was in force at mount.
-  useEffect(() => {
-    force((n) => n + 1);
-  }, deps);
-
+/**
+ * Reads a custom property off the live document.
+ *
+ * The identity of the returned function deliberately changes with `theme`. An
+ * earlier version memoised it on `[]`, which meant every `useMemo` built on it
+ * — the copied spec among them — kept whatever the values were at mount and
+ * silently disagreed with the swatches after a theme switch.
+ */
+function useTokenReader(): (name: string) => string {
+  // Stable on purpose: the function always reads whatever is live on the
+  // document, so it does not depend on the theme. What depends on the theme is
+  // *when* it is called again — which is why the spec effect below is keyed on
+  // the theme rather than on this.
   return useCallback((name: string) => {
     if (typeof window === 'undefined') return '';
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }, []);
+}
+
+/**
+ * Every token's value under one theme, without disturbing what the reader is
+ * looking at: the attribute is flipped, read synchronously, and put back before
+ * the browser gets a chance to paint.
+ */
+function readUnderTheme(theme: 'light' | 'dark', names: string[]): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const root = document.documentElement;
+  const previous = root.getAttribute('data-theme');
+  root.setAttribute('data-theme', theme);
+  const computed = getComputedStyle(root);
+  const out: Record<string, string> = {};
+  for (const n of names) out[n] = computed.getPropertyValue(n).trim();
+  if (previous === null) root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', previous);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -440,25 +462,67 @@ function MotionDemo({ motion, nonce }: { motion: Motion; nonce: number }) {
 // ---------------------------------------------------------------------------
 
 export default function DesignSystem() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  /*
+   * Start from whatever theme is already applied rather than assuming light.
+   * Layout.astro resolves the user's stored preference before first paint, so
+   * defaulting to 'light' here meant arriving on this page silently flipped a
+   * dark user back to light — and left them there after they navigated away.
+   */
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    typeof document !== 'undefined' &&
+    document.documentElement.getAttribute('data-theme') === 'dark'
+      ? 'dark'
+      : 'light',
+  );
   const [nonce, setNonce] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const read = useTokens([theme]);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const read = useTokenReader();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  /*
+   * The toggle on this page is a preview, not a preference: it must not
+   * outlive the page. Whatever the app had applied goes back on the way out.
+   */
+  useEffect(() => {
+    const original = document.documentElement.getAttribute('data-theme');
+    return () => {
+      if (original === null) document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', original);
+    };
+  }, []);
+
   // Replay every animation on the page at once, so they can be compared
   // against each other rather than one at a time from memory.
   const replayAll = () => setNonce((n) => n + 1);
 
-  const spec = useMemo(() => buildSpec(read), [read]);
+  /*
+   * Built in an effect, not a memo: assembling it flips `data-theme` to read
+   * the other theme's values, and a memo runs during render — DOM writes do not
+   * belong there even when they are put back synchronously.
+   */
+  const [spec, setSpec] = useState('');
+  useEffect(() => {
+    // No theme dependency, and that is now correct rather than a bug: the spec
+    // reads both themes explicitly via `readUnderTheme`, and every other scale
+    // is theme-independent. An earlier version returned only the current
+    // theme's values and memoised them on a reader whose identity never
+    // changed, so the copied text silently disagreed with the swatches.
+    setSpec(buildSpec(read));
+  }, [read]);
 
-  function copySpec() {
-    void navigator.clipboard.writeText(spec);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copySpec() {
+    // Confirming before the write resolves is how a blocked or unavailable
+    // clipboard came to report success on an empty clipboard.
+    try {
+      await navigator.clipboard.writeText(spec);
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+    setTimeout(() => setCopyState('idle'), 2400);
   }
 
   const cardStyle: React.CSSProperties = {
@@ -550,7 +614,7 @@ export default function DesignSystem() {
           </button>
           <button
             type="button"
-            onClick={copySpec}
+            onClick={() => void copySpec()}
             style={{
               padding: 'var(--space-2) var(--space-4)',
               borderRadius: 'var(--radius-md)',
@@ -562,7 +626,11 @@ export default function DesignSystem() {
               cursor: 'pointer',
             }}
           >
-            {copied ? 'Copied' : 'Copy full spec'}
+            {copyState === 'copied'
+              ? 'Copied'
+              : copyState === 'failed'
+                ? 'Clipboard blocked — select the text below'
+                : 'Copy full spec'}
           </button>
         </div>
       </header>
@@ -847,7 +915,9 @@ export default function DesignSystem() {
               style={{
                 ...cardStyle,
                 display: 'grid',
-                gridTemplateColumns: 'minmax(170px, 200px) 1fr',
+                // Collapses to one column on a phone. Pinned side by side the
+                // demo column forced the card wider than the screen.
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
                 gap: 'var(--space-5)',
                 alignItems: 'center',
               }}
@@ -950,14 +1020,44 @@ export default function DesignSystem() {
 // ---------------------------------------------------------------------------
 
 function buildSpec(read: (n: string) => string): string {
-  const line = (n: string) => `  ${n}: ${read(n) || '—'}`;
-  const all = [
+  /*
+   * Every colour token in the stylesheet, not just the ones with a swatch
+   * above. The page offers this as a complete reference, so leaving out chart
+   * and citation colours — which a new screen very much needs — made it a
+   * reference you could not actually build from.
+   */
+  const COLOUR_TOKENS = [
     ...NEUTRALS.map(([n]) => n),
     ...TEXT.map(([n]) => n),
     ...INTENT.map(([n]) => n),
     ...STATUS.map(([n]) => n),
     ...ICONS.map(([n]) => n),
+    '--color-surface-active',
+    '--color-overlay',
+    '--color-primary-hover',
+    '--color-primary-fg',
+    '--color-accent-hover',
+    '--color-accent-subtle',
+    '--color-danger-bg',
+    '--color-danger-border',
+    '--color-danger-fg',
+    '--color-chart-mark',
+    '--color-chart-bar',
+    '--color-chart-grid',
+    '--color-cite-cv',
+    '--color-cite-cv-fill',
+    '--color-cite-jd',
+    '--color-cite-jd-fill',
+    '--color-paper',
+    '--color-paper-ink',
   ];
+
+  // Colour is the only thing that differs between themes; the scales do not.
+  const light = readUnderTheme('light', COLOUR_TOKENS);
+  const dark = readUnderTheme('dark', COLOUR_TOKENS);
+
+  const both = (n: string) => `  ${n}: ${light[n] || '—'}  /* dark: ${dark[n] || '—'} */`;
+  const one = (n: string) => `  ${n}: ${read(n) || '—'}`;
 
   return [
     'jlog design system',
@@ -970,26 +1070,26 @@ function buildSpec(read: (n: string) => string): string {
     'RULES',
     ...RULES.map(([name, why], i) => `${i + 1}. ${name} — ${why}`),
     '',
-    'COLOUR',
-    ...all.map(line),
+    'COLOUR (light value, with the dark-theme value beside it)',
+    ...COLOUR_TOKENS.map(both),
     '',
     'TYPE',
     `  --font-sans: ${read('--font-sans')}`,
     `  --font-mono: ${read('--font-mono')}`,
-    ...TYPE_SCALE.map(line),
+    ...TYPE_SCALE.map(one),
     '',
     'SPACE',
-    ...SPACE_SCALE.map(line),
+    ...SPACE_SCALE.map(one),
     '',
     'RADIUS',
-    ...RADII.map(line),
+    ...RADII.map(one),
     '',
     'DEPTH',
-    ...SHADOWS.map(([n]) => n).map(line),
+    ...SHADOWS.map(([n]) => n).map(one),
     '',
     'MOTION',
-    ...['--motion-instant', '--motion-fast', '--motion-base', '--motion-celebrate'].map(line),
-    ...['--ease-arrive', '--ease-spring', '--ease-loop'].map(line),
+    ...['--motion-instant', '--motion-fast', '--motion-base', '--motion-celebrate'].map(one),
+    ...['--ease-arrive', '--ease-spring', '--ease-loop'].map(one),
     '',
     ...MOTIONS.flatMap((m) => [
       `${m.name} (${m.token})`,

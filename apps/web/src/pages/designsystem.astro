@@ -12,11 +12,14 @@ import Layout from '../layouts/Layout.astro';
  * is open source; there is nothing here that is not already in the stylesheet
  * anyone can view.
  *
- * `client:load` rather than `client:visible`: the page reads its own computed
- * styles to render, so it has to be hydrated before it can show anything.
+ * `client:only` rather than `client:load`: this page renders by reading its own
+ * computed styles, which do not exist on the server. Server-rendering it
+ * produced a full catalogue of em-dashes that the first client render then
+ * replaced — a hydration mismatch across every token on the page, and a visible
+ * flash of placeholder content. There is nothing here worth server-rendering.
  */
 ---
 
 <Layout title="Design system — jlog">
-  <DesignSystem client:load />
+  <DesignSystem client:only="react" />
 </Layout>
