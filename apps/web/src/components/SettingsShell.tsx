@@ -2,6 +2,7 @@ import { ArrowRightIcon, SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { Sidebar } from './Sidebar';
+import { DeleteAccount } from './settings/DeleteAccount';
 import { ExtensionKeys } from './settings/ExtensionKeys';
 import { LLMConfigForm } from './settings/LLMConfigForm';
 import { PlanSection } from './settings/PlanSection';
@@ -213,7 +214,7 @@ export default function SettingsShell() {
                 <span style={valueStyle}>{user.email}</span>
               </div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
-                Managed via GitHub.
+                Managed by whichever method you sign in with.
               </p>
             </div>
           </section>
@@ -326,6 +327,8 @@ export default function SettingsShell() {
           </section>
 
           <ExtensionKeys />
+
+          <DeleteAccount email={user.email} />
         </main>
       </div>
     </div>

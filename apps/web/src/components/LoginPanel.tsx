@@ -216,9 +216,9 @@ export default function LoginPanel() {
         <p
           role="alert"
           style={{
-            background: 'var(--color-danger-bg, #fef2f2)',
-            color: 'var(--color-danger, #b91c1c)',
-            border: '1px solid var(--color-danger-border, #fecaca)',
+            background: 'var(--color-danger-bg)',
+            color: 'var(--color-danger)',
+            border: '1px solid var(--color-danger-border)',
             borderRadius: 'var(--radius-md)',
             padding: 'var(--space-3)',
             fontSize: 'var(--text-sm)',

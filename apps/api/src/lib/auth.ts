@@ -4,6 +4,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { magicLink } from 'better-auth/plugins';
 import type { Env } from '../index';
+import { cleanupBeforeAccountDeletion } from './accountDeletion';
 import { getAppleClientSecret, isAppleConfigured } from './apple';
 import { getMailer, magicLinkMessage } from './email';
 
@@ -127,6 +128,24 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
           required: false,
           defaultValue: 'free',
           input: false,
+        },
+      },
+
+      deleteUser: {
+        enabled: true,
+        /**
+         * Runs while the user's rows still exist, which is the point: it
+         * cancels their Stripe subscription and collects the R2 objects that
+         * only these rows know the keys of. Everything else is handled by the
+         * foreign keys cascading from the `users` row.
+         *
+         * No email confirmation step. The address is already proven — that is
+         * how they signed in — and requiring a mailer here would mean a
+         * self-hoster without one could never delete an account at all. The
+         * confirmation is the typed one in Settings.
+         */
+        beforeDelete: async (user) => {
+          await cleanupBeforeAccountDeletion(env, user.id);
         },
       },
     },
