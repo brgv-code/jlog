@@ -33,4 +33,23 @@ export type ExtensionMessage =
   | { type: 'SAVE_JOB'; job: DetectedJob }
   | { type: 'SAVE_RESULT'; ok: boolean; error?: string }
   /** Popup asking the background whether the stored key is still accepted. */
-  | { type: 'CHECK_CONNECTION' };
+  | { type: 'CHECK_CONNECTION' }
+  /** Popup asking for the last few tracked jobs, to fill its idle screen. */
+  | { type: 'RECENT_ACTIVITY' };
+
+/** One row of the popup's "recent" list. */
+export interface RecentApplication {
+  id: string;
+  company: string;
+  role: string;
+  status: string;
+  /** Epoch ms of when it was tracked. */
+  createdAt: number | null;
+}
+
+export interface RecentActivity {
+  items: RecentApplication[];
+  /** How many were tracked in the last seven days. */
+  thisWeek: number;
+  total: number;
+}

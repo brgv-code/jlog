@@ -1,3 +1,4 @@
+import { loadRecentActivity } from '../lib/activity';
 import {
   API_BASE,
   type Connection,
@@ -5,7 +6,7 @@ import {
   getToken,
   setCachedConnection,
 } from '../lib/connection';
-import type { DetectedJob, ExtensionMessage, ExtractedJob } from '../types';
+import type { DetectedJob, ExtensionMessage, ExtractedJob, RecentActivity } from '../types';
 
 async function apiCall(path: string, init?: RequestInit): Promise<Response> {
   const token = await getToken();
@@ -94,7 +95,8 @@ async function extractJob(
 type MessageResult =
   | { ok: boolean; error?: string; status?: number }
   | { job: ExtractedJob | null; error?: string; status?: number }
-  | { connection: Connection };
+  | { connection: Connection }
+  | { activity: RecentActivity | null };
 
 async function handleMessage(message: unknown): Promise<MessageResult> {
   if (typeof message !== 'object' || message === null) {
@@ -109,6 +111,9 @@ async function handleMessage(message: unknown): Promise<MessageResult> {
 
     case 'CHECK_CONNECTION':
       return { connection: await checkConnection() };
+
+    case 'RECENT_ACTIVITY':
+      return { activity: await loadRecentActivity(apiCall) };
 
     case 'EXTRACT_REQUEST': {
       try {
@@ -126,7 +131,7 @@ async function handleMessage(message: unknown): Promise<MessageResult> {
 chrome.runtime.onInstalled.addListener(() => {
   // A fresh install has no key, and saying so up front means the popup opens
   // straight onto the paste screen instead of guessing.
-  void setCachedConnection({ status: 'no-key', expiresAt: null, label: null });
+  void setCachedConnection({ status: 'no-key', expiresAt: null, label: null, account: null });
 });
 
 chrome.runtime.onMessage.addListener(

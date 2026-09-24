@@ -17,6 +17,14 @@ export const WEB_BASE: string =
 
 export const SETTINGS_URL = `${WEB_BASE}/settings`;
 
+/**
+ * Where tracked jobs actually live. The applications list, not the dashboard:
+ * someone arriving from the popup wants the row they just created, not the
+ * charts. There is no per-application URL to deep link to — the detail panel is
+ * client-side state — so every row in the popup points here.
+ */
+export const DASHBOARD_URL = `${WEB_BASE}/applications`;
+
 const TOKEN_KEY = 'jlog_token';
 const STATE_KEY = 'jlog_connection';
 
@@ -35,11 +43,22 @@ export type ConnectionStatus =
   /** Could not reach the server at all — says nothing about the key. */
   | 'offline';
 
+/** Who the key belongs to. Null whenever the key is not currently good. */
+export interface Account {
+  email: string;
+  name: string;
+}
+
 export interface Connection {
   status: ConnectionStatus;
   /** Epoch ms, or null for a key with no expiry (or when unknown). */
   expiresAt: number | null;
   label: string | null;
+  /**
+   * The account this key signs in as. Worth carrying because "connected" on its
+   * own does not tell someone with two jlog logins which one they just wired up.
+   */
+  account: Account | null;
   /** When this was last confirmed with the server, epoch ms. */
   checkedAt: number;
 }
@@ -82,7 +101,7 @@ export async function setCachedConnection(
 export async function checkConnection(): Promise<Connection> {
   const token = await getToken();
   if (!token) {
-    return setCachedConnection({ status: 'no-key', expiresAt: null, label: null });
+    return setCachedConnection({ status: 'no-key', expiresAt: null, label: null, account: null });
   }
 
   try {
@@ -92,19 +111,32 @@ export async function checkConnection(): Promise<Connection> {
     if (!res.ok) {
       // The endpoint answers 200 for every key verdict, so a non-2xx here is
       // the server itself being unwell, not a statement about the key.
-      return setCachedConnection({ status: 'offline', expiresAt: null, label: null });
+      return setCachedConnection({
+        status: 'offline',
+        expiresAt: null,
+        label: null,
+        account: null,
+      });
     }
     const data = (await res.json()) as {
       status: 'active' | 'expired' | 'unknown';
       expiresAt: string | null;
       label: string | null;
+      account?: Account | null;
     };
     const expiresAt = data.expiresAt ? new Date(data.expiresAt).getTime() : null;
     const status: ConnectionStatus =
       data.status === 'active' ? 'active' : data.status === 'expired' ? 'expired' : 'rejected';
-    return setCachedConnection({ status, expiresAt, label: data.label });
+    return setCachedConnection({
+      status,
+      expiresAt,
+      label: data.label,
+      // Optional on the wire so an extension talking to an older API keeps
+      // working; it just has no name to show.
+      account: data.account ?? null,
+    });
   } catch {
-    return setCachedConnection({ status: 'offline', expiresAt: null, label: null });
+    return setCachedConnection({ status: 'offline', expiresAt: null, label: null, account: null });
   }
 }
 

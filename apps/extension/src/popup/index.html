@@ -8,12 +8,88 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png" />
   <style>
+    /*
+      Every colour is a token, and the tokens are defined twice: once light,
+      once dark. The popup used to hardcode a dark palette, so it stayed black
+      while the rest of jlog sat in light mode — the extension looked like a
+      different product bolted on.
+
+      It follows the operating system rather than the web app's own toggle
+      because that toggle lives in the site's localStorage, which a different
+      origin cannot read. The OS setting is the only signal actually available
+      here, and it is right for almost everyone.
+    */
+    :root {
+      color-scheme: light dark;
+
+      --bg: #FFFFFF;
+      --surface: #FAFAFA;
+      --surface-hover: #F4F4F5;
+      --border: #E4E4E7;
+      --border-strong: #D4D4D8;
+
+      --text: #18181B;
+      --text-muted: #71717A;
+      --text-faint: #A1A1AA;
+
+      --accent: #2563EB;
+
+      /* Primary button: inverted against the page, whichever way round it is. */
+      --btn-primary-bg: #18181B;
+      --btn-primary-fg: #FFFFFF;
+      --btn-primary-hover: #3F3F46;
+
+      --ok: #15803D;
+      --ok-bg: #F0FDF4;
+      --ok-border: #BBF7D0;
+
+      --warn: #B45309;
+      --warn-line: #F59E0B;
+
+      --bad: #B91C1C;
+      --bad-bg: #FEF2F2;
+      --bad-border: #FECACA;
+      --bad-dot: #DC2626;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111111;
+        --surface: #1A1A1A;
+        --surface-hover: #222222;
+        --border: #333333;
+        --border-strong: #555555;
+
+        --text: #EDEDED;
+        --text-muted: #888888;
+        --text-faint: #666666;
+
+        --accent: #60A5FA;
+
+        --btn-primary-bg: #EDEDED;
+        --btn-primary-fg: #111111;
+        --btn-primary-hover: #D4D4D4;
+
+        --ok: #86EFAC;
+        --ok-bg: #14532D;
+        --ok-border: #166534;
+
+        --warn: #FCD34D;
+        --warn-line: #FCD34D;
+
+        --bad: #FECACA;
+        --bad-bg: #7F1D1D;
+        --bad-border: #991B1B;
+        --bad-dot: #DC2626;
+      }
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       width: 340px;
       min-height: 200px;
-      background: #111111;
-      color: #EDEDED;
+      background: var(--bg);
+      color: var(--text);
       font-family: -apple-system, system-ui, sans-serif;
       font-size: 13px;
       padding: 16px;
@@ -24,7 +100,7 @@
       justify-content: space-between;
       margin-bottom: 16px;
       padding-bottom: 12px;
-      border-bottom: 1px solid #222;
+      border-bottom: 1px solid var(--border);
     }
     .logo {
       display: flex;
@@ -33,14 +109,14 @@
       font-weight: 700;
       font-size: 15px;
       letter-spacing: -0.02em;
-      color: #EDEDED;
+      color: var(--text);
     }
     .logo-mark { display: block; border-radius: 4px; }
     /* The connection line. Dim by default because a healthy connection is not
        news; it only earns colour when the key is close to dying. */
     .status {
       font-size: 11px;
-      color: #666;
+      color: var(--text-faint);
       display: flex;
       align-items: center;
       gap: 5px;
@@ -49,32 +125,37 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #3F6212;
+      background: var(--ok);
       flex-shrink: 0;
     }
-    .status-warn { color: #FCD34D; }
-    .status-warn .status-dot { background: #FCD34D; }
-    .status-bad { color: #FCA5A5; }
-    .status-bad .status-dot { background: #DC2626; }
+    @media (prefers-color-scheme: light) {
+      /* The light --ok is tuned for text on a pale background; as a 6px dot it
+         needs to be the saturated green instead, or it reads as grey. */
+      .status-dot { background: #16A34A; }
+    }
+    .status-warn { color: var(--warn); }
+    .status-warn .status-dot { background: var(--warn-line); }
+    .status-bad { color: var(--bad); }
+    .status-bad .status-dot { background: var(--bad-dot); }
     .notice {
-      background: #1A1A1A;
-      border: 1px solid #333;
-      border-left: 2px solid #FCD34D;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--warn-line);
       border-radius: 6px;
       padding: 9px 11px;
       font-size: 11px;
-      color: #AAA;
+      color: var(--text-muted);
       line-height: 1.5;
       margin-bottom: 12px;
     }
     .headline {
       font-size: 14px;
       font-weight: 600;
-      color: #EDEDED;
+      color: var(--text);
       margin-bottom: 6px;
     }
     .body-text {
-      color: #888;
+      color: var(--text-muted);
       font-size: 12px;
       line-height: 1.5;
       margin-bottom: 12px;
@@ -82,23 +163,24 @@
     .section-label {
       font-size: 11px;
       font-weight: 600;
-      color: #888;
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.06em;
       margin-bottom: 8px;
     }
     .input {
       width: 100%;
-      background: #1A1A1A;
-      border: 1px solid #333;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #EDEDED;
+      color: var(--text);
       font-size: 12px;
       padding: 8px 10px;
       font-family: inherit;
       outline: none;
     }
-    .input:focus { border-color: #555; }
+    .input::placeholder { color: var(--text-faint); }
+    .input:focus { border-color: var(--border-strong); }
     .select {
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -107,7 +189,7 @@
       padding-right: 28px;
       cursor: pointer;
     }
-    .select option { background: #1A1A1A; color: #EDEDED; }
+    .select option { background: var(--surface); color: var(--text); }
     .textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
     .btn {
       width: 100%;
@@ -118,25 +200,24 @@
       font-weight: 500;
       cursor: pointer;
       font-family: inherit;
-      transition: opacity 0.15s;
+      transition: opacity 0.15s, background 0.15s;
     }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: #EDEDED; color: #111111; }
-    .btn-primary:hover:not(:disabled) { background: #D4D4D4; }
+    .btn-primary { background: var(--btn-primary-bg); color: var(--btn-primary-fg); }
+    .btn-primary:hover:not(:disabled) { background: var(--btn-primary-hover); }
     .btn-secondary {
-      background: #1A1A1A;
-      color: #EDEDED;
-      border: 1px solid #333;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
     }
-    .btn-secondary:hover:not(:disabled) { background: #222; }
-    .btn-danger { background: #7F1D1D; color: #FECACA; }
-    .btn-danger:hover:not(:disabled) { background: #991B1B; }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface-hover); }
+    .btn-danger { background: var(--bad-bg); color: var(--bad); }
     .field-row {
       margin-bottom: 10px;
     }
     .field-label {
       font-size: 11px;
-      color: #888;
+      color: var(--text-muted);
       margin-bottom: 4px;
     }
     .monospace {
@@ -144,8 +225,8 @@
       font-size: 11px;
     }
     .job-card {
-      background: #1A1A1A;
-      border: 1px solid #333;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px;
       margin-bottom: 12px;
@@ -156,13 +237,13 @@
       margin-bottom: 2px;
     }
     .job-role {
-      color: #AAA;
+      color: var(--text-muted);
       font-size: 12px;
       margin-bottom: 4px;
     }
     .job-location {
       font-size: 11px;
-      color: #666;
+      color: var(--text-faint);
     }
     .toast {
       display: flex;
@@ -174,13 +255,13 @@
       font-size: 13px;
       font-weight: 500;
     }
-    .toast-success { background: #14532D; color: #86EFAC; border: 1px solid #166534; }
-    .toast-error { background: #7F1D1D; color: #FECACA; border: 1px solid #991B1B; }
+    .toast-success { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-border); }
+    .toast-error { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad-border); }
     .spinner {
       width: 16px;
       height: 16px;
-      border: 2px solid #333;
-      border-top-color: #EDEDED;
+      border: 2px solid var(--border);
+      border-top-color: var(--text);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       margin: 0 auto;
@@ -194,12 +275,13 @@
     }
     .warning {
       font-size: 11px;
-      color: #AAA;
+      color: var(--text-muted);
       margin-top: 8px;
       line-height: 1.5;
     }
+    .error-text { color: var(--bad); }
     .link {
-      color: #888;
+      color: var(--text-muted);
       font-size: 11px;
       text-decoration: underline;
       cursor: pointer;
@@ -208,7 +290,7 @@
       font-family: inherit;
       padding: 0;
     }
-    .link:hover { color: #EDEDED; }
+    .link:hover { color: var(--text); }
     .gap { margin-bottom: 8px; }
     .confirm-row {
       display: flex;
@@ -216,6 +298,173 @@
       margin-top: 10px;
     }
     .confirm-row .btn { flex: 1; }
+
+    /* ---------------------------------------------------------------------
+       Idle screen: what the popup shows when the current page is not a job
+       posting. It used to be one grey sentence and a button, which read as a
+       broken or empty extension. Now it carries either your recent activity or,
+       before you have any, what the extension actually does unattended.
+       --------------------------------------------------------------------- */
+    .summary-line {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+    .summary-count {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .recent-list {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    /* Not a control: see renderRecentList in popup.ts for why these rows do
+       not respond to a click. No pointer cursor and no hover state, so nothing
+       here invites one. */
+    .recent-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: var(--surface);
+      border: none;
+      border-bottom: 1px solid var(--border);
+      padding: 9px 11px;
+      font-family: inherit;
+    }
+    .recent-item:last-child { border-bottom: none; }
+    .recent-company {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .recent-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .site-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px 10px;
+      margin-bottom: 14px;
+    }
+    .site-item {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .site-item::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+    .footer-link {
+      display: block;
+      width: 100%;
+      text-align: center;
+      margin-top: 10px;
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 0;
+    }
+    .footer-link:hover { color: var(--text); }
+
+    /* ---------------------------------------------------------------------
+       The connect confirmation. A key being accepted used to be silent — the
+       paste screen simply became the tracking screen, and nothing ever said
+       "that worked". The mark tips its hat: the dot lifts off the j like a hat
+       coming off, the whole mark bows, then both settle back.
+       --------------------------------------------------------------------- */
+    .success-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 18px 0 10px;
+    }
+    .tip-mark {
+      width: 56px;
+      height: 56px;
+      transform-origin: 50% 78%;
+      animation: hat-tip-bow 1100ms cubic-bezier(0.34, 1.3, 0.64, 1) 120ms both;
+    }
+    .tip-dot {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: hat-tip-dot 1100ms cubic-bezier(0.34, 1.3, 0.64, 1) 120ms both;
+    }
+    .tip-check {
+      stroke-dasharray: 16;
+      stroke-dashoffset: 16;
+      animation: draw-check 340ms ease-out 900ms forwards;
+    }
+    @keyframes hat-tip-bow {
+      0%   { transform: rotate(0deg) translateY(4px); opacity: 0; }
+      18%  { transform: rotate(0deg) translateY(0); opacity: 1; }
+      45%  { transform: rotate(-11deg) translateY(0); }
+      70%  { transform: rotate(-4deg) translateY(0); }
+      100% { transform: rotate(0deg) translateY(0); opacity: 1; }
+    }
+    @keyframes hat-tip-dot {
+      0%   { transform: translate(0, 0); }
+      18%  { transform: translate(0, 0); }
+      45%  { transform: translate(-3.2px, -3.4px); }
+      70%  { transform: translate(-1.2px, -1.4px); }
+      100% { transform: translate(0, 0); }
+    }
+    @keyframes draw-check {
+      to { stroke-dashoffset: 0; }
+    }
+    .success-headline {
+      font-size: 15px;
+      font-weight: 650;
+      color: var(--text);
+      margin-top: 14px;
+      opacity: 0;
+      animation: rise 300ms ease-out 620ms forwards;
+    }
+    .success-account {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      word-break: break-all;
+      opacity: 0;
+      animation: rise 300ms ease-out 760ms forwards;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Honour a system request for less movement: show the same screen, just
+       arrived at rather than performed. */
+    @media (prefers-reduced-motion: reduce) {
+      .tip-mark, .tip-dot, .success-headline, .success-account, .tip-check {
+        animation: none;
+        opacity: 1;
+        stroke-dashoffset: 0;
+        transform: none;
+      }
+      .spinner { animation-duration: 2s; }
+    }
   </style>
 </head>
 <body>
