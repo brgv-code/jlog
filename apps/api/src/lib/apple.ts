@@ -53,10 +53,26 @@ const SECRET_TTL_SECONDS = 60 * 60;
  * token that dies between being signed and being read. */
 const REFRESH_MARGIN_SECONDS = 5 * 60;
 
-// Signing is cheap but not free, and the credentials arrive per request on
-// workerd rather than per process. Caching by key id means a rotation produces
-// a new token rather than quietly reusing the old key's.
-let cached: { keyId: string; expiresAt: number; token: string } | null = null;
+/**
+ * What this isolate last worked out about the configured key.
+ *
+ * Signing is cheap but not free, and the credentials arrive per request on
+ * workerd rather than per process, so the result is kept between requests.
+ *
+ * Failures are remembered too, and that is the more important half: a malformed
+ * `.p8` is caught by the caller so the rest of the API keeps working, which
+ * means every subsequent request would otherwise retry the import and write
+ * another error line. One mistyped secret would flood the logs and add
+ * cryptographic work to requests that have nothing to do with Apple.
+ *
+ * Keyed on the key id *and* the key material, so correcting either is noticed
+ * immediately rather than being masked until the isolate recycles.
+ */
+type KeyState =
+  | { status: 'signed'; keyId: string; pem: string; expiresAt: number; token: string }
+  | { status: 'unusable'; keyId: string; pem: string; reason: string };
+
+let cached: KeyState | null = null;
 
 export function isAppleConfigured(env: Env): boolean {
   return Boolean(
@@ -70,9 +86,21 @@ export async function getAppleClientSecret(env: Env): Promise<string> {
   }
 
   const keyId = env.APPLE_KEY_ID as string;
+  const pem = env.APPLE_PRIVATE_KEY as string;
   const nowSeconds = Math.floor(Date.now() / 1000);
+  const sameKey = cached?.keyId === keyId && cached?.pem === pem;
 
-  if (cached && cached.keyId === keyId && cached.expiresAt - REFRESH_MARGIN_SECONDS > nowSeconds) {
+  if (sameKey && cached?.status === 'unusable') {
+    // Already established that this exact key cannot sign. Fail immediately,
+    // without the import and without logging again.
+    throw new Error(cached.reason);
+  }
+
+  if (
+    sameKey &&
+    cached?.status === 'signed' &&
+    cached.expiresAt - REFRESH_MARGIN_SECONDS > nowSeconds
+  ) {
     return cached.token;
   }
 
@@ -89,23 +117,36 @@ export async function getAppleClientSecret(env: Env): Promise<string> {
     }),
   );
 
-  const key = await crypto.subtle.importKey(
-    'pkcs8',
-    pkcs8FromPem(env.APPLE_PRIVATE_KEY as string),
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign'],
-  );
+  let signature: ArrayBuffer;
+  try {
+    const key = await crypto.subtle.importKey(
+      'pkcs8',
+      pkcs8FromPem(pem),
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign'],
+    );
 
-  // Web Crypto returns the raw r‖s pair, which is exactly the 64 bytes JWS
-  // ES256 asks for. A DER-encoded signature would be rejected by Apple.
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    key,
-    new TextEncoder().encode(`${header}.${payload}`),
-  );
+    // Web Crypto returns the raw r‖s pair, which is exactly the 64 bytes JWS
+    // ES256 asks for. A DER-encoded signature would be rejected by Apple.
+    signature = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      key,
+      new TextEncoder().encode(`${header}.${payload}`),
+    );
+  } catch (err) {
+    // Logged here rather than by the caller, and exactly once per bad key: the
+    // caller runs on every request, so logging there would turn one mistyped
+    // secret into a line per request forever.
+    const reason = `Apple sign-in disabled: the private key could not sign (${
+      err instanceof Error ? err.message : String(err)
+    })`;
+    console.error(`[auth] ${reason}`);
+    cached = { status: 'unusable', keyId, pem, reason };
+    throw new Error(reason);
+  }
 
   const token = `${header}.${payload}.${bytesToBase64Url(new Uint8Array(signature))}`;
-  cached = { keyId, expiresAt, token };
+  cached = { status: 'signed', keyId, pem, expiresAt, token };
   return token;
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../index';
 import { getAppleClientSecret, isAppleConfigured } from './apple';
 
@@ -146,6 +146,46 @@ describe('getAppleClientSecret', () => {
       'KEYBROKEN1',
     );
     await expect(getAppleClientSecret(broken)).rejects.toThrow();
+  });
+
+  it('remembers a bad key instead of retrying it on every request', async () => {
+    const broken = envWith(
+      '-----BEGIN PRIVATE KEY-----\nstill-not-a-key\n-----END PRIVATE KEY-----',
+      'KEYBROKEN2',
+    );
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      // `getAuth` swallows this failure so the rest of the API keeps serving,
+      // which means the call recurs on *every* request. Without a remembered
+      // failure, one mistyped secret would re-import the key and write a log
+      // line each time.
+      await expect(getAppleClientSecret(broken)).rejects.toThrow();
+      await expect(getAppleClientSecret(broken)).rejects.toThrow();
+      await expect(getAppleClientSecret(broken)).rejects.toThrow();
+
+      expect(logged).toHaveBeenCalledTimes(1);
+    } finally {
+      logged.mockRestore();
+    }
+  });
+
+  it('retries once the key material is corrected', async () => {
+    // The flip side of remembering a failure: a fixed key must take effect at
+    // once, not merely whenever the isolate happens to recycle. Same key id,
+    // new material.
+    const badPem = '-----BEGIN PRIVATE KEY-----\nbroken\n-----END PRIVATE KEY-----';
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      await expect(getAppleClientSecret(envWith(badPem, 'KEYFIXED001'))).rejects.toThrow();
+
+      const { pem } = await makeKeyPair();
+      const token = await getAppleClientSecret(envWith(pem, 'KEYFIXED001'));
+      expect(parts(token).signature).toBeTruthy();
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   it('refuses to sign when the configuration is incomplete', async () => {

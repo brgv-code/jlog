@@ -287,15 +287,18 @@ export async function getAuth(env: Env, requestUrl: string): Promise<Auth> {
   if (isAppleConfigured(env)) {
     try {
       appleClientSecret = await getAppleClientSecret(env);
-    } catch (err) {
-      // A malformed `.p8` makes importKey throw. This runs on the way into
+    } catch {
+      // A malformed `.p8` makes signing throw. This runs on the way into
       // *every* request, so letting it propagate would turn one mistyped
       // secret into a 500 on the health check, on GitHub sign-in, on the
       // extension's requests and on the Stripe webhook — none of which involve
       // Apple at all. One broken provider takes out that provider and nothing
       // else: Apple is simply not registered, so the login page stops offering
       // it and everything else carries on.
-      console.error('[auth] Apple sign-in disabled: could not sign a client secret', err);
+      //
+      // Deliberately silent here. `getAppleClientSecret` logs the reason once
+      // per bad key and then remembers it, so this path neither re-imports the
+      // key nor writes a line on every subsequent request.
     }
   }
 
