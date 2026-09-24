@@ -3,6 +3,7 @@ import { HttpError, expiryFromLifetime, extensionTokenSchema, isNeverExpiring } 
 import { and, eq, like, lt } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
+import { EXPIRED_KEY_GRACE_DAYS } from '../lib/cleanup';
 import { requireSession } from '../lib/session';
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -22,17 +23,23 @@ const publicExpiry = (expiresAt: Date) =>
   isNeverExpiring(expiresAt) ? null : expiresAt.toISOString();
 
 /**
- * Expired keys are left in the table by the auth middleware so the popup can be
- * told *why* it is locked out. They get cleared here instead: these are the
- * cookie-authenticated paths, so the sweep costs a signed-in user one write and
- * never slows down the extension's own requests.
+ * Clear this user's long-dead keys, opportunistically, on the paths they are
+ * already signed in for.
+ *
+ * The grace period is the point, and it has to match {@link EXPIRED_KEY_GRACE_DAYS}
+ * in `lib/cleanup.ts` — the nightly sweep uses the same cutoff. Deleting a key
+ * the moment it expires is what the popup's "this key expired on Tuesday"
+ * message exists to avoid, and doing it here but not there would mean the
+ * retention the privacy policy describes held only for accounts nobody opened
+ * Settings on.
  *
  * No `type` filter any more — this table holds nothing but extension keys.
  */
 async function pruneExpired(db: ReturnType<typeof createDb>, userId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - EXPIRED_KEY_GRACE_DAYS * 24 * 60 * 60 * 1000);
   await db
     .delete(extensionKeys)
-    .where(and(eq(extensionKeys.userId, userId), lt(extensionKeys.expiresAt, new Date())));
+    .where(and(eq(extensionKeys.userId, userId), lt(extensionKeys.expiresAt, cutoff)));
 }
 
 /**

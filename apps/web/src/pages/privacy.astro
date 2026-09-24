@@ -101,10 +101,10 @@ const contactEmail = 'hello@bhargav.dev';
       so page scripts cannot read it, and it expires after 30 days.
     </p>
     <p>
-      One more appears briefly while you are signing in. <code>jlog_oauth_state</code> holds a
-      random value for up to ten minutes, and exists so that the response coming back from GitHub
-      can be matched to the sign-in you actually started. It is deleted the moment you land back on
-      jlog.
+      Signing in adds no second cookie. The half-finished sign-in — the bit that lets the answer
+      coming back from GitHub, Google or Apple be matched to the attempt you actually started — is
+      held as a short-lived row in the database instead, which expires after ten minutes and is
+      swept nightly.
     </p>
     <p>
       Your light/dark theme preference is kept in your browser's local storage and never sent
@@ -183,7 +183,8 @@ const contactEmail = 'hello@bhargav.dev';
     </p>
     <p>
       Credentials that have run out are swept by a job that runs once a day. Spent and expired
-      sign-in links go as soon as they lapse, as do expired browser sessions. Expired extension
+      sign-in links go as soon as they lapse, along with the short-lived rows recording a sign-in
+      that was started and not finished, and expired browser sessions. Expired extension
       keys are kept for a further 30 days and then removed — deliberately, so that an extension
       which has stopped working can still tell you <em>when</em> its key expired rather than saying
       it has never seen it.

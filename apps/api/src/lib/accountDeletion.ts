@@ -1,4 +1,5 @@
 import { applications, createDb, cvSources, documents, users } from '@jlog/db';
+import { APIError } from 'better-auth/api';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import Stripe from 'stripe';
 import type { Env } from '../index';
@@ -12,15 +13,21 @@ import type { Env } from '../index';
  * and would otherwise be left behind:
  *
  *   - **The subscription.** Deleting the row that records a Stripe
- *     subscription does not tell Stripe anything. Someone who deletes their
- *     account and keeps being charged for it has been wronged in a way that is
- *     both obvious and entirely avoidable, so this is the load-bearing half.
- *   - **The files.** Imported CVs and rendered PDFs are bytes in R2, keyed from
- *     rows that are about to vanish. Once the rows are gone there is nothing
- *     left to find the objects by, so they have to be collected first.
+ *     subscription does not tell Stripe anything.
+ *   - **The files.** Imported CVs, rendered PDFs and the profile photo are
+ *     bytes in R2, keyed from rows that are about to vanish.
  *
  * Called from Better Auth's `beforeDelete` hook — before, deliberately, because
  * it needs the rows it is reading.
+ *
+ * **Every failure here aborts the deletion**, and that is the important design
+ * decision in this file. The tempting alternative is to log and carry on, so
+ * that a transient Stripe or R2 outage cannot leave someone unable to delete
+ * their account. But carrying on destroys the only record of what still needs
+ * cleaning: once the user row is gone, nothing knows the subscription id to
+ * cancel or the object keys to delete. A person who deletes their account and
+ * then keeps being charged for it, or whose CV stays in storage, has been
+ * wronged far worse than one who is asked to try again in a minute.
  */
 export async function cleanupBeforeAccountDeletion(env: Env, userId: string): Promise<void> {
   const db = createDb(env.DB);
@@ -54,11 +61,28 @@ async function cancelSubscription(
   try {
     await stripe.subscriptions.cancel(subscriptionId);
   } catch (err) {
-    // An already-cancelled or unknown subscription is not a reason to refuse
-    // someone their deletion — the outcome they asked for is the same either
-    // way, and the alternative is an account they cannot get rid of.
-    console.error('[account] could not cancel subscription during deletion', err);
+    // A subscription Stripe has already cancelled, or has never heard of, is
+    // not a failure: the state we wanted is the state it is in. Anything else —
+    // a network blip, a rate limit, an outage — must stop the deletion, because
+    // continuing would delete the only copy of the id needed to try again.
+    if (isAlreadyGone(err)) return;
+
+    console.error('[account] could not cancel subscription; deletion aborted', err);
+    throw new APIError('INTERNAL_SERVER_ERROR', {
+      message:
+        'We could not cancel your subscription just now, so your account has not been deleted — ' +
+        'deleting it while the subscription is live would keep you being charged. Please try again ' +
+        'in a few minutes.',
+    });
   }
+}
+
+/** Stripe's word for "that subscription is not there", which is a success here. */
+function isAlreadyGone(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const code = (err as { code?: string; statusCode?: number }).code;
+  const status = (err as { statusCode?: number }).statusCode;
+  return code === 'resource_missing' || status === 404;
 }
 
 /** Collect every R2 key this user owns, then delete the objects. */
@@ -85,22 +109,40 @@ async function deleteStoredFiles(
     .innerJoin(applications, eq(documents.applicationId, applications.id))
     .where(and(eq(applications.userId, userId), isNotNull(documents.pdfKey)));
 
-  const keys = [...sources, ...generated]
-    .map((row) => row.key)
-    .filter((key): key is string => Boolean(key));
+  const keys = [
+    ...sources.map((row) => row.key),
+    ...generated.map((row) => row.key),
+    // The profile photo. Unlike the others its key is derived from the user id
+    // rather than stored in a column, so there is no row to find it by — which
+    // is exactly why it is easy to forget and would have been left behind. Both
+    // extensions are attempted because only one of them exists and the row does
+    // not record which.
+    ...PHOTO_EXTENSIONS.map((ext) => `photo/${userId}.${ext}`),
+  ].filter((key): key is string => Boolean(key));
 
   if (keys.length === 0) return;
 
   try {
     // R2 takes up to 1000 keys per call. Chunked rather than assumed, because
     // a long job search with a tailored CV per application reaches that.
+    // Deleting a key that does not exist is a no-op, which is what makes
+    // attempting both photo extensions safe.
     for (let i = 0; i < keys.length; i += 1000) {
       await bucket.delete(keys.slice(i, i + 1000));
     }
   } catch (err) {
-    // Orphaned bytes are a storage bill, not a privacy breach — everything that
-    // could identify whose they were is about to be deleted regardless. Worth
-    // knowing about, not worth blocking the deletion over.
-    console.error('[account] could not delete stored files during deletion', err);
+    // Aborts for the same reason as a failed cancellation: the rows naming
+    // these objects are about to be deleted, and once they are, nothing can
+    // find the files again. Leaving someone's CV in storage permanently is a
+    // worse outcome than asking them to retry.
+    console.error('[account] could not delete stored files; deletion aborted', err);
+    throw new APIError('INTERNAL_SERVER_ERROR', {
+      message:
+        'We could not remove your stored files just now, so your account has not been deleted — ' +
+        'we would rather not leave your CV behind. Please try again in a few minutes.',
+    });
   }
 }
+
+/** Mirrors the extensions `routes/profile.ts` will store a photo under. */
+const PHOTO_EXTENSIONS = ['jpg', 'png'] as const;

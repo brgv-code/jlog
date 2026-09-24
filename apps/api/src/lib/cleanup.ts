@@ -27,7 +27,7 @@ import type { Env } from '../index';
  * broken extension still gets the real explanation, and short enough that the
  * row does not outlive its usefulness by years.
  */
-const EXTENSION_KEY_GRACE_DAYS = 30;
+export const EXPIRED_KEY_GRACE_DAYS = 30;
 
 export type CleanupResult = {
   verifications: number;
@@ -54,7 +54,7 @@ export async function runScheduledCleanup(env: Env): Promise<CleanupResult> {
     .where(lt(authSessions.expiresAt, now))
     .returning({ id: authSessions.id });
 
-  const graceCutoff = new Date(now.getTime() - EXTENSION_KEY_GRACE_DAYS * 24 * 60 * 60 * 1000);
+  const graceCutoff = new Date(now.getTime() - EXPIRED_KEY_GRACE_DAYS * 24 * 60 * 60 * 1000);
   const keys = await db
     .delete(extensionKeys)
     .where(lt(extensionKeys.expiresAt, graceCutoff))
