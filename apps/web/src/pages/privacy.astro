@@ -4,10 +4,6 @@ import Layout from '../layouts/Layout.astro';
 // Google's OAuth consent screen requires a reachable privacy policy URL before
 // an external app can leave testing mode. It is also just the honest thing to
 // publish for a product that holds someone's job search.
-//
-// Everything below describes what jlog does TODAY. When a change alters what is
-// collected, who sees it, or how long it is kept, this page changes in the same
-// commit — a policy that describes last month's product is worse than none.
 const lastUpdated = '24 September 2026';
 
 // Where data access and deletion requests land. Also what is given to Google as
@@ -40,9 +36,10 @@ const contactEmail = 'hello@bhargav.dev';
 
     <h3>Your account</h3>
     <p>
-      Signing in is through GitHub. jlog receives and stores your name, your verified email
-      address, your avatar URL and GitHub's own numeric account id — the last of these so that
-      signing in again recognises you. No password is ever stored, because jlog has none to store.
+      Your name, email address and avatar URL, as supplied by whichever sign-in method you used —
+      GitHub, Google, or an emailed sign-in link. jlog also stores that provider's own account
+      identifier, so that signing in again recognises you. No password is ever stored, because jlog
+      does not use passwords.
     </p>
 
     <h3>Your job applications</h3>
@@ -60,7 +57,7 @@ const contactEmail = 'hello@bhargav.dev';
       against the application they were written for.
     </p>
 
-    <h3>Your AI provider key</h3>
+    <h3>Your LLM provider key</h3>
     <p>
       If you configure your own AI provider, the API key is <strong>encrypted with AES-GCM-256
       before it is written to the database</strong> and is never returned to the browser after you
@@ -104,10 +101,10 @@ const contactEmail = 'hello@bhargav.dev';
       so page scripts cannot read it, and it expires after 30 days.
     </p>
     <p>
-      One more appears briefly while you are signing in. <code>jlog_oauth_state</code> holds a
-      random value for up to ten minutes, and exists so that the response coming back from GitHub
-      can be matched to the sign-in you actually started. It is deleted the moment you land back on
-      jlog.
+      Signing in adds no second cookie. The half-finished sign-in — the bit that lets the answer
+      coming back from GitHub, Google or Apple be matched to the attempt you actually started — is
+      held as a short-lived row in the database instead, which expires after ten minutes and is
+      swept nightly.
     </p>
     <p>
       Your light/dark theme preference is kept in your browser's local storage and never sent
@@ -122,8 +119,12 @@ const contactEmail = 'hello@bhargav.dev';
         files.
       </li>
       <li>
-        <strong>GitHub</strong> — only as the way you sign in. jlog receives your name, verified
-        email address and avatar; GitHub does not receive your job data.
+        <strong>GitHub, Google or Apple</strong> — only when you choose to sign in with them. jlog
+        receives your name, verified email address and avatar; they do not receive your job data.
+      </li>
+      <li>
+        <strong>Resend</strong> — delivers sign-in link emails. It sees the address the link is
+        sent to.
       </li>
       <li>
         <strong>Stripe</strong> — handles payment for the paid plan, including all card details. It
@@ -156,12 +157,20 @@ const contactEmail = 'hello@bhargav.dev';
 
     <h2>Getting your data out, or deleting it</h2>
     <p>
-      Email <a href={`mailto:${contactEmail}`}>{contactEmail}</a> to request a copy of everything
-      held about you, or to have your account and all of its data deleted. Deletion is permanent
-      and covers your applications and their timelines, your imported CV and the facts taken from
-      it, every generated document, your stored provider key and your extension keys — including
-      <strong> the uploaded and generated files themselves</strong>, which live outside the
-      database and are removed with it rather than left behind.
+      You can delete your account yourself, from <strong>Settings → Delete account</strong>. It
+      does not go into a queue and nobody reviews it: it happens when you confirm.
+    </p>
+    <p>
+      Deletion is permanent and covers your applications and their timelines, your imported CV and
+      the facts taken from it, every generated document, your stored provider key and your
+      extension keys — including <strong>the uploaded and generated files themselves</strong>,
+      which live outside the database and are removed with it rather than left behind. If you are
+      on the paid plan, the subscription is cancelled at the same time, so deleting your account
+      does not leave you being billed for it.
+    </p>
+    <p>
+      Email <a href={`mailto:${contactEmail}`}>{contactEmail}</a> for a copy of everything held
+      about you, or if you would rather someone did the deletion for you.
     </p>
     <p>
       If you self-host, none of this applies to you in the first place — the database is yours, and
@@ -173,11 +182,17 @@ const contactEmail = 'hello@bhargav.dev';
       Your data stays until you delete it or ask for your account to be removed.
     </p>
     <p>
-      Credentials that have run out are removed as they are next encountered: a lapsed session the
-      next time it is presented, and expired extension keys the next time you open Settings. Until
-      that happens the row is still there in full — the key value itself, the account it belonged
-      to, its label and when it was made. An expired key stops working the moment it lapses, but it
-      has not been erased yet either, and opening Settings is what clears it.
+      Credentials that have run out are swept by a job that runs once a day. Spent and expired
+      sign-in links go as soon as they lapse, along with the short-lived rows recording a sign-in
+      that was started and not finished, and expired browser sessions. Expired extension
+      keys are kept for a further 30 days and then removed — deliberately, so that an extension
+      which has stopped working can still tell you <em>when</em> its key expired rather than saying
+      it has never seen it.
+    </p>
+    <p>
+      During those 30 days the row is still there in full: the key value itself, the account it
+      belonged to, its label and when it was made. An expired key cannot be used to sign in from
+      the moment it lapses, but it has not been erased yet either.
     </p>
 
     <h2>Changes</h2>
@@ -199,7 +214,6 @@ const contactEmail = 'hello@bhargav.dev';
     margin: 0 auto;
     padding: var(--space-12) var(--space-6) var(--space-16);
     color: var(--color-text-primary);
-    font-family: var(--font-sans);
     font-size: var(--text-base);
     line-height: 1.7;
   }
@@ -265,7 +279,7 @@ const contactEmail = 'hello@bhargav.dev';
   }
 
   code {
-    font-family: var(--font-mono);
+    font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 0.9em;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -274,6 +288,6 @@ const contactEmail = 'hello@bhargav.dev';
   }
 
   a {
-    color: var(--color-accent);
+    color: var(--color-primary);
   }
 </style>

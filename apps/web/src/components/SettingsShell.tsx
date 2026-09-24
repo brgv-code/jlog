@@ -2,6 +2,7 @@ import { ArrowRightIcon, SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { Sidebar } from './Sidebar';
+import { DeleteAccount } from './settings/DeleteAccount';
 import { ExtensionKeys } from './settings/ExtensionKeys';
 import { LLMConfigForm } from './settings/LLMConfigForm';
 import { PlanSection } from './settings/PlanSection';
@@ -79,7 +80,7 @@ export default function SettingsShell() {
   }
 
   async function handleSignOut() {
-    await apiFetch('/api/auth/logout', { method: 'POST' });
+    await apiFetch('/api/auth/sign-out', { method: 'POST' });
     window.location.href = '/login';
   }
 
@@ -213,7 +214,7 @@ export default function SettingsShell() {
                 <span style={valueStyle}>{user.email}</span>
               </div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>
-                Managed via GitHub.
+                Managed by whichever method you sign in with.
               </p>
             </div>
           </section>
@@ -270,7 +271,9 @@ export default function SettingsShell() {
               Present tense only for what actually happens. Nothing reads this
               flag but the settings route: no aggregate is computed and nothing
               is sent anywhere yet. Describing the intent as though it were the
-              behaviour is consent obtained for something that is not occurring.
+              behaviour is the same inaccuracy the privacy policy had, in a more
+              visible place — and it is consent obtained for something that is
+              not occurring.
             */}
             <p style={helpStyle}>
               Agree to share anonymized data — response rates, time-to-offer, ghosting patterns. No
@@ -326,6 +329,8 @@ export default function SettingsShell() {
           </section>
 
           <ExtensionKeys />
+
+          <DeleteAccount email={user.email} />
         </main>
       </div>
     </div>

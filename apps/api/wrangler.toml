@@ -24,6 +24,20 @@ main = "src/index.ts"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Sign-in credentials are all secrets, set with `wrangler secret put`, never
+# here — this file is in the public repo. Better Auth serves every provider's
+# callback at /api/auth/callback/<provider>; register exactly that with each one.
+#
+#   SESSION_SECRET            also signs Better Auth's cookies
+#   GITHUB_CLIENT_ID / _SECRET
+#   GOOGLE_CLIENT_ID / _SECRET
+#   APPLE_CLIENT_ID           the Services ID, not the app's bundle id
+#   APPLE_TEAM_ID / APPLE_KEY_ID / APPLE_PRIVATE_KEY   the downloaded .p8
+#   RESEND_API_KEY / EMAIL_FROM                        emailed sign-in links
+#
+# Each is optional and independent: an unconfigured provider is not registered,
+# and the login page does not offer it.
+
 [vars]
 WEB_ORIGIN = "https://jlog.bhargav.dev"
 COOKIE_DOMAIN = "production"
@@ -38,6 +52,15 @@ LANGFUSE_TRACING_ENVIRONMENT = "production"
 # extensions get an ID derived from their install path unless manifest.json pins a
 # "key"; repin this if the extension is reloaded from a different path or published.
 EXTENSION_ID = "enonliciopahgdejgpdjaeadebclgjom"
+
+# The nightly sweep of expired credentials (src/lib/cleanup.ts).
+#
+# Everything it removes was already cleared opportunistically — but only on the
+# owner's own next visit, which never comes for a dormant account. This is what
+# makes the privacy policy's "cleared automatically" true rather than nearly
+# true. 03:00 UTC: quiet, and nothing else runs then.
+[triggers]
+crons = ["0 3 * * *"]
 
 [[d1_databases]]
 binding = "DB"

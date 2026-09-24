@@ -155,7 +155,7 @@ export default function ApplicationsShell() {
   }, [auth.status, fetchPage]);
 
   async function handleSignOut() {
-    await apiFetch('/api/auth/logout', { method: 'POST' });
+    await apiFetch('/api/auth/sign-out', { method: 'POST' });
     window.location.href = '/login';
   }
 

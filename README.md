@@ -8,7 +8,7 @@
 
 jlog is an open-source job tracker built on Cloudflare's edge stack. Apply to a job on LinkedIn — it appears in your dashboard automatically. On any other job site, click the extension and let the LLM extract company, role, and location from the page.
 
-**Stack**: Astro 4 + React islands · Hono on Cloudflare Workers · D1 + Drizzle · GitHub OAuth · Chrome MV3 · Anthropic / OpenAI / Gemini / Ollama
+**Stack**: Astro 4 + React islands · Hono on Cloudflare Workers · D1 + Drizzle · Better Auth (GitHub / Google / Apple / email) · Chrome MV3 · Anthropic / OpenAI / Gemini / Ollama
 
 ---
 
@@ -28,9 +28,10 @@ jlog is an open-source job tracker built on Cloudflare's edge stack. Apply to a 
 
 ### Prerequisites
 
-- Node 20+, pnpm 9+
+- Node 22+, pnpm 9+ — Wrangler 4 requires Node 22, so an older runtime cannot
+  run the worker or apply migrations
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) (`npm i -g wrangler`)
-- A [GitHub OAuth App](https://github.com/settings/developers) with callback URL `http://localhost:8787/api/auth/github/callback`
+- At least one sign-in method. The quickest is a [GitHub OAuth App](https://github.com/settings/developers) with callback URL `http://localhost:8787/api/auth/callback/github`
 
 ### 1. Clone and install
 
@@ -46,7 +47,7 @@ pnpm install
 cp apps/api/.dev.vars.example apps/api/.dev.vars
 ```
 
-Edit `apps/api/.dev.vars`:
+Edit `apps/api/.dev.vars`. The minimum to get running:
 
 ```bash
 GITHUB_CLIENT_ID=your_client_id
@@ -55,6 +56,8 @@ SESSION_SECRET=any-32-char-random-string
 WEB_ORIGIN=http://localhost:4321
 COOKIE_DOMAIN=localhost
 ```
+
+The file's comments cover the other sign-in methods — see **Signing in** below.
 
 ### 3. Create and migrate the local database
 
@@ -108,6 +111,55 @@ See [`docs/DEPLOY.md`](docs/DEPLOY.md) for a step-by-step guide covering:
 - Environment variables and secrets
 
 ---
+
+## Signing in
+
+Authentication is handled by [Better Auth](https://better-auth.com). Four methods
+are supported, and **every one is optional** — the login page asks the API which
+are configured and shows only those, so running with GitHub alone is a perfectly
+ordinary setup.
+
+| Method       | What you need                                                              |
+| ------------ | -------------------------------------------------------------------------- |
+| GitHub       | An OAuth App: client id and secret                                         |
+| Google       | An OAuth 2.0 Web application client: client id and secret                  |
+| Apple        | A paid Apple Developer membership, plus a Services ID, Team ID, Key ID and `.p8` key |
+| Email        | A [Resend](https://resend.com) API key and a verified sending address      |
+
+Every provider's callback lives at `/api/auth/callback/<provider>`. Register
+exactly that URL with the provider — for local GitHub, that is
+`http://localhost:8787/api/auth/callback/github`.
+
+**Email sign-in is a magic link.** You type your address, we email a link, and
+following it signs you in. The link works once and expires in 15 minutes. Only a
+hash of it is stored, so the copy in your inbox is the only working one.
+
+**Three caveats worth knowing:**
+
+- **Sign in with Apple needs a paid Apple Developer Program membership**
+  ($99/year). There is no free tier for it, so this is a cost decision before it
+  is a configuration one. Leaving the four `APPLE_*` settings unset is a
+  perfectly ordinary way to run jlog: the provider is never registered and the
+  login page does not show the button.
+  
+  Note this is unrelated to accepting **Apple Pay**, which the hosted Stripe
+  Checkout used for the paid plan supports with no Apple account at all — Stripe
+  performs the Apple merchant validation on your behalf.
+- **Apple cannot be tested against `http://localhost`.** It refuses localhost
+  redirect URIs, and it answers the callback with a cross-site form POST, which
+  browsers only accompany with a `Secure` cookie — so it needs real HTTPS.
+  Configure it against your deployed origin.
+- **`APPLE_CLIENT_ID` is the Services ID, not the app's bundle id.** Apple also
+  issues no client secret: jlog signs a short-lived one per request from your
+  `.p8` key.
+
+### Using more than one method
+
+Sign-in methods attach to accounts, not the other way round. If you signed up
+with GitHub and later press **Continue with Google**, you land in your existing
+account rather than an empty new one — provided the provider tells us the
+address is verified. An unverified address never links, because trusting one
+would be a way into someone else's account by claiming their address.
 
 ## LLM providers
 
