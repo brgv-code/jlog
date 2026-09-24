@@ -271,13 +271,9 @@ export default function SettingsShell() {
               Present tense only for what actually happens. Nothing reads this
               flag but the settings route: no aggregate is computed and nothing
               is sent anywhere yet. Describing the intent as though it were the
-<<<<<<< HEAD
-              behaviour is consent obtained for something that is not occurring.
-=======
               behaviour is the same inaccuracy the privacy policy had, in a more
               visible place — and it is consent obtained for something that is
               not occurring.
->>>>>>> 58d224e (fix(web): correct six inaccuracies in the privacy policy)
             */}
             <p style={helpStyle}>
               Agree to share anonymized data — response rates, time-to-offer, ghosting patterns. No

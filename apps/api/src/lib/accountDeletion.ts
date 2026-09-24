@@ -135,11 +135,24 @@ async function deleteStoredFiles(
     // these objects are about to be deleted, and once they are, nothing can
     // find the files again. Leaving someone's CV in storage permanently is a
     // worse outcome than asking them to retry.
+    //
+    // There is a real cost to that choice, worth naming rather than hiding.
+    // Past the first 1000 keys the deletion is several calls, so a failure on a
+    // later one leaves the account intact while some of its files are already
+    // gone — download a document from that account and it will 404.
+    //
+    // It is still the better of the two failures. This state is *transient and
+    // self-healing*: deleting an absent key is a no-op in R2, so simply trying
+    // again finishes the job. Doing the work after the rows were deleted
+    // instead would trade it for orphaned personal files that nothing can ever
+    // find — permanent, invisible, and the exact thing deletion was asked for.
+    // So the message below says plainly that a retry is both safe and needed.
     console.error('[account] could not delete stored files; deletion aborted', err);
     throw new APIError('INTERNAL_SERVER_ERROR', {
       message:
-        'We could not remove your stored files just now, so your account has not been deleted — ' +
-        'we would rather not leave your CV behind. Please try again in a few minutes.',
+        'We could not remove all of your stored files, so your account has not been deleted — we ' +
+        'would rather not leave your CV behind. Some files may already have been removed; trying ' +
+        'again in a few minutes will finish the job safely.',
     });
   }
 }
