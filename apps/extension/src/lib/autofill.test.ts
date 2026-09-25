@@ -193,6 +193,13 @@ describe('fillForm on Greenhouse', () => {
 describe('fillForm on Lever', () => {
   beforeEach(() => setBody(LEVER));
 
+  it('counts a field marked required only by ✱ in its sibling label', () => {
+    const org = document.querySelector('[name="org"]') as HTMLInputElement;
+    org.closest('li')?.querySelector('.application-label')?.append('✱');
+    // the ✱ on "Current company" is the only thing saying it is required
+    expect(fillForm(VALUES).requiredEmpty).toBe(1);
+  });
+
   it('reads labels from the sibling div and fills the full name', () => {
     const report = fillForm(VALUES);
     expect(report.filled).toEqual(['fullName', 'email', 'location', 'linkedin', 'github']);
@@ -239,6 +246,33 @@ describe('detection', () => {
     expect(classify(input('x'))).toBeNull();
   });
 
+  it('leaves a birthplace field alone even though it says "city"', () => {
+    setBody('<label for="x">City of birth</label><input id="x">');
+    expect(classify(input('x'))).toBeNull();
+    setBody(GREENHOUSE);
+    document
+      .querySelector('form')
+      ?.insertAdjacentHTML('beforeend', '<label for="pob">City of birth</label><input id="pob">');
+    fillForm(VALUES);
+    expect(input('pob').value).toBe('');
+  });
+
+  it('does not trust autocomplete="email" on a referrer field', () => {
+    setBody('<label for="x">Referrer email</label><input id="x" autocomplete="email">');
+    expect(classify(input('x'))).toBeNull();
+  });
+
+  it('does not borrow the label of a neighbouring field', () => {
+    setBody(`
+      <div class="row">
+        <div class="label">Email</div>
+        <input name="email_address">
+        <input name="unrelated">
+      </div>`);
+    const unrelated = document.querySelector('[name="unrelated"]') as HTMLInputElement;
+    expect(classify(unrelated)).toBeNull();
+  });
+
   it('prefers returning nothing to guessing', () => {
     setBody('<label for="x">Anything else we should know?</label><input id="x">');
     expect(classify(input('x'))).toBeNull();
@@ -277,6 +311,12 @@ describe('summarise', () => {
   it('says so when there was nothing to fill', () => {
     expect(summarise({ filled: [], requiredEmpty: 0, sensitiveSkipped: 0 })).toMatch(
       /^Nothing to fill/,
+    );
+  });
+
+  it('still says what is left when nothing was filled', () => {
+    expect(summarise({ filled: [], requiredEmpty: 2, sensitiveSkipped: 1 })).toBe(
+      'Nothing to fill: the fields jlog knows are already filled or not on this form. 2 required fields left for you. 1 question on visa, pay or EEO left untouched.',
     );
   });
 });
