@@ -15,7 +15,21 @@ export function StatusSelect({ applicationId, currentStatus, onStatusChange }: S
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [optimistic, setOptimistic] = useState<ApplicationStatus>(currentStatus);
+  /*
+   * Whether the user has just changed the status, held here rather than in the
+   * pill. This component renders three different trees — editing, saving, idle
+   * — so a pill cannot tell a change from its own first mount; this one can,
+   * because it is what performed the change.
+   */
+  const [justChanged, setJustChanged] = useState(false);
   const selectRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (!justChanged) return;
+    // Long enough for the burst, which is the slower of the two.
+    const t = setTimeout(() => setJustChanged(false), 1400);
+    return () => clearTimeout(t);
+  }, [justChanged]);
 
   // Focus the select when editing opens (avoids autoFocus lint rule)
   useEffect(() => {
@@ -42,6 +56,9 @@ export function StatusSelect({ applicationId, currentStatus, onStatusChange }: S
         return;
       }
       onStatusChange(newStatus);
+      // Only on a change the server accepted: celebrating an offer that was
+      // rolled back a moment later would be worse than not celebrating at all.
+      if (newStatus !== previous) setJustChanged(true);
     } catch {
       setOptimistic(previous);
     } finally {
@@ -52,7 +69,7 @@ export function StatusSelect({ applicationId, currentStatus, onStatusChange }: S
   if (saving) {
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-        <StatusPill status={optimistic} />
+        <StatusPill status={optimistic} changed={justChanged} />
         <Spinner size={12} />
       </span>
     );
@@ -98,7 +115,7 @@ export function StatusSelect({ applicationId, currentStatus, onStatusChange }: S
       }}
       title="Click to change status"
     >
-      <StatusPill status={optimistic} />
+      <StatusPill status={optimistic} changed={justChanged} />
     </button>
   );
 }

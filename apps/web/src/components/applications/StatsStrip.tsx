@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { apiFetch } from '../../lib/api';
 
 interface Stats {
@@ -26,24 +26,6 @@ function StatCell({
   loading,
   warn,
 }: { label: string; value: string | number; loading: boolean; warn?: boolean }) {
-  /*
-   * Flash when the number changes under the reader — after tracking a job, or
-   * after a status edit recalculates a rate. Not on first load: arriving at a
-   * populated strip is not a change, and flashing all eight at once would be
-   * decoration. `loading` is what separates the two, since the strip renders
-   * its shell before it has anything to say.
-   */
-  const previous = useRef<string | number | null>(null);
-  const [changeNonce, setChangeNonce] = useState(0);
-
-  useEffect(() => {
-    if (loading) return;
-    if (previous.current !== null && previous.current !== value) {
-      setChangeNonce((n) => n + 1);
-    }
-    previous.current = value;
-  }, [value, loading]);
-
   return (
     <div
       style={{
@@ -62,18 +44,12 @@ function StatCell({
       */}
       <span style={LABEL_STYLE}>{label}</span>
       <span
-        key={changeNonce}
-        className={changeNonce > 0 ? 'jlog-attention' : undefined}
         style={{
           fontSize: 'var(--text-2xl)',
           fontWeight: 500,
           letterSpacing: '-0.02em',
           lineHeight: 1,
           fontVariantNumeric: 'tabular-nums',
-          // Inline-block so the wash has a box to sit in; the gesture marks the
-          // change without moving anything, because the strip is being read.
-          display: 'inline-block',
-          borderRadius: 'var(--radius-sm)',
           color: loading
             ? 'var(--color-text-tertiary)'
             : warn

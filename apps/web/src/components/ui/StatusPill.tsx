@@ -1,5 +1,4 @@
 import type { ApplicationStatus } from '@jlog/shared';
-import { useEffect, useRef, useState } from 'react';
 import { Badge } from './Badge';
 
 /**
@@ -18,76 +17,59 @@ const STATUS_TONES: Record<ApplicationStatus, string> = {
 
 interface StatusPillProps {
   status: ApplicationStatus;
+  /**
+   * Whether this status was *just changed by the user*, as opposed to being the
+   * value the pill happened to mount with.
+   *
+   * It is a prop rather than something this component works out for itself, and
+   * that is the whole fix: an earlier version compared against a ref of the
+   * previous status and skipped the first mount, which was correct reasoning
+   * applied to the wrong component. `StatusSelect` swaps between three
+   * different element trees while saving, so every one of those rendered a
+   * brand-new pill, the ref started empty each time, and the animation it was
+   * guarding never ran once for a real change.
+   *
+   * The caller that knows a transition happened is the one that performed it.
+   */
+  changed?: boolean;
 }
 
 function capitalise(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/**
- * The pill, and the one place a status change is actually visible.
- *
- * It settles into its new colour rather than swapping, and an offer gets the
- * celebration reserved for it — the one unambiguously good thing that happens
- * in this app, and the only event marked without the user having clicked
- * something to cause it.
- *
- * Both fire on a *change* and never on first mount. A table of forty rows
- * animating every pill on arrival would be exactly the restlessness the motion
- * rules exist to prevent: `settle` says "this became something else", which is
- * a claim you can only make about a value that was already on screen.
- */
-export function StatusPill({ status }: StatusPillProps) {
-  const previous = useRef<ApplicationStatus | null>(null);
-  // Bumped only on a real transition; used as a key so the animation replays
-  // rather than being ignored as already-run.
-  const [changeNonce, setChangeNonce] = useState(0);
-  const [changedTo, setChangedTo] = useState<ApplicationStatus | null>(null);
+export function StatusPill({ status, changed = false }: StatusPillProps) {
+  const tone = STATUS_TONES[status] ?? 'var(--color-status-applied)';
 
-  useEffect(() => {
-    if (previous.current !== null && previous.current !== status) {
-      setChangedTo(status);
-      setChangeNonce((n) => n + 1);
-    }
-    previous.current = status;
-  }, [status]);
-
-  const justChanged = changedTo === status;
-  const celebrating = justChanged && status === 'offer';
-
-  const pill = (
-    <span
-      key={changeNonce}
-      className={justChanged ? 'jlog-settle' : undefined}
-      style={{ display: 'inline-block' }}
-    >
-      <Badge tone={STATUS_TONES[status] ?? 'var(--color-status-applied)'}>
-        {capitalise(status)}
-      </Badge>
-    </span>
-  );
-
-  if (!celebrating) return pill;
+  // An offer gets the celebration reserved for it — the one unambiguously good
+  // thing that happens here — and takes that *instead of* settling, since two
+  // scale animations on one element fight each other.
+  if (changed && status === 'offer') {
+    return (
+      <span style={{ position: 'relative', display: 'inline-flex' }}>
+        {/* Expands away once and is gone. Hidden from assistive tech: the
+            status text beside it already carries the news. */}
+        <span
+          aria-hidden="true"
+          className="jlog-burst-ring"
+          style={{
+            position: 'absolute',
+            inset: '-2px',
+            borderRadius: 'var(--radius-full)',
+            border: '2px solid var(--color-status-offer)',
+            pointerEvents: 'none',
+          }}
+        />
+        <span className="jlog-burst" style={{ display: 'inline-block' }}>
+          <Badge tone={tone}>{capitalise(status)}</Badge>
+        </span>
+      </span>
+    );
+  }
 
   return (
-    <span style={{ position: 'relative', display: 'inline-flex' }}>
-      {/* The ring expands away once and is gone. `aria-hidden` because the
-          status text beside it already carries the news. */}
-      <span
-        key={`ring-${changeNonce}`}
-        aria-hidden="true"
-        className="jlog-burst-ring"
-        style={{
-          position: 'absolute',
-          inset: '-2px',
-          borderRadius: 'var(--radius-full)',
-          border: '2px solid var(--color-status-offer)',
-          pointerEvents: 'none',
-        }}
-      />
-      <span key={`burst-${changeNonce}`} className="jlog-burst" style={{ display: 'inline-block' }}>
-        <Badge tone={STATUS_TONES.offer}>{capitalise(status)}</Badge>
-      </span>
+    <span className={changed ? 'jlog-settle' : undefined} style={{ display: 'inline-block' }}>
+      <Badge tone={tone}>{capitalise(status)}</Badge>
     </span>
   );
 }

@@ -215,7 +215,8 @@ const MOTIONS: Motion[] = [
     use: 'A value that changed underneath the reader — a stat that updated, a row that moved status.',
     avoid:
       'Anything that also moves. This exists precisely because the change is usually inside a table someone is reading.',
-    where: 'StatsStrip — a figure that changed after the strip was already on screen',
+    where:
+      'Nowhere yet — no screen currently updates a figure while it is being read. Defined and ready; say so here rather than pointing at a component nobody renders.',
     kind: 'attention',
   },
   {
@@ -223,7 +224,7 @@ const MOTIONS: Motion[] = [
     token: '.jlog-settle',
     use: 'An application moving from one status to another.',
     avoid: 'Translation of any kind. The pill sits inline in a row, and moving it moves the row.',
-    where: 'StatusPill — any status change',
+    where: 'StatusPill — a status change to anything except offer, which takes the burst instead',
     kind: 'settle',
   },
   {
