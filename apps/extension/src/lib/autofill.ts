@@ -358,8 +358,9 @@ function choicesOf(el: Control): Choice[] {
  */
 function radioGroup(el: HTMLInputElement): HTMLInputElement[] {
   if (!el.name) return [el];
-  const scope: ParentNode = el.form ?? el.ownerDocument;
-  return Array.from(scope.querySelectorAll('input')).filter(
+  // The whole document, filtered by `form`, rather than the form's subtree: a
+  // button can sit outside its form and join it through a `form="…"` attribute.
+  return Array.from(el.ownerDocument.querySelectorAll('input')).filter(
     (r) => r.type === el.type && r.name === el.name && r.form === el.form,
   );
 }

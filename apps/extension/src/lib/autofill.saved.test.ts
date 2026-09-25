@@ -252,6 +252,21 @@ describe('fillForm with saved values', () => {
   });
 });
 
+describe('radio groups joined to a form by attribute', () => {
+  it('finds buttons that sit outside the form element', () => {
+    setBody(`
+      <form id="application"></form>
+      <fieldset>
+        <legend>Are you authorized to work in Germany?</legend>
+        <label><input type="radio" name="q1" value="yes" form="application">Yes</label>
+        <label><input type="radio" name="q1" value="no" form="application">No</label>
+      </fieldset>`);
+    const report = fillForm(values());
+    expect(report.filled).toEqual(['workAuthorization']);
+    expect(document.querySelector<HTMLInputElement>('input:checked')?.value).toBe('yes');
+  });
+});
+
 describe('countries: what jlog cannot read', () => {
   it('does not read "Europe" as the EU', () => {
     expect(resolveAuthorized(['Europe']).has('de')).toBe(false);
