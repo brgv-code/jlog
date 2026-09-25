@@ -35,7 +35,9 @@ export type ExtensionMessage =
   /** Popup asking the background whether the stored key is still accepted. */
   | { type: 'CHECK_CONNECTION' }
   /** Popup asking for the last few tracked jobs, to fill its idle screen. */
-  | { type: 'RECENT_ACTIVITY' };
+  | { type: 'RECENT_ACTIVITY' }
+  /** Autofill content script asking for the CV profile to fill a form with. */
+  | { type: 'AUTOFILL_PROFILE' };
 
 /** One row of the popup's "recent" list. */
 export interface RecentApplication {
