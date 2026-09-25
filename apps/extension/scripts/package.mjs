@@ -84,12 +84,10 @@ if (!existsSync(join(dist, 'manifest.json'))) {
  * Vite's precedence and hope it stays in step, this inspects what was actually
  * emitted — which is the only thing that ships.
  */
-const emitted = collect(dist)
-  .filter((f) => /\.(js|html|json)$/.test(f.name))
-  .map((f) => f.body.toString('utf8'))
-  .join('\n');
+const emittedFiles = collect(dist);
+const everything = emittedFiles.map((f) => f.body.toString('utf8')).join('\n');
 
-const localhostHit = emitted.match(/https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/);
+const localhostHit = everything.match(/https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/);
 if (localhostHit) {
   fail(
     `The built bundle contains ${localhostHit[0]}.
@@ -98,12 +96,32 @@ Something other than .env supplied it — Vite also reads .env.local and
   );
 }
 
-if (!emitted.includes(apiBase)) {
-  fail(
-    `The built bundle does not contain ${apiBase}.
-The build used a different API URL than the one checked above, so what would be
-uploaded is not what was verified.`,
-  );
+/*
+ * Scripts only, and deliberately so. `manifest.json` lists the hosted API in
+ * host_permissions as a literal, so searching the whole bundle would find that
+ * string no matter what URL the compiled code actually calls — the check would
+ * pass while the extension talked to somewhere else entirely.
+ *
+ * Both URLs are checked. Only verifying the API left a wrong VITE_WEB_BASE free
+ * to ship, which would send people to the wrong site for settings and for
+ * renewing an expired key.
+ */
+const scripts = emittedFiles
+  .filter((f) => f.name.endsWith('.js'))
+  .map((f) => f.body.toString('utf8'))
+  .join('\n');
+
+for (const [name, value] of [
+  ['VITE_API_BASE', apiBase],
+  ['VITE_WEB_BASE', webBase],
+]) {
+  if (!scripts.includes(value)) {
+    fail(
+      `The compiled code does not contain ${value}, the ${name} that was checked above.
+A higher-precedence env file (.env.local, .env.production) supplied a different
+value, so what would be uploaded is not what was verified.`,
+    );
+  }
 }
 
 // --- 3. Archive -------------------------------------------------------------
