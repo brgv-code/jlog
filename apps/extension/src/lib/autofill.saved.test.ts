@@ -176,4 +176,25 @@ describe('fillForm with saved values', () => {
     fillForm(values());
     expect(selectedText('auth_de')).toBe('No');
   });
+
+  it('reads a Lever radio question from the div above the group', () => {
+    setBody(`
+      <ul>
+        <li class="application-question">
+          <div class="application-label">Are you authorized to work in Germany?</div>
+          <div class="application-field"><ul>
+            <li><label><input type="radio" name="cards[a][field0]" value="Yes">Yes</label></li>
+            <li><label><input type="radio" name="cards[a][field0]" value="No">No</label></li>
+          </ul></div>
+        </li>
+        <li class="application-question">
+          <div class="application-label">Anything else?</div>
+          <div class="application-field"><input type="text" name="other"></div>
+        </li>
+      </ul>`);
+    const report = fillForm(values());
+    const picked = document.querySelector<HTMLInputElement>('input[type="radio"]:checked');
+    expect(picked?.value).toBe('Yes');
+    expect(report.filled).toEqual(['workAuthorization']);
+  });
 });
