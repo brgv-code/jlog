@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build",
+    "package": "pnpm run build && rm -f jlog-extension.zip && cd dist && zip -qr ../jlog-extension.zip . && cd .. && echo \"Wrote apps/extension/jlog-extension.zip \u2014 upload this to the Chrome Web Store\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },

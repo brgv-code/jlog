@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 // Google's OAuth consent screen requires a reachable privacy policy URL before
 // an external app can leave testing mode. It is also just the honest thing to
 // publish for a product that holds someone's job search.
-const lastUpdated = '24 September 2026';
+const lastUpdated = '25 September 2026';
 
 // Where data access and deletion requests land. Also what is given to Google as
 // the app's support email, so the two agree.
@@ -75,6 +75,36 @@ const contactEmail = 'hello@bhargav.dev';
     <p>
       Keys you generate for the Chrome extension, with their label and expiry, so you can see and
       revoke them from Settings.
+    </p>
+
+    <h2>The Chrome extension</h2>
+    <p>
+      The extension is the one part of jlog that runs inside pages you visit, so it is worth being
+      exact about what it reads and when.
+    </p>
+    <p>
+      On the six job boards it supports — LinkedIn, Wellfound, Ashby, Greenhouse, Lever and Y
+      Combinator's job board — it reads the posting you are looking at and records the company,
+      role, location, the link, and the job description. On <strong>any other site</strong> it
+      reads nothing at all until you click the jlog icon and choose to extract the page; only then
+      does it read that one tab.
+    </p>
+    <p>
+      What it reads goes to <strong>your own jlog account and nowhere else</strong>. The extension
+      contacts one server — jlog's API — and no other. It does not track which pages you visit,
+      does not read pages you have not asked it to, and does not contact any analytics or
+      advertising service. There are none in it.
+    </p>
+    <p>
+      In your browser it stores the key that links it to your account, and a note of whether that
+      key still works so it can tell you when one has expired rather than just failing. Both stay
+      in the browser.
+    </p>
+    <p>
+      If you extract a page with AI, the text of that posting goes to whichever provider you
+      configured, exactly as described under <em>Who else sees your data</em> below. Uninstalling
+      the extension removes the key from your browser; to revoke it everywhere, delete it under
+      Settings.
     </p>
 
     <h2>Analytics, which currently do nothing</h2>
