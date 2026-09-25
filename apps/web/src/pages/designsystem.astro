@@ -1,0 +1,28 @@
+---
+import DesignSystem from '../components/DesignSystem';
+import Layout from '../layouts/Layout.astro';
+
+/*
+ * The design system, as a page rather than a document.
+ *
+ * Deliberately not in the sidebar: this is a reference for whoever is building
+ * jlog — a person, or a model being pointed at it — not a destination for
+ * someone tracking job applications. It is public rather than behind the login
+ * because the whole point is that the design can be read and copied, and jlog
+ * is open source; there is nothing here that is not already in the stylesheet
+ * anyone can view.
+ *
+ * `client:load`, and server-rendered.
+ *
+ * The rules and the motion catalogue are authored prose, and this is a public
+ * reference meant to be read — including by a model fetching the URL, which
+ * will not run JavaScript. Rendering it client-only put none of that in the
+ * HTML. The component instead withholds *token values* until it has mounted,
+ * so the server and the first client render agree and hydration stays clean;
+ * the values fill in a render later.
+ */
+---
+
+<Layout title="Design system — jlog">
+  <DesignSystem client:load />
+</Layout>

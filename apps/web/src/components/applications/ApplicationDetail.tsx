@@ -318,7 +318,15 @@ function DocPane({
   ];
 
   return (
-    <section style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+    /*
+     * Rises on arrival. This panel replaces whatever was in the pane when a row
+     * is picked, and without it the swap is instant enough to leave you
+     * checking whether the click registered on the row you meant.
+     */
+    <section
+      className="jlog-rise"
+      style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}
+    >
       <div
         style={{
           display: 'flex',
