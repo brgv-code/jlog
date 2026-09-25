@@ -2,6 +2,7 @@ import { ArrowRightIcon, SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { Sidebar } from './Sidebar';
+import { AutofillAnswers } from './settings/AutofillAnswers';
 import { DeleteAccount } from './settings/DeleteAccount';
 import { ExtensionKeys } from './settings/ExtensionKeys';
 import { LLMConfigForm } from './settings/LLMConfigForm';
@@ -329,6 +330,8 @@ export default function SettingsShell() {
           </section>
 
           <ExtensionKeys />
+
+          <AutofillAnswers />
 
           <DeleteAccount email={user.email} />
         </main>

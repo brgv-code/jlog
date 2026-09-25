@@ -37,7 +37,9 @@ export type ExtensionMessage =
   /** Popup asking for the last few tracked jobs, to fill its idle screen. */
   | { type: 'RECENT_ACTIVITY' }
   /** Autofill content script asking for the CV profile to fill a form with. */
-  | { type: 'AUTOFILL_PROFILE' };
+  | { type: 'AUTOFILL_PROFILE' }
+  /** Draft icon asking the pro API for an answer to one question (ADR-012 phase 3). */
+  | { type: 'DRAFT_ANSWER'; question: string; pageUrl: string; pageText: string };
 
 /** One row of the popup's "recent" list. */
 export interface RecentApplication {

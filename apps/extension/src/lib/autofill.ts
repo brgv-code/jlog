@@ -1,6 +1,9 @@
+import { authorizedFor, resolveAuthorized } from '@jlog/shared/countries';
+
 /**
  * Fill the standard fields of a job application form from the user's jlog CV
- * profile. ADR-012 phase 1: deterministic, no LLM, free tier.
+ * profile and the answers they saved. ADR-012 phases 1 and 2: deterministic,
+ * no LLM, free tier.
  *
  * Three rules shape everything here:
  *
@@ -9,7 +12,9 @@
  * - **Only empty fields.** Whatever the user or the browser already typed stays.
  * - **Sensitive fields are never guessed.** Visa, sponsorship, salary, EEO,
  *   criminal history. Detection runs before classification, so a sensitive
- *   label wins over anything else the field also matches.
+ *   label wins over anything else the field also matches. A sensitive field is
+ *   filled only from a value the user saved, only for the few kinds listed in
+ *   {@link sensitiveKind}, and only when exactly one option fits.
  *
  * A miss leaves a field empty, which the user sees and fills. A wrong fill goes
  * to an employer under their name. So when in doubt the classifier returns null.
@@ -25,6 +30,15 @@ export interface CvProfile {
   socials: { network: string; handle: string }[];
 }
 
+/** As `GET /api/profile/autofill` serves it. Empty means "do not fill". */
+export interface SavedValues {
+  phone: string;
+  authorizedCountries: string[];
+  salaryExpectation: string;
+  noticePeriod: string;
+  eeo: '' | 'decline';
+}
+
 export type FieldKind =
   | 'firstName'
   | 'lastName'
@@ -34,13 +48,20 @@ export type FieldKind =
   | 'linkedin'
   | 'github'
   | 'twitter'
-  | 'website';
+  | 'website'
+  | 'phone'
+  | 'noticePeriod';
 
-export type AutofillValues = Partial<Record<FieldKind, string>>;
+/** Sensitive questions that may be filled, and then only from saved values. */
+export type SensitiveKind = 'workAuthorization' | 'sponsorship' | 'salary' | 'eeo';
+
+export type AutofillValues = Partial<Record<FieldKind, string>> & {
+  saved?: Pick<SavedValues, 'authorizedCountries' | 'salaryExpectation' | 'eeo'>;
+};
 
 export interface FillReport {
   /** What was written, in document order. */
-  filled: FieldKind[];
+  filled: (FieldKind | SensitiveKind)[];
   /** Fields left alone because they ask for something jlog must not guess. */
   sensitiveSkipped: number;
   /** Required fields still empty after the fill, which the user has to finish. */
@@ -59,11 +80,11 @@ const SOMEONE_ELSE =
 
 /**
  * Inputs that take free text. `type` reads back as "text" when the attribute is
- * missing or unknown. Checkboxes, radios, files, tel and textareas are not
- * phase 1's: a phone number is not on the profile yet, and a textarea is an
- * open-ended question, which is phase 3.
+ * missing or unknown. Checkboxes, files and textareas are not ours: a textarea
+ * is an open-ended question, which is phase 3. Radios and selects are filled
+ * only for the sensitive kinds, from saved values.
  */
-const TEXT_TYPES = new Set(['text', 'email', 'url', 'search']);
+const TEXT_TYPES = new Set(['text', 'email', 'url', 'search', 'tel']);
 
 type Fillable = HTMLInputElement;
 /** Anything with a label, for the sensitive check and the "left for you" count. */
@@ -89,8 +110,18 @@ export function labelFor(el: Control): string {
   return clean(rawLabelFor(el));
 }
 
-/** The label as the board wrote it, asterisks and case intact. */
-function rawLabelFor(el: Control): string {
+function isChoice(el: Control): el is HTMLInputElement {
+  return el instanceof HTMLInputElement && (el.type === 'radio' || el.type === 'checkbox');
+}
+
+/**
+ * The label as the board wrote it, case intact, which the country match needs.
+ * For a radio or checkbox that is the question, not the button's own label:
+ * the button says "Yes", the question is in the fieldset's legend or in the
+ * label-ish element above the group.
+ */
+export function rawLabelFor(el: Control): string {
+  if (isChoice(el)) return questionFor(el);
   const labels = el.labels ? Array.from(el.labels) : [];
   if (labels.length) return labels.map((l) => l.textContent ?? '').join(' ');
 
@@ -102,23 +133,47 @@ function rawLabelFor(el: Control): string {
       .join(' ');
     if (text.trim()) return text;
   }
+  return nearbyLabel(el, 3);
+}
 
-  // No association: look for a label-ish element nearby. Climbing stops at the
-  // first ancestor that also holds another field, because past that point the
-  // nearest label belongs to someone else and would put an email into
-  // whatever the unlabelled field was asking for.
+const LABELISH = 'label, legend, [class*="label"], [class*="title"], [class*="question"]';
+
+/**
+ * A label-ish element near a field with no label of its own. Climbing stops at
+ * the first ancestor that also holds another field, because past that point the
+ * nearest label belongs to someone else and would put an email into whatever
+ * the unlabelled field was asking for. Buttons of the same radio or checkbox
+ * group are one question, so they do not count as someone else.
+ */
+function nearbyLabel(el: Control, levels: number): string {
   let node: Element | null = el.parentElement;
-  for (let depth = 0; node && depth < 3; depth++, node = node.parentElement) {
-    const others = Array.from(node.querySelectorAll(CONTROLS)).filter(
-      (o) => o !== el && !(o instanceof HTMLInputElement && NOT_ASKED.has(o.type)),
+  for (let depth = 0; node && depth < levels; depth++, node = node.parentElement) {
+    const others = Array.from(node.querySelectorAll<Control>(CONTROLS)).filter(
+      (o) =>
+        o !== el &&
+        !(o instanceof HTMLInputElement && NOT_ASKED.has(o.type)) &&
+        !(isChoice(o) && isChoice(el) && el.name !== '' && o.name === el.name),
     );
     if (others.length) return '';
-    const candidate = node.querySelector(
-      'label, legend, [class*="label"], [class*="title"], [class*="question"]',
+    const candidate = Array.from(node.querySelectorAll(LABELISH)).find(
+      (c) => !c.contains(el) && !c.querySelector('input, select, textarea'),
     );
-    if (candidate && !candidate.contains(el)) return candidate.textContent ?? '';
+    if (candidate) return candidate.textContent ?? '';
   }
   return '';
+}
+
+function questionFor(el: HTMLInputElement): string {
+  const legend = el.closest('fieldset')?.querySelector('legend');
+  if (legend?.textContent?.trim()) return legend.textContent;
+  const group = el.closest('[role="radiogroup"], [role="group"]');
+  const by = group?.getAttribute('aria-labelledby');
+  if (by) {
+    const text = el.ownerDocument.getElementById(by)?.textContent;
+    if (text?.trim()) return text;
+  }
+  // Lever: the question is a div above a list of <label><input>Yes</label>.
+  return nearbyLabel(el, 5);
 }
 
 /** name, id, autocomplete, placeholder and aria-label, lowercased, one string. */
@@ -174,6 +229,10 @@ export function classify(el: Fillable): FieldKind | null {
   if (FULL_NAME_LABEL.test(label) || (!label && FULL_NAME_ATTR.test(attrs))) return 'fullName';
   if (label === '' && auto === 'name') return 'fullName';
   if (el.type === 'email' || /e-?mail/.test(both)) return 'email';
+  if (el.type === 'tel' || /phone|mobile|telephone/.test(both)) return 'phone';
+  if (/notice period|when can you start|earliest start|available to start/.test(both)) {
+    return 'noticePeriod';
+  }
   if (/\blocation\b|\bcity\b|where are you based|current location/.test(both)) return 'location';
   if (/website|portfolio|homepage|personal site|\bblog\b/.test(both)) return 'website';
   return null;
@@ -201,8 +260,17 @@ function withScheme(url: string): string {
   return /^https?:\/\//i.test(u) ? u : `https://${u}`;
 }
 
-export function valuesFromProfile(p: CvProfile): AutofillValues {
+export function valuesFromProfile(p: CvProfile, saved?: SavedValues | null): AutofillValues {
   const values: AutofillValues = {};
+  if (saved) {
+    if (saved.phone.trim()) values.phone = saved.phone.trim();
+    if (saved.noticePeriod.trim()) values.noticePeriod = saved.noticePeriod.trim();
+    values.saved = {
+      authorizedCountries: saved.authorizedCountries,
+      salaryExpectation: saved.salaryExpectation.trim(),
+      eeo: saved.eeo,
+    };
+  }
   const first = p.firstName.trim();
   const last = p.lastName.trim();
   if (first) values.firstName = first;
@@ -229,6 +297,133 @@ export function valuesFromProfile(p: CvProfile): AutofillValues {
 }
 
 /**
+ * Topics jlog never answers. Checked against the whole label before anything
+ * else, so a question that mixes one of these with something fillable
+ * ("sponsorship, or a felony conviction?") is left whole.
+ */
+const NEVER =
+  /criminal|convict|felony|arrest|birth|\bborn\b|\bage\b|religio|orientation|citizenship|nationality|marital|pronoun|what visa|which visa|type of visa|visa (type|status|category|class)|current visa/;
+
+const KINDS: [SensitiveKind, RegExp][] = [
+  ['sponsorship', /sponsor/],
+  [
+    'workAuthorization',
+    /authori[sz]|right to work|work permit|eligible to work|legally (able|permitted|allowed|entitled) to work/,
+  ],
+  ['salary', /salary|compensation|pay expectation|expected pay|desired pay/],
+  ['eeo', /gender|\bsex\b|\brace\b|ethnic|hispanic|latin[oax]|veteran|disabilit/],
+];
+
+/**
+ * Which of the fillable sensitive kinds a question is. Anything in {@link NEVER}
+ * returns null and is never filled, whatever was saved. So does a question that
+ * matches more than one kind: "authorised to work here without sponsorship?"
+ * has two halves, and a single yes or no cannot answer both.
+ */
+export function sensitiveKind(label: string): SensitiveKind | null {
+  if (NEVER.test(label)) return null;
+  const matched = KINDS.filter(([, re]) => re.test(label));
+  return matched.length === 1 ? (matched[0] as [SensitiveKind, RegExp])[0] : null;
+}
+
+const DECLINE =
+  /decline|prefer not|don.?t wish|do not wish|not to (say|answer|disclose|self.?identify)|choose not/;
+
+interface Choice {
+  text: string;
+  pick: () => void;
+}
+
+function choicesOf(el: Control): Choice[] {
+  if (el instanceof HTMLSelectElement) {
+    return Array.from(el.options)
+      .filter((o) => o.value !== '')
+      .map((o) => ({ text: clean(o.textContent), pick: () => setSelectValue(el, o.value) }));
+  }
+  if (el instanceof HTMLInputElement && el.type === 'radio' && el.name) {
+    return radioGroup(el).map((r) => ({
+      text: clean(r.labels?.[0]?.textContent ?? r.value),
+      // A click is what the user would do, and what React listens for on a
+      // radio. It cannot submit anything: the target is an input, not a button.
+      pick: () => r.click(),
+    }));
+  }
+  return [];
+}
+
+/**
+ * The buttons of one radio or checkbox group. Scoped to the element's own form,
+ * as the browser scopes them: two forms on a page may both call a question
+ * "q1", and merging them would find two "Yes" options and answer neither.
+ */
+function radioGroup(el: HTMLInputElement): HTMLInputElement[] {
+  if (!el.name) return [el];
+  // The whole document, filtered by `form`, rather than the form's subtree: a
+  // button can sit outside its form and join it through a `form="…"` attribute.
+  return Array.from(el.ownerDocument.querySelectorAll('input')).filter(
+    (r) => r.type === el.type && r.name === el.name && r.form === el.form,
+  );
+}
+
+/** One key per question: a group's first button, or the element itself. */
+function questionKey(el: Control): Control {
+  return isChoice(el) ? (radioGroup(el)[0] ?? el) : el;
+}
+
+/** Pick the one option that fits. Two that fit means the board is asking something finer. */
+function pickOnly(choices: Choice[], fits: (text: string) => boolean): boolean {
+  const matches = choices.filter((c) => fits(c.text));
+  if (matches.length !== 1) return false;
+  (matches[0] as Choice).pick();
+  return true;
+}
+
+/**
+ * An option that says yes or no and nothing that changes it. "Yes, but I
+ * require sponsorship" starts with yes and means something else, so an option
+ * that goes on to hedge, negate or mention sponsorship is not a plain answer,
+ * and the question is left for the user.
+ */
+const QUALIFIED =
+  /\b(but|not|sponsor\w*|visa|requir\w*|need\w*|however|except|pending|only|future|temporar\w*|condition\w*)\b|n't/;
+
+function isPlainAnswer(text: string, answer: 'yes' | 'no'): boolean {
+  if (!new RegExp(`^${answer}\\b`).test(text)) return false;
+  const rest = text.slice(answer.length);
+  return !QUALIFIED.test(rest);
+}
+
+/**
+ * Fill one sensitive question from saved values. Returns the kind filled, or
+ * null when nothing saved answers it, which leaves it for the user.
+ */
+function fillSensitive(
+  el: Control,
+  saved: NonNullable<AutofillValues['saved']> | undefined,
+): SensitiveKind | null {
+  if (!saved) return null;
+  const kind = sensitiveKind(labelFor(el));
+  if (!kind) return null;
+
+  if (kind === 'salary') {
+    if (!saved.salaryExpectation || !isFillable(el) || el.value.trim()) return null;
+    setNativeValue(el, saved.salaryExpectation);
+    return kind;
+  }
+
+  if (kind === 'eeo') {
+    if (saved.eeo !== 'decline') return null;
+    return pickOnly(choicesOf(el), (t) => DECLINE.test(t)) ? kind : null;
+  }
+
+  if (!saved.authorizedCountries.length) return null;
+  const may = authorizedFor(rawLabelFor(el), resolveAuthorized(saved.authorizedCountries));
+  if (may === null) return null;
+  const yes = kind === 'workAuthorization' ? may : !may;
+  return pickOnly(choicesOf(el), (t) => isPlainAnswer(t, yes ? 'yes' : 'no')) ? kind : null;
+}
+
+/**
  * Write a value so a React-controlled input notices. Assigning `el.value`
  * directly updates the DOM but not React's tracker, and the page then submits
  * the old value. Going through the prototype's setter and firing `input` is
@@ -236,6 +431,14 @@ export function valuesFromProfile(p: CvProfile): AutofillValues {
  */
 export function setNativeValue(el: Fillable, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  if (setter) setter.call(el, value);
+  else el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setSelectValue(el: HTMLSelectElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
   if (setter) setter.call(el, value);
   else el.value = value;
   el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -260,12 +463,7 @@ function candidates(root: ParentNode): Fillable[] {
 }
 
 function isEmpty(el: Control): boolean {
-  if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) {
-    const group = el.name
-      ? Array.from(el.ownerDocument.querySelectorAll('input')).filter((r) => r.name === el.name)
-      : [el];
-    return !group.some((r) => r.checked);
-  }
+  if (isChoice(el)) return !radioGroup(el).some((r) => r.checked);
   return !el.value.trim();
 }
 
@@ -278,10 +476,19 @@ export function fillForm(values: AutofillValues, root: ParentNode = document): F
   const report: FillReport = { filled: [], sensitiveSkipped: 0, requiredEmpty: 0 };
   const all = controls(root);
   const sensitive = all.filter(isSensitive);
-  // A radio group is one question however many buttons it has.
-  report.sensitiveSkipped = new Set(
-    sensitive.map((el) => (el instanceof HTMLInputElement && el.type === 'radio' ? el.name : el)),
-  ).size;
+
+  // A radio group is one question however many buttons it has, so each group is
+  // tried once, through its first button.
+  const questions = new Set(sensitive.map(questionKey));
+  for (const el of questions) {
+    const kind = isEmpty(el) ? fillSensitive(el, values.saved) : null;
+    if (kind) {
+      el.dataset.jlogFilled = kind;
+      report.filled.push(kind);
+    } else if (isEmpty(el)) {
+      report.sensitiveSkipped++;
+    }
+  }
 
   for (const el of candidates(root)) {
     if (sensitive.includes(el) || el.value.trim()) continue;
@@ -294,9 +501,7 @@ export function fillForm(values: AutofillValues, root: ParentNode = document): F
   }
 
   const required = all.filter((el) => isRequired(el) && isEmpty(el));
-  report.requiredEmpty = new Set(
-    required.map((el) => (el instanceof HTMLInputElement && el.type === 'radio' ? el.name : el)),
-  ).size;
+  report.requiredEmpty = new Set(required.map(questionKey)).size;
   return report;
 }
 

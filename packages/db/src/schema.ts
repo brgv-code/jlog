@@ -425,3 +425,23 @@ export const companyLogos = sqliteTable('company_logos', {
   missing: integer('missing', { mode: 'boolean' }).notNull().default(false),
   fetchedAt: integer('fetched_at', { mode: 'timestamp' }).notNull(),
 });
+
+/**
+ * Answers an application form asks for that are not on a CV: phone, where the
+ * user may work, salary expectation, notice period, and whether to decline EEO
+ * questions. ADR-012 phase 2.
+ *
+ * The autofill fills visa, pay and EEO questions from these values and from
+ * nothing else. A value the user never saved means the question stays empty.
+ *
+ * One JSON document per user, the same shape as `cv_profiles.socials`: the
+ * set of answers will grow, and each new one should not cost a migration.
+ * Validated by `autofillValuesSchema` in `@jlog/shared` on the way in.
+ */
+export const autofillValues = sqliteTable('autofill_values', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  data: text('data', { mode: 'json' }).$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});

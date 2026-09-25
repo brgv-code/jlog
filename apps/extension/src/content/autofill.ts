@@ -9,12 +9,15 @@
 // inside it.
 import {
   type CvProfile,
+  type SavedValues,
   countStandardFields,
   fillForm,
   summarise,
   valuesFromProfile,
 } from '../lib/autofill';
 import { WEB_BASE } from '../lib/connection';
+// The draft icon on open-ended questions (phase 3) runs in the same frames.
+import './draft';
 
 const HOST_ID = 'jlog-autofill';
 /** Below this many recognisable fields the page is a posting, not a form. */
@@ -87,6 +90,7 @@ function inject(): void {
     try {
       const res = (await chrome.runtime.sendMessage({ type: 'AUTOFILL_PROFILE' })) as {
         profile: CvProfile | null;
+        saved: SavedValues | null;
         status?: number;
         error?: string;
       };
@@ -104,7 +108,7 @@ function inject(): void {
         );
         return;
       }
-      const report = fillForm(valuesFromProfile(res.profile));
+      const report = fillForm(valuesFromProfile(res.profile, res.saved));
       mark(document);
       say(summarise(report));
     } catch {

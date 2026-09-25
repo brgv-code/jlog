@@ -1,5 +1,5 @@
 import { loadRecentActivity } from '../lib/activity';
-import type { CvProfile } from '../lib/autofill';
+import type { CvProfile, SavedValues } from '../lib/autofill';
 import {
   API_BASE,
   type Connection,
@@ -7,6 +7,7 @@ import {
   getToken,
   setCachedConnection,
 } from '../lib/connection';
+import type { DraftResult } from '../lib/draft';
 import type { DetectedJob, ExtensionMessage, ExtractedJob, RecentActivity } from '../types';
 
 async function apiCall(path: string, init?: RequestInit): Promise<Response> {
@@ -100,16 +101,66 @@ async function extractJob(
  */
 async function loadProfile(): Promise<{
   profile: CvProfile | null;
+  saved: SavedValues | null;
   error?: string;
   status?: number;
 }> {
   try {
-    const res = await apiCall('/api/profile/cv');
-    if (!res.ok) return { profile: null, error: `HTTP ${res.status}`, status: res.status };
+    const [res, savedRes] = await Promise.all([
+      apiCall('/api/profile/cv'),
+      apiCall('/api/profile/autofill'),
+    ]);
+    if (!res.ok) {
+      return { profile: null, saved: null, error: `HTTP ${res.status}`, status: res.status };
+    }
     const data = (await res.json()) as { profile: CvProfile; stored: boolean };
-    return { profile: data.stored ? data.profile : null };
+    // Saved answers are optional. An API from before they existed answers 404,
+    // and the fill then does what phase 1 did: standard fields only.
+    const saved = savedRes.ok
+      ? ((await savedRes.json()) as { values: SavedValues; stored: boolean })
+      : null;
+    return {
+      profile: data.stored ? data.profile : null,
+      saved: saved?.stored ? saved.values : null,
+    };
   } catch (err: unknown) {
-    return { profile: null, error: String(err) };
+    return { profile: null, saved: null, error: String(err) };
+  }
+}
+
+/**
+ * One drafted answer. The status and error code are passed back as they came,
+ * because 402 (not pro), 422 (a refused question) and 503 (no LLM configured)
+ * each need a different sentence in the page, and all three are normal.
+ */
+async function draftAnswer(msg: {
+  question: string;
+  pageUrl: string;
+  pageText: string;
+}): Promise<{ draft: DraftResult | null; status?: number; code?: string; error?: string }> {
+  try {
+    const res = await apiCall('/api/pro/answer', {
+      method: 'POST',
+      body: JSON.stringify({
+        question: msg.question,
+        pageUrl: msg.pageUrl,
+        pageText: msg.pageText,
+      }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: { code?: string; message?: string };
+      };
+      return {
+        draft: null,
+        status: res.status,
+        ...(data.error?.code ? { code: data.error.code } : {}),
+        error: data.error?.message ?? `HTTP ${res.status}`,
+      };
+    }
+    return { draft: (await res.json()) as DraftResult };
+  } catch (err: unknown) {
+    return { draft: null, error: String(err) };
   }
 }
 
@@ -118,7 +169,8 @@ type MessageResult =
   | { job: ExtractedJob | null; error?: string; status?: number }
   | { connection: Connection }
   | { activity: RecentActivity | null }
-  | { profile: CvProfile | null; error?: string; status?: number };
+  | { profile: CvProfile | null; saved: SavedValues | null; error?: string; status?: number }
+  | { draft: DraftResult | null; status?: number; code?: string; error?: string };
 
 async function handleMessage(message: unknown): Promise<MessageResult> {
   if (typeof message !== 'object' || message === null) {
@@ -139,6 +191,9 @@ async function handleMessage(message: unknown): Promise<MessageResult> {
 
     case 'AUTOFILL_PROFILE':
       return loadProfile();
+
+    case 'DRAFT_ANSWER':
+      return draftAnswer(msg);
 
     case 'EXTRACT_REQUEST': {
       try {
