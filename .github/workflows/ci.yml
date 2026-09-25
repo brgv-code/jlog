@@ -28,6 +28,10 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Two branches open at once both pick the next free number (BRG-220).
+      - name: Migration prefixes are unique
+        run: node packages/db/scripts/migrations.mjs prefixes
+
       - name: Typecheck
         run: pnpm typecheck
 
