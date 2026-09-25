@@ -106,7 +106,14 @@ const contactEmail = 'hello@bhargav.dev';
       <strong>AI provider</strong> you configured, and on the hosted instance a record of that
       request also goes to <strong>Langfuse</strong>, which exists so a failed or expensive
       generation can be investigated. Both are described under <em>Who else sees your data</em>.
-      Configure no AI provider and extraction does not run, so nothing is sent anywhere.
+    </p>
+    <p>
+      Worth being precise about the case where you have configured no provider at all. Clicking
+      <em>Extract with AI</em> still sends the page text to <strong>jlog's own API</strong> — that
+      happens first, and is how the request is made. jlog then refuses it, so the text is
+      <strong>not forwarded to any AI provider</strong> and no extraction takes place. The
+      distinction is between the text reaching jlog, which it does, and the text reaching a third
+      party, which it does not.
     </p>
     <p>
       In your browser it stores the key that links it to your account, and a note of whether that

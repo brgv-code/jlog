@@ -36,7 +36,9 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const dist = join(root, 'dist');
 const outFile = join(root, 'jlog-extension.zip');
 
-// --- 1. Refuse to build something nobody should upload ----------------------
+// --- 1. Fail early on an obviously wrong .env -------------------------------
+// Not authoritative: see the post-build inspection below, which checks the
+// bytes that would actually be uploaded.
 
 const apiBase = process.env.VITE_API_BASE ?? readEnvFile('VITE_API_BASE');
 const webBase = process.env.VITE_WEB_BASE ?? readEnvFile('VITE_WEB_BASE');
@@ -70,6 +72,38 @@ execFileSync('npx', ['vite', 'build'], { cwd: root, stdio: 'inherit' });
 
 if (!existsSync(join(dist, 'manifest.json'))) {
   fail('dist/manifest.json is missing — the build did not produce a loadable extension.');
+}
+
+/*
+ * The check that actually counts.
+ *
+ * The one above reads `.env`, but Vite also loads `.env.local`,
+ * `.env.production` and `.env.production.local`, and those win. A contributor
+ * with a hosted URL in `.env` and a localhost one in `.env.local` would pass
+ * the pre-flight and still build a localhost bundle. Rather than reimplement
+ * Vite's precedence and hope it stays in step, this inspects what was actually
+ * emitted — which is the only thing that ships.
+ */
+const emitted = collect(dist)
+  .filter((f) => /\.(js|html|json)$/.test(f.name))
+  .map((f) => f.body.toString('utf8'))
+  .join('\n');
+
+const localhostHit = emitted.match(/https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/);
+if (localhostHit) {
+  fail(
+    `The built bundle contains ${localhostHit[0]}.
+Something other than .env supplied it — Vite also reads .env.local and
+.env.production, and those take precedence. Find and remove it before uploading.`,
+  );
+}
+
+if (!emitted.includes(apiBase)) {
+  fail(
+    `The built bundle does not contain ${apiBase}.
+The build used a different API URL than the one checked above, so what would be
+uploaded is not what was verified.`,
+  );
 }
 
 // --- 3. Archive -------------------------------------------------------------
