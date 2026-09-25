@@ -107,6 +107,10 @@ function inject(): void {
       const report = fillForm(valuesFromProfile(res.profile));
       mark(document);
       say(summarise(report));
+    } catch {
+      // The usual cause: the extension was updated or reloaded while this tab
+      // stayed open, which cuts the page off from it until a reload.
+      say('jlog lost its connection to this page. Reload the page and try again.');
     } finally {
       button.disabled = false;
     }
@@ -114,15 +118,18 @@ function inject(): void {
 }
 
 let pending: number | undefined;
+// Boards render the form after load, so this re-checks on DOM changes, at most
+// twice a second, and stops for good once the button is on the page.
+const observer = new MutationObserver(check);
 function check(): void {
   if (pending !== undefined) return;
-  // Boards render the form after load and re-render it on every step, so this
-  // re-checks on DOM changes, at most twice a second.
   pending = window.setTimeout(() => {
     pending = undefined;
-    if (countStandardFields() >= MIN_FIELDS) inject();
+    if (countStandardFields() < MIN_FIELDS) return;
+    inject();
+    observer.disconnect();
   }, 500);
 }
 
 check();
-new MutationObserver(check).observe(document.documentElement, { childList: true, subtree: true });
+observer.observe(document.documentElement, { childList: true, subtree: true });

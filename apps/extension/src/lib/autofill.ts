@@ -48,7 +48,7 @@ export interface FillReport {
 }
 
 const SENSITIVE =
-  /visa|sponsor|authori[sz]|work permit|right to work|salary|compensation|pay expectation|expected pay|gender|\bsex\b|\brace\b|ethnic|hispanic|latin[oax]|veteran|disabilit|criminal|convict|felony|pronoun|date of birth|birth ?date|\bage\b|religio|orientation|citizenship|nationality|marital/;
+  /visa|sponsor|authori[sz]|work permit|right to work|salary|compensation|pay expectation|expected pay|gender|\bsex\b|\brace\b|ethnic|hispanic|latin[oax]|veteran|disabilit|criminal|convict|felony|pronoun|birth|\bborn\b|\bage\b|religio|orientation|citizenship|nationality|marital/;
 
 /**
  * Labels that contain "name" or "email" but are about someone else. "Referrer
@@ -86,8 +86,13 @@ function clean(text: string | null | undefined): string {
  * label-ish class and no association at all (Lever).
  */
 export function labelFor(el: Control): string {
+  return clean(rawLabelFor(el));
+}
+
+/** The label as the board wrote it, asterisks and case intact. */
+function rawLabelFor(el: Control): string {
   const labels = el.labels ? Array.from(el.labels) : [];
-  if (labels.length) return clean(labels.map((l) => l.textContent).join(' '));
+  if (labels.length) return labels.map((l) => l.textContent ?? '').join(' ');
 
   const by = el.getAttribute('aria-labelledby');
   if (by) {
@@ -95,15 +100,23 @@ export function labelFor(el: Control): string {
       .split(/\s+/)
       .map((id) => el.ownerDocument.getElementById(id)?.textContent ?? '')
       .join(' ');
-    if (text.trim()) return clean(text);
+    if (text.trim()) return text;
   }
 
+  // No association: look for a label-ish element nearby. Climbing stops at the
+  // first ancestor that also holds another field, because past that point the
+  // nearest label belongs to someone else and would put an email into
+  // whatever the unlabelled field was asking for.
   let node: Element | null = el.parentElement;
   for (let depth = 0; node && depth < 3; depth++, node = node.parentElement) {
+    const others = Array.from(node.querySelectorAll(CONTROLS)).filter(
+      (o) => o !== el && !(o instanceof HTMLInputElement && NOT_ASKED.has(o.type)),
+    );
+    if (others.length) return '';
     const candidate = node.querySelector(
       'label, legend, [class*="label"], [class*="title"], [class*="question"]',
     );
-    if (candidate && !candidate.contains(el)) return clean(candidate.textContent);
+    if (candidate && !candidate.contains(el)) return candidate.textContent ?? '';
   }
   return '';
 }
@@ -139,17 +152,18 @@ export function classify(el: Fillable): FieldKind | null {
   const attrs = attributes(el);
   const both = `${label} ${attrs}`;
 
+  // A field is labelled with a noun ("Email", "LinkedIn Profile"). A sentence is
+  // a question, and a question that happens to mention "website" is not asking
+  // for one. Both checks come before `autocomplete`, because a board can mark a
+  // referrer's email field `autocomplete="email"` just as well as the user's.
+  if (label.length > MAX_LABEL) return null;
+  if (SOMEONE_ELSE.test(label)) return null;
+
   // The browser's own vocabulary, when a board uses it, is the strongest signal.
   const auto = clean(el.getAttribute('autocomplete'));
   if (auto === 'given-name') return 'firstName';
   if (auto === 'family-name') return 'lastName';
   if (auto === 'email') return 'email';
-
-  // A field is labelled with a noun ("Email", "LinkedIn Profile"). A sentence is
-  // a question, and a question that happens to mention "website" is not asking
-  // for one.
-  if (label.length > MAX_LABEL) return null;
-  if (SOMEONE_ELSE.test(label)) return null;
 
   if (/linkedin/.test(both)) return 'linkedin';
   if (/github/.test(both)) return 'github';
@@ -230,9 +244,9 @@ export function setNativeValue(el: Fillable, value: string): void {
 
 function isRequired(el: Control): boolean {
   if (el.required || el.getAttribute('aria-required') === 'true') return true;
-  // Some boards mark required only visually, with an asterisk in the label.
-  const raw = el.labels?.[0]?.textContent ?? '';
-  return /[*✱]\s*$/.test(raw.trim());
+  // Some boards mark required only visually, with an asterisk in the label,
+  // which on Lever is a sibling div rather than a <label>.
+  return /[*✱]\s*$/.test(rawLabelFor(el).trim());
 }
 
 function controls(root: ParentNode): Control[] {
@@ -291,10 +305,10 @@ function plural(n: number, word: string): string {
 }
 
 export function summarise(report: FillReport): string {
-  if (!report.filled.length) {
-    return 'Nothing to fill here: the fields jlog knows are already filled or not on this form.';
-  }
-  const parts = [`Filled ${plural(report.filled.length, 'field')}.`];
+  // What is left matters most when nothing was filled, so it is said either way.
+  const parts = report.filled.length
+    ? [`Filled ${plural(report.filled.length, 'field')}.`]
+    : ['Nothing to fill: the fields jlog knows are already filled or not on this form.'];
   if (report.requiredEmpty)
     parts.push(`${plural(report.requiredEmpty, 'required field')} left for you.`);
   if (report.sensitiveSkipped) {
@@ -302,6 +316,6 @@ export function summarise(report: FillReport): string {
       `${plural(report.sensitiveSkipped, 'question')} on visa, pay or EEO left untouched.`,
     );
   }
-  parts.push('Review before you submit.');
+  if (report.filled.length) parts.push('Review before you submit.');
   return parts.join(' ');
 }
