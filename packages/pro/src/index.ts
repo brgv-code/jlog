@@ -57,6 +57,8 @@ export type TailorJson = (req: TailorRequest) => Promise<unknown>;
 /** What the host app supplies to the pro router. Ignored by this stub. */
 export type ProDeps = {
   makeTailor?: (c: Context) => Promise<TailorJson | null>;
+  /** The same call, traced as drafted answers rather than tailoring (ADR-012 phase 3). */
+  makeDrafter?: (c: Context) => Promise<TailorJson | null>;
 };
 
 /**

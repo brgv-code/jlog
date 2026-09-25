@@ -5,7 +5,7 @@ import { cors } from 'hono/cors';
 import type { Auth } from './lib/auth';
 import { runScheduledCleanup } from './lib/cleanup';
 import type { Tracing } from './lib/langfuse';
-import { makeTailor } from './lib/tailor';
+import { makeDrafter, makeTailor } from './lib/tailor';
 import { authInstanceMiddleware } from './middleware/authInstance';
 import { sessionMiddleware } from './middleware/session';
 import { tracingMiddleware } from './middleware/tracing';
@@ -185,7 +185,7 @@ app.route('/api/extension', extensionRouter);
 app.route('/api/billing', billingRouter);
 // Paid feature surface. In the OSS build this is the @jlog/pro stub (every route
 // returns 402); the hosted build aliases @jlog/pro to the private implementation.
-app.route('/api/pro', createProRouter({ makeTailor }));
+app.route('/api/pro', createProRouter({ makeTailor, makeDrafter }));
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'jlog-api' }));
 
