@@ -32,6 +32,31 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  /*
+   * Which fields are mid-shake. Driven by a class that is added on a rejected
+   * submit and removed when the animation ends, rather than by re-keying the
+   * element — remounting a field the user is trying to correct takes their
+   * focus and caret with it, and re-keying a *wrapper* remounts its children
+   * just the same, which an earlier version of this got wrong.
+   *
+   * Clearing on animationend is also what lets a second rejected submit shake
+   * again: the class has genuinely gone, so re-adding it re-runs.
+   *
+   * The shake is on the field, never on the dialog, and never for a save
+   * failure — see `saveError`.
+   */
+  const [shaking, setShaking] = useState<Set<string>>(new Set());
+  /** A failure from the server, which is not any one field's fault. */
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  function stopShaking(field: string) {
+    setShaking((s) => {
+      if (!s.has(field)) return s;
+      const next = new Set(s);
+      next.delete(field);
+      return next;
+    });
+  }
 
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
@@ -54,11 +79,14 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
     if (!role.trim()) errs.role = 'Role is required';
     if (sourceUrl && !sourceUrl.startsWith('http')) errs.sourceUrl = 'Must be a valid URL';
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    const ok = Object.keys(errs).length === 0;
+    if (!ok) setShaking(new Set(Object.keys(errs)));
+    return ok;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSaveError(null);
     if (!validate()) return;
     setSaving(true);
 
@@ -83,7 +111,10 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
       });
       if (!res.ok) {
         const err = (await res.json()) as { error: { message: string } };
-        setErrors({ company: err.error?.message ?? 'Failed to save' });
+        // Deliberately not written into `errors`: doing that marked the company
+        // field invalid and shook it, pointing the user at a field that had
+        // passed validation and was not what failed.
+        setSaveError(err.error?.message ?? 'Failed to save');
         return;
       }
       const data = (await res.json()) as { application: Application };
@@ -169,6 +200,9 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
             value={company}
             onChange={(e) => setCompany(e.target.value)}
             style={inputStyle}
+            aria-invalid={errors.company ? true : undefined}
+            className={shaking.has('company') ? 'jlog-shake' : undefined}
+            onAnimationEnd={() => stopShaking('company')}
           />
           {errors.company && <p style={errorStyle}>{errors.company}</p>}
         </div>
@@ -181,6 +215,9 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
             value={role}
             onChange={(e) => setRole(e.target.value)}
             style={inputStyle}
+            aria-invalid={errors.role ? true : undefined}
+            className={shaking.has('role') ? 'jlog-shake' : undefined}
+            onAnimationEnd={() => stopShaking('role')}
           />
           {errors.role && <p style={errorStyle}>{errors.role}</p>}
         </div>
@@ -287,6 +324,14 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
             style={{ ...inputStyle, resize: 'vertical' }}
           />
         </div>
+        {/* A failure from the server belongs to the form, not to a field. It
+            sits above the actions so it is read before the button is pressed
+            again, and it never shakes anything. */}
+        {saveError && (
+          <p role="alert" style={{ ...errorStyle, marginBottom: 'var(--space-2)' }}>
+            {saveError}
+          </p>
+        )}
         <div
           style={{
             display: 'flex',

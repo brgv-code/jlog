@@ -272,7 +272,7 @@ export default function HomeShell() {
           </div>
         ) : (
           <main style={{ padding: '0 var(--space-8) var(--space-16)', width: '100%' }}>
-            <AttentionStrip attention={data?.attention} />
+            <AttentionStrip attention={data?.attention} loading={loading} />
 
             <CvBand profile={cv} />
 
@@ -521,7 +521,10 @@ function CvBand({ profile }: { profile: CvProfile | null }) {
   );
 }
 
-function AttentionStrip({ attention }: { attention: Overview['attention'] | undefined }) {
+function AttentionStrip({
+  attention,
+  loading,
+}: { attention: Overview['attention'] | undefined; loading: boolean }) {
   const tiles = [
     {
       label: 'Ghosted',
@@ -550,7 +553,20 @@ function AttentionStrip({ attention }: { attention: Overview['attention'] | unde
   ];
 
   return (
+    /*
+     * Staggered once the figures are real.
+     *
+     * The tiles render at zero while the overview is in flight, so animating on
+     * mount marked the arrival of placeholders — the opposite of the point. The
+     * key is what makes it run at the moment the data lands instead: the strip
+     * remounts there, which is the only arrival worth marking.
+     *
+     * Three tiles is comfortably inside the six-item cap the stagger stops
+     * delaying past.
+     */
     <div
+      key={loading ? 'loading' : 'loaded'}
+      className={loading ? undefined : 'jlog-stagger'}
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',

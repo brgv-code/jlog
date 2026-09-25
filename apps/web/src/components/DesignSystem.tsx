@@ -174,6 +174,10 @@ interface Motion {
   token: string;
   use: string;
   avoid: string;
+  /** Where it actually runs today. Naming it is what keeps this catalogue
+      honest: a gesture documented here and wired nowhere is a design system
+      describing an intention. */
+  where: string;
   /** How the demo is rendered; each replays on demand. */
   kind: 'rise' | 'stagger' | 'shake' | 'attention' | 'settle' | 'burst' | 'think' | 'tip' | 'sweep';
 }
@@ -185,6 +189,7 @@ const MOTIONS: Motion[] = [
     use: 'Content entering the screen: a row appearing, a panel opening, a result replacing a skeleton.',
     avoid:
       'Anything already on screen that merely changed. Re-animating on every render makes an app feel restless.',
+    where: 'ApplicationDetail — the panel that replaces the pane when a row is picked',
     kind: 'rise',
   },
   {
@@ -193,6 +198,7 @@ const MOTIONS: Motion[] = [
     use: 'A list that should arrive as a list rather than as one block.',
     avoid:
       'Long lists. The delay caps at the sixth item on purpose — past that a stagger reads as the page loading slowly.',
+    where: 'HomeShell — the three attention tiles, once the overview lands',
     kind: 'stagger',
   },
   {
@@ -200,6 +206,7 @@ const MOTIONS: Motion[] = [
     token: '.jlog-shake',
     use: 'A field or button whose submission was refused. It says "this specific control", which a message elsewhere on the page cannot.',
     avoid: 'Server errors. That is not the control’s fault, and shaking it blames the wrong thing.',
+    where: 'AddApplicationDialog — the required fields, on a rejected submit',
     kind: 'shake',
   },
   {
@@ -208,6 +215,8 @@ const MOTIONS: Motion[] = [
     use: 'A value that changed underneath the reader — a stat that updated, a row that moved status.',
     avoid:
       'Anything that also moves. This exists precisely because the change is usually inside a table someone is reading.',
+    where:
+      'Nowhere yet — no screen currently updates a figure while it is being read. Defined and ready; say so here rather than pointing at a component nobody renders.',
     kind: 'attention',
   },
   {
@@ -215,6 +224,7 @@ const MOTIONS: Motion[] = [
     token: '.jlog-settle',
     use: 'An application moving from one status to another.',
     avoid: 'Translation of any kind. The pill sits inline in a row, and moving it moves the row.',
+    where: 'StatusPill — a status change to anything except offer, which takes the burst instead',
     kind: 'settle',
   },
   {
@@ -223,6 +233,7 @@ const MOTIONS: Motion[] = [
     use: 'Reserved for an offer. The one unambiguously good thing that happens here, and the only event celebrated without the user having clicked anything.',
     avoid:
       'Saving a form. Spending this on routine success is what makes it stop meaning anything.',
+    where: 'StatusPill — a status change to offer, and nothing else',
     kind: 'burst',
   },
   {
@@ -231,6 +242,7 @@ const MOTIONS: Motion[] = [
     use: 'Waits measured in seconds: model work, a page’s first paint while the session is checked.',
     avoid:
       'Quick fetches. A logo on every few-hundred-millisecond request stops reading as care and starts reading as slowness — that is what Spinner is still for.',
+    where: 'All four page shells on first paint, and CV tailoring',
     kind: 'think',
   },
   {
@@ -239,6 +251,7 @@ const MOTIONS: Motion[] = [
     use: 'A moment worth marking: signing in, a key created, a link sent.',
     avoid:
       'Anything routine. It runs for over a second, which is only affordable when the user was waiting for exactly this.',
+    where: 'Sign-in arrival, the magic-link screen, a created extension key',
     kind: 'tip',
   },
   {
@@ -247,6 +260,7 @@ const MOTIONS: Motion[] = [
     use: 'A wait whose shape is already known, paired with skeletons shaped like the result so nothing jumps.',
     avoid:
       'A pulse instead. At the durations real model work takes, a pulse reads as a stalled page.',
+    where: 'Skeleton — the shimmer behind any skeleton in the app',
     kind: 'sweep',
   },
 ];
@@ -981,6 +995,17 @@ export default function DesignSystem() {
                   <strong style={{ color: 'var(--color-text-secondary)' }}>Not for:</strong>{' '}
                   {m.avoid}
                 </p>
+                <p
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-text-tertiary)',
+                    lineHeight: 1.6,
+                    marginTop: 4,
+                  }}
+                >
+                  <strong style={{ color: 'var(--color-text-secondary)' }}>In use:</strong>{' '}
+                  {m.where}
+                </p>
               </div>
             </div>
           ))}
@@ -1111,6 +1136,7 @@ function buildSpec(read: (n: string) => string): string {
       `${m.name} (${m.token})`,
       `  use: ${m.use}`,
       `  not for: ${m.avoid}`,
+      `  in use: ${m.where}`,
     ]),
   ].join('\n');
 }
