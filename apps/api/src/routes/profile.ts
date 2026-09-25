@@ -10,11 +10,19 @@
  * for documents sent to employers, so a parse that guessed wrong has to be
  * visible before it is stored, not after.
  */
-import { createDb, cvProfiles, cvSources, profileFactVariants, profileFacts } from '@jlog/db';
+import {
+  autofillValues,
+  createDb,
+  cvProfiles,
+  cvSources,
+  profileFactVariants,
+  profileFacts,
+} from '@jlog/db';
 import {
   CV_STRUCTURE_SYSTEM,
   HttpError,
   type ImportedCv,
+  autofillValuesSchema,
   cvImportCommitSchema,
   cvImportPreviewSchema,
   cvProfileSchema,
@@ -722,6 +730,52 @@ router.delete('/photo', async (c) => {
     .where(eq(cvProfiles.userId, session.userId));
 
   return c.json({ deleted: true });
+});
+
+/*
+ * Saved answers for application autofill (ADR-012 phase 2).
+ *
+ * Core, not pro: this is the user's own data, and the extension fills from it
+ * without an LLM. Read by the extension through its key, written from Settings.
+ *
+ * GET parses what is stored rather than trusting it, so a row written before a
+ * field existed comes back with that field's default instead of undefined.
+ */
+router.get('/autofill', async (c) => {
+  const session = requireSession(c);
+  const db = createDb(c.env.DB);
+  const [row] = await db
+    .select()
+    .from(autofillValues)
+    .where(eq(autofillValues.userId, session.userId));
+  const parsed = autofillValuesSchema.safeParse(row?.data ?? {});
+  return c.json({
+    values: parsed.success ? parsed.data : autofillValuesSchema.parse({}),
+    stored: Boolean(row),
+  });
+});
+
+router.put('/autofill', async (c) => {
+  const session = requireSession(c);
+  const body = await c.req.json().catch(() => {
+    throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+  });
+  const parsed = autofillValuesSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+
+  const db = createDb(c.env.DB);
+  const now = new Date();
+  await db
+    .insert(autofillValues)
+    .values({ userId: session.userId, data: parsed.data, updatedAt: now })
+    .onConflictDoUpdate({
+      target: autofillValues.userId,
+      set: { data: parsed.data, updatedAt: now },
+    });
+
+  return c.json({ values: parsed.data, stored: true });
 });
 
 export default router;

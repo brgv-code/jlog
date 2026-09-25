@@ -9,6 +9,7 @@
 // inside it.
 import {
   type CvProfile,
+  type SavedValues,
   countStandardFields,
   fillForm,
   summarise,
@@ -87,6 +88,7 @@ function inject(): void {
     try {
       const res = (await chrome.runtime.sendMessage({ type: 'AUTOFILL_PROFILE' })) as {
         profile: CvProfile | null;
+        saved: SavedValues | null;
         status?: number;
         error?: string;
       };
@@ -104,7 +106,7 @@ function inject(): void {
         );
         return;
       }
-      const report = fillForm(valuesFromProfile(res.profile));
+      const report = fillForm(valuesFromProfile(res.profile, res.saved));
       mark(document);
       say(summarise(report));
     } finally {

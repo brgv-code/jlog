@@ -332,6 +332,28 @@ export const cvProfileSchema = z.object({
 
 export type CvProfileInput = z.infer<typeof cvProfileSchema>;
 
+// --- Autofill saved values (ADR-012 phase 2) ---
+
+/**
+ * What an application form asks that a CV does not answer. Every field is
+ * optional in practice: an empty value means "do not fill", never "no".
+ */
+export const autofillValuesSchema = z.object({
+  phone: z.string().trim().max(40).default(''),
+  /**
+   * Where the user may work without sponsorship, as they would write it:
+   * "Germany", "EU", "United States". Work-authorisation and sponsorship
+   * questions are answered only when they name a country.
+   */
+  authorizedCountries: z.array(z.string().trim().min(1).max(60)).max(30).default([]),
+  salaryExpectation: z.string().trim().max(100).default(''),
+  noticePeriod: z.string().trim().max(100).default(''),
+  /** `decline` picks "Decline to self-identify" on EEO questions. Empty leaves them. */
+  eeo: z.enum(['', 'decline']).catch('').default(''),
+});
+
+export type AutofillValuesInput = z.infer<typeof autofillValuesSchema>;
+
 /**
  * How long a freshly minted extension key stays valid. Mirrors GitHub's
  * personal-access-token picker, including the "never" escape hatch: a key that

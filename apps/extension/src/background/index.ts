@@ -1,5 +1,5 @@
 import { loadRecentActivity } from '../lib/activity';
-import type { CvProfile } from '../lib/autofill';
+import type { CvProfile, SavedValues } from '../lib/autofill';
 import {
   API_BASE,
   type Connection,
@@ -100,16 +100,30 @@ async function extractJob(
  */
 async function loadProfile(): Promise<{
   profile: CvProfile | null;
+  saved: SavedValues | null;
   error?: string;
   status?: number;
 }> {
   try {
-    const res = await apiCall('/api/profile/cv');
-    if (!res.ok) return { profile: null, error: `HTTP ${res.status}`, status: res.status };
+    const [res, savedRes] = await Promise.all([
+      apiCall('/api/profile/cv'),
+      apiCall('/api/profile/autofill'),
+    ]);
+    if (!res.ok) {
+      return { profile: null, saved: null, error: `HTTP ${res.status}`, status: res.status };
+    }
     const data = (await res.json()) as { profile: CvProfile; stored: boolean };
-    return { profile: data.stored ? data.profile : null };
+    // Saved answers are optional. An API from before they existed answers 404,
+    // and the fill then does what phase 1 did: standard fields only.
+    const saved = savedRes.ok
+      ? ((await savedRes.json()) as { values: SavedValues; stored: boolean })
+      : null;
+    return {
+      profile: data.stored ? data.profile : null,
+      saved: saved?.stored ? saved.values : null,
+    };
   } catch (err: unknown) {
-    return { profile: null, error: String(err) };
+    return { profile: null, saved: null, error: String(err) };
   }
 }
 
@@ -118,7 +132,7 @@ type MessageResult =
   | { job: ExtractedJob | null; error?: string; status?: number }
   | { connection: Connection }
   | { activity: RecentActivity | null }
-  | { profile: CvProfile | null; error?: string; status?: number };
+  | { profile: CvProfile | null; saved: SavedValues | null; error?: string; status?: number };
 
 async function handleMessage(message: unknown): Promise<MessageResult> {
   if (typeof message !== 'object' || message === null) {
