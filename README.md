@@ -88,6 +88,17 @@ pnpm --filter @jlog/extension build
 
 Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select `apps/extension/dist`.
 
+> **Note on the published extension.** The build above talks to whatever `VITE_API_BASE`
+> is set to in `apps/extension/.env`. The copy published to the Chrome Web Store is
+> pinned to the hosted instance — `jlog-api.bhargav.dev` is in the manifest's
+> `host_permissions`, and an extension cannot be repointed after installation. **If you
+> self-host, build your own copy** with your own API URL and load it unpacked, as above.
+>
+> To produce an uploadable bundle: `pnpm --filter @jlog/extension package`, which writes
+> `apps/extension/jlog-extension.zip`. See
+> [`apps/extension/STORE_LISTING.md`](apps/extension/STORE_LISTING.md) for the listing
+> copy and what is still outstanding before it can be submitted.
+
 ---
 
 ## Connecting the extension
@@ -103,12 +114,27 @@ The extension now auto-captures on LinkedIn. On any other job page, click **Extr
 
 ## Deploy to Cloudflare
 
-See [`docs/DEPLOY.md`](docs/DEPLOY.md) for a step-by-step guide covering:
+The API is a Cloudflare Worker and the web app is a Cloudflare Pages site. You will need:
 
-- Cloudflare Workers setup and D1 database creation
-- Cloudflare Pages for the web frontend
-- Custom domain configuration
-- Environment variables and secrets
+- A Cloudflare account, and `wrangler login`
+- A D1 database (`wrangler d1 create jlog`), with its id in `apps/api/wrangler.toml`
+- The migrations applied — **from `apps/api`**, because the path is relative to it:
+  ```bash
+  cd apps/api
+  wrangler d1 execute jlog --remote --file=../../packages/db/migrations/0000_initial.sql
+  ```
+- Secrets set with `wrangler secret put` — the same names as `apps/api/.dev.vars.example`
+- `PUBLIC_API_URL` set for the web build, pointing at the deployed Worker
+
+**Publishing the API is done by CI, not by hand.** `.github/workflows/deploy-api.yml` is the
+real procedure: it overlays a private implementation of the paid routes, verifies the overlay
+landed, and then runs `wrangler deploy`.
+
+Note that the root `pnpm deploy` script runs `wrangler versions upload`, which uploads a
+version **without routing traffic to it** — useful for previewing, but it does not make
+anything live. Use `wrangler deploy` for that. If you are self-hosting and do not have the
+private overlay, `packages/pro` stays as its public stub and the paid routes remain locked;
+everything else works.
 
 ---
 
@@ -201,21 +227,18 @@ jlog/
 ├── packages/
 │   ├── db/           Drizzle schema, migrations
 │   ├── llm/          LLM provider adapters
-│   └── shared/       Zod schemas, error classes
-└── docs/
-    ├── BUILD_LOG.md  Phase-by-phase build narrative
-    ├── ARCHITECTURE.md
-    ├── DEPLOY.md
-    └── adrs/
+    └── shared/       Zod schemas, error classes
 ```
 
 ---
 
 ## Docs
 
-- [Architecture](docs/ARCHITECTURE.md) — system diagram, auth flow, data model
-- [Deploy guide](docs/DEPLOY.md) — step-by-step Cloudflare deployment
-- [Build log](docs/BUILD_LOG.md) — phase-by-phase narrative (the blog series)
+- [Design system](apps/web/DESIGN.md) — the rules, the palette, and why primary is not accent.
+  Rendered live, with every animation, at `/designsystem`.
+- [Store listing](apps/extension/STORE_LISTING.md) — the Chrome Web Store copy, permission
+  justifications, and what is still outstanding before the extension can ship.
+- [Project spec](PROJECT_SPEC.md) — what this was built to be.
 
 ---
 
