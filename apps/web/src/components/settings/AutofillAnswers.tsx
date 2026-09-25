@@ -1,4 +1,5 @@
 import { type AutofillValuesInput, autofillValuesSchema } from '@jlog/shared';
+import { unknownCountries } from '@jlog/shared/countries';
 import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../lib/api';
@@ -120,6 +121,8 @@ export function AutofillAnswers() {
       .finally(() => setLoading(false));
   }, []);
 
+  const unknown = unknownCountries(splitCountries(countries));
+
   const update = (patch: Partial<AutofillValuesInput>) => {
     setValues((v) => ({ ...v, ...patch }));
     setSaved(false);
@@ -160,7 +163,20 @@ export function AutofillAnswers() {
       </p>
 
       {loading ? null : (
-        <div style={{ display: 'grid', gap: 'var(--space-4)', maxWidth: '480px' }}>
+        // Disabled while a save is in flight: the response replaces the form with
+        // what was sent, so an edit typed during the request would be lost.
+        <fieldset
+          disabled={saving}
+          style={{
+            display: 'grid',
+            gap: 'var(--space-4)',
+            maxWidth: '480px',
+            border: 0,
+            padding: 0,
+            margin: 0,
+            minWidth: 0,
+          }}
+        >
           <Field
             id="af-phone"
             label="Phone"
@@ -181,6 +197,13 @@ export function AutofillAnswers() {
               setSaved(false);
             }}
           />
+          {unknown.length ? (
+            <p role="status" style={{ ...noteStyle, color: 'var(--color-warning)' }}>
+              jlog does not recognise {unknown.map((u) => `"${u}"`).join(', ')}, so questions about{' '}
+              {unknown.length === 1 ? 'it' : 'them'} will be left for you. Use a country name, or
+              EU.
+            </p>
+          ) : null}
           <Field
             id="af-salary"
             label="Salary expectation"
@@ -232,7 +255,7 @@ export function AutofillAnswers() {
               </span>
             ) : null}
           </div>
-        </div>
+        </fieldset>
       )}
       {error ? (
         <p role="alert" style={{ ...noteStyle, color: 'var(--color-danger)' }}>

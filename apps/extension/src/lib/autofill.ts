@@ -1,4 +1,4 @@
-import { authorizedFor, resolveAuthorized } from './countries';
+import { authorizedFor, resolveAuthorized } from '@jlog/shared/countries';
 
 /**
  * Fill the standard fields of a job application form from the user's jlog CV
@@ -297,27 +297,33 @@ export function valuesFromProfile(p: CvProfile, saved?: SavedValues | null): Aut
 }
 
 /**
- * Which of the fillable sensitive kinds a question is. Anything else sensitive
- * (visa type, criminal history, date of birth, pronouns, citizenship) returns
- * null and is never filled, whatever was saved. A question matching both work
- * authorisation and sponsorship is one question with two halves, and a single
- * yes or no cannot answer it, so that is null too.
+ * Topics jlog never answers. Checked against the whole label before anything
+ * else, so a question that mixes one of these with something fillable
+ * ("sponsorship, or a felony conviction?") is left whole.
+ */
+const NEVER =
+  /criminal|convict|felony|arrest|birth|\bborn\b|\bage\b|religio|orientation|citizenship|nationality|marital|pronoun|what visa|which visa|type of visa|visa (type|status|category|class)|current visa/;
+
+const KINDS: [SensitiveKind, RegExp][] = [
+  ['sponsorship', /sponsor/],
+  [
+    'workAuthorization',
+    /authori[sz]|right to work|work permit|eligible to work|legally (able|permitted|allowed|entitled) to work/,
+  ],
+  ['salary', /salary|compensation|pay expectation|expected pay|desired pay/],
+  ['eeo', /gender|\bsex\b|\brace\b|ethnic|hispanic|latin[oax]|veteran|disabilit/],
+];
+
+/**
+ * Which of the fillable sensitive kinds a question is. Anything in {@link NEVER}
+ * returns null and is never filled, whatever was saved. So does a question that
+ * matches more than one kind: "authorised to work here without sponsorship?"
+ * has two halves, and a single yes or no cannot answer both.
  */
 export function sensitiveKind(label: string): SensitiveKind | null {
-  const sponsor = /sponsor/.test(label);
-  const auth =
-    /authori[sz]|right to work|work permit|eligible to work|legally (able|permitted|allowed|entitled) to work/.test(
-      label,
-    );
-  if (sponsor && auth) return null;
-  if (sponsor) return 'sponsorship';
-  if (auth) return 'workAuthorization';
-  if (/criminal|convict|felony/.test(label)) return null;
-  if (/salary|compensation|pay expectation|expected pay|desired pay/.test(label)) return 'salary';
-  if (/gender|\bsex\b|\brace\b|ethnic|hispanic|latin[oax]|veteran|disabilit/.test(label)) {
-    return 'eeo';
-  }
-  return null;
+  if (NEVER.test(label)) return null;
+  const matched = KINDS.filter(([, re]) => re.test(label));
+  return matched.length === 1 ? (matched[0] as [SensitiveKind, RegExp])[0] : null;
 }
 
 const DECLINE =
@@ -345,10 +351,22 @@ function choicesOf(el: Control): Choice[] {
   return [];
 }
 
+/**
+ * The buttons of one radio or checkbox group. Scoped to the element's own form,
+ * as the browser scopes them: two forms on a page may both call a question
+ * "q1", and merging them would find two "Yes" options and answer neither.
+ */
 function radioGroup(el: HTMLInputElement): HTMLInputElement[] {
-  return Array.from(el.ownerDocument.querySelectorAll('input')).filter(
-    (r) => r.type === 'radio' && r.name === el.name,
+  if (!el.name) return [el];
+  const scope: ParentNode = el.form ?? el.ownerDocument;
+  return Array.from(scope.querySelectorAll('input')).filter(
+    (r) => r.type === el.type && r.name === el.name && r.form === el.form,
   );
+}
+
+/** One key per question: a group's first button, or the element itself. */
+function questionKey(el: Control): Control {
+  return isChoice(el) ? (radioGroup(el)[0] ?? el) : el;
 }
 
 /** Pick the one option that fits. Two that fit means the board is asking something finer. */
@@ -357,6 +375,21 @@ function pickOnly(choices: Choice[], fits: (text: string) => boolean): boolean {
   if (matches.length !== 1) return false;
   (matches[0] as Choice).pick();
   return true;
+}
+
+/**
+ * An option that says yes or no and nothing that changes it. "Yes, but I
+ * require sponsorship" starts with yes and means something else, so an option
+ * that goes on to hedge, negate or mention sponsorship is not a plain answer,
+ * and the question is left for the user.
+ */
+const QUALIFIED =
+  /\b(but|not|sponsor\w*|visa|requir\w*|need\w*|however|except|pending|only|future|temporar\w*|condition\w*)\b|n't/;
+
+function isPlainAnswer(text: string, answer: 'yes' | 'no'): boolean {
+  if (!new RegExp(`^${answer}\\b`).test(text)) return false;
+  const rest = text.slice(answer.length);
+  return !QUALIFIED.test(rest);
 }
 
 /**
@@ -386,8 +419,7 @@ function fillSensitive(
   const may = authorizedFor(rawLabelFor(el), resolveAuthorized(saved.authorizedCountries));
   if (may === null) return null;
   const yes = kind === 'workAuthorization' ? may : !may;
-  const answer = yes ? /^yes\b/ : /^no\b/;
-  return pickOnly(choicesOf(el), (t) => answer.test(t)) ? kind : null;
+  return pickOnly(choicesOf(el), (t) => isPlainAnswer(t, yes ? 'yes' : 'no')) ? kind : null;
 }
 
 /**
@@ -430,12 +462,7 @@ function candidates(root: ParentNode): Fillable[] {
 }
 
 function isEmpty(el: Control): boolean {
-  if (isChoice(el)) {
-    const group = el.name
-      ? Array.from(el.ownerDocument.querySelectorAll('input')).filter((r) => r.name === el.name)
-      : [el];
-    return !group.some((r) => r.checked);
-  }
+  if (isChoice(el)) return !radioGroup(el).some((r) => r.checked);
   return !el.value.trim();
 }
 
@@ -451,12 +478,8 @@ export function fillForm(values: AutofillValues, root: ParentNode = document): F
 
   // A radio group is one question however many buttons it has, so each group is
   // tried once, through its first button.
-  const questions = new Map<unknown, Control>();
-  for (const el of sensitive) {
-    const key = el instanceof HTMLInputElement && el.type === 'radio' ? el.name : el;
-    if (!questions.has(key)) questions.set(key, el);
-  }
-  for (const el of questions.values()) {
+  const questions = new Set(sensitive.map(questionKey));
+  for (const el of questions) {
     const kind = isEmpty(el) ? fillSensitive(el, values.saved) : null;
     if (kind) {
       el.dataset.jlogFilled = kind;
@@ -477,9 +500,7 @@ export function fillForm(values: AutofillValues, root: ParentNode = document): F
   }
 
   const required = all.filter((el) => isRequired(el) && isEmpty(el));
-  report.requiredEmpty = new Set(
-    required.map((el) => (el instanceof HTMLInputElement && el.type === 'radio' ? el.name : el)),
-  ).size;
+  report.requiredEmpty = new Set(required.map(questionKey)).size;
   return report;
 }
 

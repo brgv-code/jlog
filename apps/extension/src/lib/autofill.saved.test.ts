@@ -1,3 +1,9 @@
+import {
+  authorizedFor,
+  countriesIn,
+  resolveAuthorized,
+  unknownCountries,
+} from '@jlog/shared/countries';
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -7,7 +13,6 @@ import {
   sensitiveKind,
   valuesFromProfile,
 } from './autofill';
-import { authorizedFor, countriesIn, resolveAuthorized } from './countries';
 
 const PROFILE: CvProfile = {
   firstName: 'Ada',
@@ -196,5 +201,66 @@ describe('fillForm with saved values', () => {
     const picked = document.querySelector<HTMLInputElement>('input[type="radio"]:checked');
     expect(picked?.value).toBe('Yes');
     expect(report.filled).toEqual(['workAuthorization']);
+  });
+
+  it('never answers a question that mixes a fillable topic with a forbidden one', () => {
+    expect(
+      sensitiveKind(
+        'do you require sponsorship or have you been convicted of a felony in germany?',
+      ),
+    ).toBeNull();
+    expect(
+      sensitiveKind('what is your citizenship and are you authorized to work in germany?'),
+    ).toBeNull();
+    expect(sensitiveKind('salary expectation and gender')).toBeNull();
+  });
+
+  it('does not pick a "yes" that hedges', () => {
+    select('auth_de').innerHTML =
+      '<option value=""></option><option value="1">Yes, but I require sponsorship</option><option value="0">No</option>';
+    fillForm(values());
+    expect(select('auth_de').value).toBe('');
+  });
+
+  it('still picks a plain "Yes." with punctuation', () => {
+    select('auth_de').innerHTML =
+      '<option value=""></option><option value="1">Yes.</option><option value="0">No.</option>';
+    fillForm(values());
+    expect(selectedText('auth_de')).toBe('Yes.');
+  });
+
+  it('keeps radio groups in separate forms apart', () => {
+    setBody(
+      ['a', 'b']
+        .map(
+          (f) => `
+        <form id="${f}">
+          <fieldset>
+            <legend>Are you authorized to work in Germany?</legend>
+            <label><input type="radio" name="q1" value="yes">Yes</label>
+            <label><input type="radio" name="q1" value="no">No</label>
+          </fieldset>
+        </form>`,
+        )
+        .join(''),
+    );
+    const report = fillForm(values());
+    expect(report.filled).toEqual(['workAuthorization', 'workAuthorization']);
+    for (const f of ['a', 'b']) {
+      expect(document.querySelector<HTMLInputElement>(`#${f} input:checked`)?.value).toBe('yes');
+    }
+  });
+});
+
+describe('countries: what jlog cannot read', () => {
+  it('does not read "Europe" as the EU', () => {
+    expect(resolveAuthorized(['Europe']).has('de')).toBe(false);
+  });
+
+  it('lists entries it does not recognise', () => {
+    expect(unknownCountries(['Germany', 'EU', 'South Africa', 'Europe', ' '])).toEqual([
+      'South Africa',
+      'Europe',
+    ]);
   });
 });

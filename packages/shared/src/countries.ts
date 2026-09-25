@@ -1,6 +1,10 @@
 /**
  * Which country a work-authorisation question is about. ADR-012 phase 2.
  *
+ * Shared so Settings can tell the user when an entry is not one jlog knows,
+ * using the same list the extension answers from. Its own entry point
+ * (`@jlog/shared/countries`), so the extension bundle does not pull in zod.
+ *
  * Short codes ("US", "UK") are matched case-sensitively against the label as the
  * board wrote it, because lowercased "us" is in "tell us about yourself". Names
  * are matched case-insensitively on word boundaries.
@@ -67,7 +71,11 @@ const COUNTRIES: Country[] = [
   { id: 'se', names: ['sweden'], eu: true },
 ];
 
-const EU_NAMES = ['eu', 'european union', 'europe', 'eea'];
+/**
+ * Only the union itself. "Europe" is a continent, and someone who can work in
+ * the UK and writes "Europe" would otherwise be told they may work in Germany.
+ */
+const EU_NAMES = ['eu', 'european union'];
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -91,19 +99,26 @@ export function countriesIn(label: string): string[] {
  */
 export function resolveAuthorized(entries: string[]): Set<string> {
   const ids = new Set<string>();
-  for (const raw of entries) {
-    const entry = raw.trim();
-    if (EU_NAMES.includes(entry.toLowerCase())) {
-      for (const c of COUNTRIES) if (c.eu) ids.add(c.id);
-      continue;
-    }
-    for (const c of COUNTRIES) {
-      if (c.names.includes(entry.toLowerCase()) || c.codes?.includes(entry.toUpperCase())) {
-        ids.add(c.id);
-      }
-    }
-  }
+  for (const raw of entries) for (const id of resolveEntry(raw)) ids.add(id);
   return ids;
+}
+
+function resolveEntry(raw: string): string[] {
+  const entry = raw.trim();
+  if (EU_NAMES.includes(entry.toLowerCase())) {
+    return COUNTRIES.filter((c) => c.eu).map((c) => c.id);
+  }
+  return COUNTRIES.filter(
+    (c) => c.names.includes(entry.toLowerCase()) || c.codes?.includes(entry.toUpperCase()),
+  ).map((c) => c.id);
+}
+
+/**
+ * The entries jlog cannot read, so Settings can say so. Questions about those
+ * countries are left for the user, which is safe but should not be a surprise.
+ */
+export function unknownCountries(entries: string[]): string[] {
+  return entries.filter((e) => e.trim() && resolveEntry(e).length === 0);
 }
 
 /**
