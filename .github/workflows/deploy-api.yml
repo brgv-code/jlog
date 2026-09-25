@@ -101,6 +101,37 @@ jobs:
       - name: Test the private implementation
         run: pnpm --filter @jlog/pro test
 
+      # Schema before code (BRG-220). Until this step existed, every migration
+      # was a manual `wrangler d1 migrations apply` from a laptop, and twice the
+      # code shipped without its schema: on 2026-09-24 from a stale checkout, on
+      # 2026-09-25 because 0016 never reached the remote database, so the new
+      # route answered 500 until the table was created by hand.
+      #
+      # So a migration must be safe for the version still serving while it runs:
+      # add tables and nullable columns, never rename or drop in the same deploy.
+      #
+      # The ledger is read first and checked, because `migrations apply` re-runs
+      # anything d1_migrations does not list, and a gap there means a migration
+      # applied by hand, not a new one. 0015 rebuilds `users`; re-running
+      # something like it is the failure this refuses. See
+      # packages/db/scripts/migrations.mjs.
+      - name: Check the migrations ledger
+        working-directory: apps/api
+        run: |
+          pnpm exec wrangler d1 execute jlog --remote --json \
+            --command "SELECT name FROM d1_migrations ORDER BY id" > "$RUNNER_TEMP/applied.json"
+          node ../../packages/db/scripts/migrations.mjs pending "$RUNNER_TEMP/applied.json"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Apply migrations
+        working-directory: apps/api
+        run: pnpm exec wrangler d1 migrations apply jlog --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       # `deploy`, not `versions upload`. Uploading without deploying leaves the
       # newest version undeployed, which also blocks `wrangler secret put` with
       # an error that does not explain itself.
