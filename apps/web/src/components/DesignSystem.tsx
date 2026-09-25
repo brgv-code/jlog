@@ -20,22 +20,26 @@ import { JlogMark } from './ui/JlogMark';
 // ---------------------------------------------------------------------------
 
 /**
- * Reads a custom property off the live document.
+ * Reads a custom property off the live document — but only once mounted.
  *
- * The identity of the returned function deliberately changes with `theme`. An
- * earlier version memoised it on `[]`, which meant every `useMemo` built on it
- * — the copied spec among them — kept whatever the values were at mount and
- * silently disagreed with the swatches after a theme switch.
+ * The gate buys two things that looked like they were in tension. The page is
+ * server-rendered, so the rules and the motion catalogue sit in the static HTML
+ * and a reader without JavaScript — a person, or a model fetching the URL —
+ * still gets the substance. And because the reader answers empty on the server
+ * *and* on the first client render, both produce identical markup, so there is
+ * no hydration mismatch. Values arrive a render later, once `mounted` flips.
+ *
+ * An earlier version skipped SSR entirely to dodge the mismatch, which fixed
+ * hydration by deleting the content.
  */
-function useTokenReader(): (name: string) => string {
-  // Stable on purpose: the function always reads whatever is live on the
-  // document, so it does not depend on the theme. What depends on the theme is
-  // *when* it is called again — which is why the spec effect below is keyed on
-  // the theme rather than on this.
-  return useCallback((name: string) => {
-    if (typeof window === 'undefined') return '';
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }, []);
+function useTokenReader(mounted: boolean): (name: string) => string {
+  return useCallback(
+    (name: string) => {
+      if (!mounted || typeof window === 'undefined') return '';
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    },
+    [mounted],
+  );
 }
 
 /**
@@ -468,15 +472,24 @@ export default function DesignSystem() {
    * defaulting to 'light' here meant arriving on this page silently flipped a
    * dark user back to light — and left them there after they navigated away.
    */
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    typeof document !== 'undefined' &&
-    document.documentElement.getAttribute('data-theme') === 'dark'
-      ? 'dark'
-      : 'light',
-  );
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  /*
+   * False on the server and on the first client render, so the two agree; true
+   * from the first effect onward, which is when token values appear.
+   */
+  const [mounted, setMounted] = useState(false);
+
+  // Adopt whatever theme the page already has, and only after mount: reading it
+  // in the initialiser would differ between server and client and reintroduce
+  // the mismatch this component just stopped having.
+  useEffect(() => {
+    setMounted(true);
+    if (document.documentElement.getAttribute('data-theme') === 'dark') setTheme('dark');
+  }, []);
   const [nonce, setNonce] = useState(0);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const read = useTokenReader();
+  const read = useTokenReader(mounted);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -992,9 +1005,12 @@ export default function DesignSystem() {
       {/* ---- For an LLM ---- */}
       <Section
         title="Copying this design"
-        intro="The button at the top copies the whole system as plain text — every token with its resolved value in both themes, the rules, and the motion catalogue. It is written to be pasted into a model prompt or a new project’s brief, and it is generated from the live stylesheet at the moment you press it, so it is never a stale snapshot."
+        intro="The button at the top copies the whole system as plain text — every token with its resolved value in both themes, the rules, and the motion catalogue. It is written to be pasted into a model prompt or a new project’s brief, and it is generated from the live stylesheet at the moment you press it, so it is never a stale snapshot. The block below is that exact text in full, not a preview, so it can still be selected by hand if the clipboard is unavailable."
       >
         <pre
+          // Selecting inside this is the fallback when the clipboard is blocked,
+          // so it holds the complete spec rather than a truncated preview — and
+          // `all` makes one click take the whole thing rather than a paragraph.
           style={{
             ...monoStyle,
             background: 'var(--color-surface)',
@@ -1005,10 +1021,10 @@ export default function DesignSystem() {
             maxHeight: 320,
             lineHeight: 1.6,
             whiteSpace: 'pre-wrap',
+            userSelect: 'all',
           }}
         >
-          {spec.slice(0, 1400)}
-          {spec.length > 1400 ? '\n…' : ''}
+          {spec}
         </pre>
       </Section>
     </main>
