@@ -550,7 +550,14 @@ function AttentionStrip({ attention }: { attention: Overview['attention'] | unde
   ];
 
   return (
+    /*
+     * Staggered: these three are the first thing on the dashboard and they
+     * arrive together once the overview lands, so they read as a row being
+     * dealt rather than as a block appearing. Three is comfortably inside the
+     * six-item cap the gesture stops delaying past.
+     */
     <div
+      className="jlog-stagger"
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',

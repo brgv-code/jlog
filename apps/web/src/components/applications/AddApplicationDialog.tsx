@@ -32,6 +32,17 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  /*
+   * Bumped on every rejected submit. Without it a second attempt with the same
+   * fields still empty would not shake: the class is already applied, so the
+   * browser sees nothing to re-run.
+   *
+   * The shake is on the field, not the dialog. It says "this specific control",
+   * which a message elsewhere on the form cannot — and it is deliberately not
+   * used for the save failure below, because a server error is not the field's
+   * fault and shaking it blames the wrong thing.
+   */
+  const [rejectedAt, setRejectedAt] = useState(0);
 
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
@@ -54,7 +65,9 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
     if (!role.trim()) errs.role = 'Role is required';
     if (sourceUrl && !sourceUrl.startsWith('http')) errs.sourceUrl = 'Must be a valid URL';
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    const ok = Object.keys(errs).length === 0;
+    if (!ok) setRejectedAt((n) => n + 1);
+    return ok;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -164,24 +177,42 @@ export function AddApplicationDialog({ onSuccess, onClose }: AddApplicationDialo
           <label htmlFor="add-company" style={labelStyle}>
             Company *
           </label>
-          <input
-            id="add-company"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-            style={inputStyle}
-          />
+          {/* The wrapper carries the key, not the input: re-keying the input
+              itself would remount it mid-correction and throw away the caret. */}
+          <span
+            key={errors.company ? `company-${rejectedAt}` : 'company'}
+            className={errors.company ? 'jlog-shake' : undefined}
+            style={{ display: 'block' }}
+          >
+            <input
+              id="add-company"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              style={inputStyle}
+              aria-invalid={errors.company ? true : undefined}
+            />
+          </span>
           {errors.company && <p style={errorStyle}>{errors.company}</p>}
         </div>
         <div>
           <label htmlFor="add-role" style={labelStyle}>
             Role *
           </label>
-          <input
-            id="add-role"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            style={inputStyle}
-          />
+          {/* The wrapper carries the key, not the input: re-keying the input
+              itself would remount it mid-correction and throw away the caret. */}
+          <span
+            key={errors.role ? `role-${rejectedAt}` : 'role'}
+            className={errors.role ? 'jlog-shake' : undefined}
+            style={{ display: 'block' }}
+          >
+            <input
+              id="add-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              style={inputStyle}
+              aria-invalid={errors.role ? true : undefined}
+            />
+          </span>
           {errors.role && <p style={errorStyle}>{errors.role}</p>}
         </div>
         <div>
