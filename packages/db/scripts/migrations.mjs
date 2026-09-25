@@ -81,8 +81,7 @@ function main([command, arg]) {
     const { pending, newest, behind } = pendingPlan(migrationFiles(), applied);
     if (behind.length) {
       console.error(
-        `::error::The ledger (d1_migrations) is missing ${behind.join(', ')}, older than the newest applied migration ${newest}. ` +
-          'Applying would re-run them. Check whether each is already in the database, then record it in d1_migrations by hand before deploying.',
+        `::error::The ledger (d1_migrations) is missing ${behind.join(', ')}, older than the newest applied migration ${newest}. Applying would re-run them. Check whether each is already in the database, then record it in d1_migrations by hand before deploying.`,
       );
       return 1;
     }
