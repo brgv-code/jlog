@@ -70,5 +70,14 @@ export default defineManifest({
       js: ['src/content/lever.ts'],
       run_at: 'document_idle',
     },
+    // Autofill (ADR-012). Same hosts as capture, so no new permission and no
+    // new warning for installed users. All frames, because company career
+    // sites embed these boards' forms in an iframe.
+    {
+      matches: ['https://*.greenhouse.io/*', 'https://*.lever.co/*', 'https://*.ashbyhq.com/*'],
+      js: ['src/content/autofill.ts'],
+      run_at: 'document_idle',
+      all_frames: true,
+    },
   ],
 });

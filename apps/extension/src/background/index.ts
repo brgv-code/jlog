@@ -1,4 +1,5 @@
 import { loadRecentActivity } from '../lib/activity';
+import type { CvProfile } from '../lib/autofill';
 import {
   API_BASE,
   type Connection,
@@ -92,11 +93,32 @@ async function extractJob(
   };
 }
 
+/**
+ * The CV profile, for the autofill content script. Fetched here rather than in
+ * the page because the key lives in extension storage and the API only trusts
+ * the extension's own origin — a content script's requests carry the board's.
+ */
+async function loadProfile(): Promise<{
+  profile: CvProfile | null;
+  error?: string;
+  status?: number;
+}> {
+  try {
+    const res = await apiCall('/api/profile/cv');
+    if (!res.ok) return { profile: null, error: `HTTP ${res.status}`, status: res.status };
+    const data = (await res.json()) as { profile: CvProfile; stored: boolean };
+    return { profile: data.stored ? data.profile : null };
+  } catch (err: unknown) {
+    return { profile: null, error: String(err) };
+  }
+}
+
 type MessageResult =
   | { ok: boolean; error?: string; status?: number }
   | { job: ExtractedJob | null; error?: string; status?: number }
   | { connection: Connection }
-  | { activity: RecentActivity | null };
+  | { activity: RecentActivity | null }
+  | { profile: CvProfile | null; error?: string; status?: number };
 
 async function handleMessage(message: unknown): Promise<MessageResult> {
   if (typeof message !== 'object' || message === null) {
@@ -114,6 +136,9 @@ async function handleMessage(message: unknown): Promise<MessageResult> {
 
     case 'RECENT_ACTIVITY':
       return { activity: await loadRecentActivity(apiCall) };
+
+    case 'AUTOFILL_PROFILE':
+      return loadProfile();
 
     case 'EXTRACT_REQUEST': {
       try {
