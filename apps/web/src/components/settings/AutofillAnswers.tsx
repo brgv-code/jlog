@@ -198,7 +198,7 @@ export function AutofillAnswers() {
             }}
           />
           {unknown.length ? (
-            <p role="status" style={{ ...noteStyle, color: 'var(--color-warning)' }}>
+            <p aria-live="polite" style={{ ...noteStyle, color: 'var(--color-warning)' }}>
               jlog does not recognise {unknown.map((u) => `"${u}"`).join(', ')}, so questions about{' '}
               {unknown.length === 1 ? 'it' : 'them'} will be left for you. Use a country name, or
               EU.
