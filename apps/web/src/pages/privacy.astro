@@ -84,16 +84,29 @@ const contactEmail = 'hello@bhargav.dev';
     </p>
     <p>
       On the six job boards it supports — LinkedIn, Wellfound, Ashby, Greenhouse, Lever and Y
-      Combinator's job board — it reads the posting you are looking at and records the company,
-      role, location, the link, and the job description. On <strong>any other site</strong> it
-      reads nothing at all until you click the jlog icon and choose to extract the page; only then
-      does it read that one tab.
+      Combinator's job board — applying is detected automatically, and four things are recorded:
+      the <strong>company</strong>, the <strong>role</strong>, the <strong>link</strong> to the
+      posting, and the <strong>time</strong>. This happens without asking you first, and it does
+      not read the job description. Anything it records can be deleted.
     </p>
     <p>
-      What it reads goes to <strong>your own jlog account and nowhere else</strong>. The extension
-      contacts one server — jlog's API — and no other. It does not track which pages you visit,
-      does not read pages you have not asked it to, and does not contact any analytics or
-      advertising service. There are none in it.
+      On <strong>any other site</strong> it reads nothing at all until you click the jlog icon and
+      choose to extract the page. Only then does it read that one tab — and that route does read
+      the posting text, so that company, role and location can be pulled out of it. Nothing from
+      it is saved until you have seen the result and confirmed it.
+    </p>
+    <p>
+      The extension itself contacts one server and one only: jlog's API. It does not track which
+      pages you visit, does not read pages you have not asked it to, and contains no analytics or
+      advertising code of any kind.
+    </p>
+    <p>
+      Once a posting reaches jlog the ordinary rules below apply to it, and for AI extraction that
+      means it does not stop with jlog. The posting text is sent on to whichever
+      <strong>AI provider</strong> you configured, and on the hosted instance a record of that
+      request also goes to <strong>Langfuse</strong>, which exists so a failed or expensive
+      generation can be investigated. Both are described under <em>Who else sees your data</em>.
+      Configure no AI provider and extraction does not run, so nothing is sent anywhere.
     </p>
     <p>
       In your browser it stores the key that links it to your account, and a note of whether that

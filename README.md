@@ -114,16 +114,27 @@ The extension now auto-captures on LinkedIn. On any other job page, click **Extr
 
 ## Deploy to Cloudflare
 
-The API is a Cloudflare Worker and the web app is a Cloudflare Pages site, both deployed
-with Wrangler. You will need:
+The API is a Cloudflare Worker and the web app is a Cloudflare Pages site. You will need:
 
 - A Cloudflare account, and `wrangler login`
 - A D1 database (`wrangler d1 create jlog`), with its id in `apps/api/wrangler.toml`
-- The migrations applied: `wrangler d1 execute jlog --file=../../packages/db/migrations/0000_initial.sql`
+- The migrations applied — **from `apps/api`**, because the path is relative to it:
+  ```bash
+  cd apps/api
+  wrangler d1 execute jlog --remote --file=../../packages/db/migrations/0000_initial.sql
+  ```
 - Secrets set with `wrangler secret put` — the same names as `apps/api/.dev.vars.example`
 - `PUBLIC_API_URL` set for the web build, pointing at the deployed Worker
 
-Then `pnpm deploy` uploads the API, and Pages builds the web app from the repo.
+**Publishing the API is done by CI, not by hand.** `.github/workflows/deploy-api.yml` is the
+real procedure: it overlays a private implementation of the paid routes, verifies the overlay
+landed, and then runs `wrangler deploy`.
+
+Note that the root `pnpm deploy` script runs `wrangler versions upload`, which uploads a
+version **without routing traffic to it** — useful for previewing, but it does not make
+anything live. Use `wrangler deploy` for that. If you are self-hosting and do not have the
+private overlay, `packages/pro` stays as its public stub and the paid routes remain locked;
+everything else works.
 
 ---
 

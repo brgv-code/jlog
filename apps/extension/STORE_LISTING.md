@@ -20,6 +20,20 @@ Chrome asks for one sentence and means it. An extension that does two unrelated
 things gets rejected, so this deliberately does not mention the dashboard, the
 CV tooling, or anything else jlog does on the web.
 
+**Two claims not to make**, both of which an earlier draft of this file made and
+neither of which is true of the code:
+
+1. *"Nothing is recorded without you seeing it first."* On the six supported
+   boards, `JOB_DETECTED` goes straight from the content script to `saveJob` in
+   the background worker. There is no confirmation step; that only exists on the
+   manual "Extract with AI" path.
+2. *"Automatic capture records the location and job description."* The content
+   scripts send company, role, `sourceUrl`, `sourceSite` and `appliedAt`, and
+   nothing else. Location and description come from the manual extraction path.
+
+A store listing that overstates what the user controls, or what is collected, is
+exactly what the review process is looking for.
+
 ## Short description (132 characters max)
 
 > Track job applications automatically from LinkedIn, Wellfound, Ashby,
@@ -35,11 +49,13 @@ change one, change both or the listing and the extension disagree.
 > itself.
 >
 > On LinkedIn, Wellfound, Ashby, Greenhouse, Lever and Y Combinator's job board,
-> applications are captured as you make them — no copying, no spreadsheet.
+> applications are captured as you make them — no copying, no spreadsheet. jlog
+> records the company, the role, the link and the date, and you can edit or
+> delete any of it afterwards.
 >
 > On any other careers page, click the jlog icon and "Extract with AI" reads the
-> posting and fills in the company, role and location for you to confirm before
-> anything is saved. Nothing is ever recorded without you seeing it first.
+> posting and fills in the company, role and location, which you confirm before
+> anything is saved.
 >
 > Everything lands in your jlog dashboard, where you can track status from saved
 > through applied, interviewing, and offer — with notes, the original posting,
@@ -93,9 +109,11 @@ does *for the user*, not what the code does with it.
 ### Host permissions — the job boards
 
 > LinkedIn, Wellfound, Ashby, Greenhouse, Lever and Y Combinator's job board are
-> the sites where jlog captures an application automatically, without you having
-> to click anything. The extension reads only the posting itself — company, role,
-> location, and the description — and sends it to your own jlog account.
+> the sites where jlog records an application automatically, without you having
+> to click anything. On these sites it reads only the company name, the job
+> title and the page address, and saves them to your own jlog account. It does
+> not read the job description on these sites, and it reads nothing at all on
+> any other site unless you click the jlog icon.
 
 **Worth checking before you submit.** These six may be unnecessary. Content
 scripts declare their own `matches`, which is enough to inject on those sites,
@@ -129,7 +147,7 @@ with it.
 | Location | No |
 | Web history | **Yes** — the URL of a job posting you save is stored with the application |
 | User activity | No |
-| Website content | **Yes** — the text of a job posting you choose to extract |
+| Website content | **Yes** — on the six supported boards, the company and role from the posting; on any other site, the text of a posting you explicitly choose to extract |
 
 Then tick all three certifications: data is not sold, not used for anything
 unrelated to the single purpose above, and not used for creditworthiness or
@@ -146,7 +164,13 @@ hand a reviewer a redirect).
 Things this repo can produce:
 
 - [x] A 128×128 icon — `public/icons/icon-128.png`
-- [x] An uploadable zip — `pnpm --filter @jlog/extension package`
+- [x] An uploadable zip — `pnpm --filter @jlog/extension package`. It refuses to
+      run if `VITE_API_BASE` or `VITE_WEB_BASE` is unset or points at localhost:
+      `.env` is gitignored, so on a fresh clone the obvious command would
+      otherwise produce an upload-ready bundle aimed at the user's own machine,
+      and an extension cannot be repointed after installation. It writes the
+      archive with Node's zlib rather than shelling out to `zip`, so it needs no
+      tools beyond Node.
 - [x] A reachable privacy policy that describes the extension
 - [x] The copy on this page
 
