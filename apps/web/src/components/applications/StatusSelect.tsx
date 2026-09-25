@@ -41,6 +41,20 @@ export function StatusSelect({ applicationId, currentStatus, onStatusChange }: S
   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newStatus = e.target.value as ApplicationStatus;
     const previous = optimistic;
+    /*
+     * Down first, always.
+     *
+     * Two bugs live here otherwise. A second edit begun within the flag's
+     * lifetime would find it still true, so the pill shown *while saving*
+     * animated a status the server had not accepted yet — picking "offer" could
+     * fire the celebration and then roll back. And setting it true again while
+     * it was already true is not a state change, so the clearing effect never
+     * re-ran and the first edit's timer cut the second animation short.
+     *
+     * Clearing it here makes every change go false → true, which restarts both
+     * the animation and its timer.
+     */
+    setJustChanged(false);
     setOptimistic(newStatus);
     setEditing(false);
     setSaving(true);
