@@ -165,14 +165,16 @@ popover (`compact`) and Settings → Appearance.
 
 Marketing pages have their own system, `src/styles/site.css`, applied through
 `SiteLayout.astro` (`<body class="site">`), so the signed-in app is not
-repainted by it. The direction is "career infrastructure": editorial and
-technical, warm paper and near-black ink, one cobalt accent used sparingly,
-Instrument Serif for statements, Geist and Geist Mono for everything else.
-The product's own objects (documents, forms, tables, traces) are the artwork.
+repainted by it. The direction is calm and premium: a light, faintly warm
+neutral page, near-black ink, one soft blue accent used sparingly, Newsreader
+for headlines, Geist and Geist Mono for everything else. Most of the look is
+spacing, a hairline border and a very soft shadow; the product's own objects
+(the app, a CV, a form) carry the visual weight.
 
-- Primitives: `.display` `.h2` `.lead` `.body` `.meta` (type), `.chapter`
-  (numbered, ruled section), `.btn-ink` `.btn-line` `.tag` `.sheet` `.frame`.
-- Each feature page gets its own visual metaphor on these primitives.
+- Primitives: `.display` `.h2` `.h3` `.lead` `.body` `.meta` (type),
+  `.chapter` (section spacing), `.btn-ink` `.btn-line` `.tag` `.card` `.sheet`
+  `.frame`, and `.chip-*` (a pastel icon ground, one colour per feature).
+- The homepage stays short; each feature page carries its own depth.
   `/features/tailored-cv` is the first.
 - Every claim a page makes has to be what the code does. The tailored-CV page
   says posting links are quotes checked to exist, and no more, until BRG-228.

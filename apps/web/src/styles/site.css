@@ -1,54 +1,72 @@
 /*
- * The public site's design system: "career infrastructure".
+ * The public site's design system.
  *
- * Editorial and technical at once: warm paper, near-black ink, one cobalt
- * accent used sparingly, a display serif for statements and the app's own
- * grotesk and mono for everything else. The product's own objects (documents,
- * forms, tables, traces) are the artwork; nothing here is decoration for its
- * own sake. See the KB's projects/jlog/docs/design-direction.md.
+ * Calm and premium: a light, faintly warm neutral page, near-black ink, one
+ * soft blue accent used sparingly, a book serif for headlines and the app's
+ * own grotesk and mono for everything else. Air before ornament: most of the
+ * look is spacing, a hairline border and a very soft shadow. The product's
+ * own objects (the app, a CV, a form) carry the visual weight.
  *
  * Scoped to marketing pages through `.site` on <body>, so the signed-in app
  * keeps tokens.css and is not repainted by accident.
  */
-@import "@fontsource/instrument-serif/400.css";
-@import "@fontsource/instrument-serif/400-italic.css";
+@import "@fontsource-variable/newsreader/opsz.css";
+@import "@fontsource-variable/newsreader/opsz-italic.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 
 .site {
   /* Surfaces */
-  --paper: #f5f2eb;
-  --paper-deep: #ece7dc;
-  --sheet: #fffdf8;
-  --ink: #17150f;
-  --ink-2: #45413a;
-  /* Muted text: 5.1:1 on --paper, the lowest contrast body copy is allowed. */
-  --muted: #6b665c;
-  --rule: #d8d1c2;
-  --rule-strong: #b9b0a0;
+  --paper: #f8f7f4;
+  --paper-deep: #f1efea;
+  --sheet: #ffffff;
+  --ink: #141414;
+  --ink-2: #4a4a48;
+  /* Muted text: about 5:1 on --paper, the floor for body copy. */
+  --muted: #6b6b68;
+  --rule: #e8e5df;
+  --rule-strong: #d7d3cb;
 
-  /* The one accent. Cobalt, as in a blueprint: technical, not "AI". */
-  --accent: #1f3fd1;
-  --accent-ink: #172f9e;
-  --accent-wash: #e4e8fb;
+  /* The one accent: a soft, calm blue. --accent-ink is for text on light. */
+  --accent: #4b6ef5;
+  --accent-ink: #3150d8;
+  --accent-wash: #eef2fe;
+
+  /* Icon chips: pastel grounds with a deeper glyph, one per feature. */
+  --chip-blue: #e9effe;
+  --chip-blue-ink: #3a5bdb;
+  --chip-green: #e6f4ea;
+  --chip-green-ink: #2f7a4b;
+  --chip-violet: #efeafd;
+  --chip-violet-ink: #6a47d6;
+  --chip-pink: #fbe9f2;
+  --chip-pink-ink: #b33a79;
+  --chip-teal: #e4f3f3;
+  --chip-teal-ink: #1f7373;
+  --chip-amber: #fcf0e1;
+  --chip-amber-ink: #a35a12;
 
   /* Type */
-  --display: "Instrument Serif", "Times New Roman", serif;
+  --display: "Newsreader Variable", "Newsreader", Georgia, serif;
   --sans: "Geist Variable", "Geist", system-ui, -apple-system, sans-serif;
   --mono: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
 
-  /* Scale: body stays restrained, display is allowed to be enormous. */
   --t-meta: 0.75rem;
   --t-small: 0.875rem;
-  --t-body: 1.0625rem;
-  --t-lead: 1.3125rem;
-  --t-h3: 1.5rem;
-  --t-h2: clamp(2.25rem, 4.5vw, 3.75rem);
-  --t-display: clamp(3.25rem, 9vw, 8.5rem);
+  --t-body: 1rem;
+  --t-lead: 1.1875rem;
+  --t-h3: 1.0625rem;
+  --t-h2: clamp(1.875rem, 3.4vw, 2.75rem);
+  --t-display: clamp(2.625rem, 5.6vw, 4.5rem);
 
-  --measure: 62ch;
-  --page: 1200px;
-  --gutter: clamp(1rem, 4vw, 2.5rem);
+  --measure: 60ch;
+  --page: 1120px;
+  --gutter: clamp(1.25rem, 4vw, 2.5rem);
+  --radius: 14px;
+  --radius-sm: 10px;
+
+  --shadow-soft: 0 1px 2px rgb(20 20 20 / 0.04), 0 10px 30px -18px rgb(20 20 20 / 0.18);
+  --shadow-lift: 0 1px 2px rgb(20 20 20 / 0.05), 0 24px 60px -30px rgb(20 20 20 / 0.28);
 
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
@@ -56,7 +74,7 @@
   color: var(--ink);
   font-family: var(--sans);
   font-size: var(--t-body);
-  line-height: 1.55;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -73,44 +91,45 @@
 .site :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
-/* ---------- Type primitives ---------- */
+/* ---------- Type ---------- */
 
 .site .display {
   font-family: var(--display);
+  font-optical-sizing: auto;
   font-weight: 400;
   font-size: var(--t-display);
-  line-height: 0.92;
-  letter-spacing: -0.02em;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
 }
 
 .site .display em,
 .site .h2 em {
   font-style: italic;
-  color: var(--accent);
 }
 
 .site .h2 {
   font-family: var(--display);
+  font-optical-sizing: auto;
   font-weight: 400;
   font-size: var(--t-h2);
-  line-height: 1;
-  letter-spacing: -0.015em;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .site .h3 {
   font-family: var(--sans);
   font-weight: 600;
   font-size: var(--t-h3);
-  line-height: 1.2;
+  line-height: 1.3;
   letter-spacing: -0.01em;
 }
 
 .site .lead {
   font-size: var(--t-lead);
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--ink-2);
   max-width: var(--measure);
 }
@@ -120,16 +139,15 @@
   max-width: var(--measure);
 }
 
-/* Mono metadata: labels, ids, sources. Uppercase, tracked, small. */
+/* Mono metadata: small, calm, never shouting. */
 .site .meta {
   font-family: var(--mono);
   font-size: var(--t-meta);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   color: var(--muted);
 }
 
-/* ---------- Layout primitives ---------- */
+/* ---------- Layout ---------- */
 
 .site .wrap {
   max-width: var(--page);
@@ -138,106 +156,114 @@
   padding-right: var(--gutter);
 }
 
-/* A chapter: numbered, ruled at the top like a section of a manual. */
 .site .chapter {
-  border-top: 1px solid var(--rule);
-  padding-top: clamp(4rem, 9vw, 8rem);
-  padding-bottom: clamp(4rem, 9vw, 8rem);
+  padding-top: clamp(4rem, 8vw, 7rem);
+  padding-bottom: clamp(4rem, 8vw, 7rem);
 }
 
 .site .chapter-head {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: baseline;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .site .chapter-n {
   font-family: var(--mono);
   font-size: var(--t-meta);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
-/* ---------- UI primitives ---------- */
+/* ---------- UI ---------- */
 
 .site .btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   height: 2.75rem;
-  padding: 0 1.25rem;
-  border-radius: 999px;
+  padding: 0 1.125rem;
+  border-radius: var(--radius-sm);
   font-family: var(--sans);
   font-size: var(--t-small);
-  font-weight: 600;
+  font-weight: 550;
   text-decoration: none;
-  border: 1px solid var(--ink);
-  transition: background 160ms var(--ease), color 160ms var(--ease);
+  border: 1px solid transparent;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease), box-shadow 160ms
+    var(--ease);
 }
 
 .site .btn-ink {
   background: var(--ink);
-  color: var(--sheet);
+  color: #fff;
 }
 
 .site .btn-ink:hover {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: #2b2b2b;
 }
 
 .site .btn-line {
-  background: transparent;
+  background: var(--sheet);
   color: var(--ink);
+  border-color: var(--rule-strong);
 }
 
 .site .btn-line:hover {
-  background: var(--sheet);
+  border-color: var(--ink-2);
 }
 
-/* A tag: mono, boxed, for sources and states. */
+/* A tag: mono, soft, for sources and states. */
 .site .tag {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
   padding: 0.125rem 0.5rem;
-  border: 1px solid var(--rule-strong);
-  border-radius: 4px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
   font-family: var(--mono);
   font-size: 0.6875rem;
-  letter-spacing: 0.04em;
   color: var(--ink-2);
   background: var(--sheet);
   white-space: nowrap;
 }
 
 .site .tag-accent {
-  border-color: var(--accent);
+  border-color: #cfd9fc;
   color: var(--accent-ink);
   background: var(--accent-wash);
 }
 
-/* A document: a sheet of paper on the paper. The product's main object. */
+/* A card: white, a hairline, a shadow you only notice when it is gone. */
+.site .card {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+
+/* A document: a sheet of paper, the product's main object. */
 .site .sheet {
   background: var(--sheet);
   border: 1px solid var(--rule);
-  box-shadow: 0 1px 0 var(--rule), 0 24px 48px -32px rgb(23 21 15 / 0.35);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lift);
 }
 
-/* A browser frame for anything that lives on someone else's website. */
+/* A browser or app window. */
 .site .frame {
   background: var(--sheet);
-  border: 1px solid var(--rule-strong);
-  border-radius: 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
   overflow: hidden;
+  box-shadow: var(--shadow-lift);
 }
 
 .site .frame-bar {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.875rem;
   border-bottom: 1px solid var(--rule);
-  background: var(--paper);
+  background: #fbfaf8;
   font-family: var(--mono);
   font-size: 0.6875rem;
   color: var(--muted);
@@ -251,13 +277,52 @@
     repeat-x;
 }
 
-/* ---------- Motion: reveal ---------- */
+/* An icon chip: a pastel square with a glyph, one colour per feature. */
+.site .chip {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+}
+
+.site .chip svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.site .chip-blue {
+  background: var(--chip-blue);
+  color: var(--chip-blue-ink);
+}
+.site .chip-green {
+  background: var(--chip-green);
+  color: var(--chip-green-ink);
+}
+.site .chip-violet {
+  background: var(--chip-violet);
+  color: var(--chip-violet-ink);
+}
+.site .chip-pink {
+  background: var(--chip-pink);
+  color: var(--chip-pink-ink);
+}
+.site .chip-teal {
+  background: var(--chip-teal);
+  color: var(--chip-teal-ink);
+}
+.site .chip-amber {
+  background: var(--chip-amber);
+  color: var(--chip-amber-ink);
+}
+
+/* ---------- Motion ---------- */
 
 @media (prefers-reduced-motion: no-preference) {
   .site .reveal {
     opacity: 0;
-    transform: translateY(12px);
-    transition: opacity 600ms var(--ease), transform 600ms var(--ease);
+    transform: translateY(10px);
+    transition: opacity 700ms var(--ease), transform 700ms var(--ease);
   }
 
   .site .reveal.in {

@@ -21,9 +21,15 @@ const GITHUB_URL = 'https://github.com/brgv-code/jlog';
 
 const product = [
   { href: '/features/tailored-cv', label: 'Tailored CV', note: 'every line has a source' },
-  { href: '/#apply', label: 'Autofill', note: 'fills forms, never submits' },
+  { href: '/#autofill', label: 'Autofill', note: 'fills forms, never submits' },
   { href: '/#capture', label: 'Job capture', note: 'six boards, no copy-paste' },
-  { href: '/#try', label: 'Tracking', note: 'saved to offer, in one list' },
+  { href: '/#tracking', label: 'Tracking', note: 'saved to offer, in one list' },
+];
+
+const resources = [
+  { href: `${GITHUB_URL}#readme`, label: 'Docs', note: 'setup and self-hosting' },
+  { href: GITHUB_URL, label: 'GitHub', note: 'the source, MIT licensed' },
+  { href: '/privacy', label: 'Privacy', note: 'what is stored, in plain words' },
 ];
 
 const path = Astro.url.pathname.replace(/\/$/, '');
@@ -33,22 +39,10 @@ const path = Astro.url.pathname.replace(/\/$/, '');
   <a class="skip" href="#content">Skip to content</a>
   <header class="nav">
     <div class="wrap nav-row">
-      <a href="/" class="mark" aria-label="jlog home">
-        <svg viewBox="0 0 32 32" aria-hidden="true">
-          <rect width="32" height="32" rx="7" fill="currentColor"></rect>
-          <circle cx="20" cy="6.5" r="2.2" fill="var(--paper)"></circle>
-          <path
-            d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5"
-            stroke="var(--paper)"
-            stroke-width="4"
-            stroke-linecap="round"
-            fill="none"></path>
-        </svg>
-        <span>jlog</span>
-      </a>
+      <a href="/" class="mark" aria-label="jlog home">jlog</a>
 
       <nav class="nav-links" aria-label="Main">
-        <details class="menu">
+        <details class="menu" data-menu>
           <summary>Product</summary>
           <ul class="menu-panel">
             {
@@ -63,13 +57,27 @@ const path = Astro.url.pathname.replace(/\/$/, '');
             }
           </ul>
         </details>
-        <a href="/#plans">Pricing</a>
-        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <details class="menu" data-menu>
+          <summary>Resources</summary>
+          <ul class="menu-panel">
+            {
+              resources.map((r) => (
+                <li>
+                  <a href={r.href} {...(r.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                    <span class="menu-label">{r.label}</span>
+                    <span class="menu-note">{r.note}</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </details>
+        <a href="/#pricing">Pricing</a>
       </nav>
 
       <div class="nav-cta">
         <a href="/login" class="signin">Sign in</a>
-        <a href="/login" class="btn btn-ink">Get started</a>
+        <a href="/login" class="btn btn-ink nav-btn">Get started</a>
       </div>
     </div>
   </header>
@@ -80,12 +88,10 @@ const path = Astro.url.pathname.replace(/\/$/, '');
 
   <footer class="foot">
     <div class="wrap foot-row">
-      <p class="foot-line">
-        <span class="foot-brand">jlog</span>: Job applications, without the busywork.
-      </p>
+      <p class="foot-line"><span class="foot-brand">jlog</span> Job applications, without the busywork.</p>
       <nav class="foot-links" aria-label="Footer">
         <a href="/features/tailored-cv">Tailored CV</a>
-        <a href="/#plans">Pricing</a>
+        <a href="/#pricing">Pricing</a>
         <a href="/privacy">Privacy</a>
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href={`${GITHUB_URL}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">
@@ -97,19 +103,27 @@ const path = Astro.url.pathname.replace(/\/$/, '');
 </Layout>
 
 <script>
-  // Close the Product menu on outside click and on Escape, as a menu should.
-  const menu = document.querySelector<HTMLDetailsElement>('.menu');
-  if (menu) {
-    document.addEventListener('click', (e) => {
-      if (menu.open && !menu.contains(e.target as Node)) menu.open = false;
+  // Menus close on outside click, on Escape, and when another one opens.
+  const menus = [...document.querySelectorAll<HTMLDetailsElement>('[data-menu]')];
+  for (const menu of menus) {
+    menu.addEventListener('toggle', () => {
+      if (menu.open) for (const other of menus) if (other !== menu) other.open = false;
     });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && menu.open) {
+  }
+  document.addEventListener('click', (e) => {
+    for (const menu of menus) {
+      if (menu.open && !menu.contains(e.target as Node)) menu.open = false;
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    for (const menu of menus) {
+      if (menu.open) {
         menu.open = false;
         menu.querySelector('summary')?.focus();
       }
-    });
-  }
+    }
+  });
 
   // Reveal on scroll, once. Without the observer everything is simply shown.
   const items = document.querySelectorAll('.reveal');
@@ -149,7 +163,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
     position: sticky;
     top: 0;
     z-index: 50;
-    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    background: color-mix(in srgb, var(--paper) 85%, transparent);
     backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--rule);
   }
@@ -162,19 +176,18 @@ const path = Astro.url.pathname.replace(/\/$/, '');
   }
 
   .mark {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
     color: var(--ink);
     text-decoration: none;
-    font-weight: 700;
-    font-size: 1.0625rem;
-    letter-spacing: -0.02em;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.5rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
   }
 
-  .mark svg {
-    width: 26px;
-    height: 26px;
+  .nav-btn {
+    height: 2.25rem;
+    padding: 0 0.875rem;
   }
 
   .nav-links {
@@ -279,12 +292,17 @@ const path = Astro.url.pathname.replace(/\/$/, '');
   }
 
   .foot-line {
-    font-family: var(--display);
-    font-size: 1.5rem;
+    color: var(--ink-2);
+    font-size: var(--t-small);
   }
 
   .foot-brand {
-    font-style: italic;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.25rem;
+    color: var(--ink);
+    margin-right: 0.75rem;
+    letter-spacing: -0.03em;
   }
 
   .foot-links {
@@ -308,7 +326,8 @@ const path = Astro.url.pathname.replace(/\/$/, '');
       gap: 1rem;
     }
 
-    .nav-links > a {
+    .nav-links > a,
+    .nav-links > .menu:nth-child(2) {
       display: none;
     }
 
