@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 // Google's OAuth consent screen requires a reachable privacy policy URL before
 // an external app can leave testing mode. It is also just the honest thing to
 // publish for a product that holds someone's job search.
-const lastUpdated = '25 September 2026';
+const lastUpdated = '26 September 2026';
 
 // Where data access and deletion requests land. Also what is given to Google as
 // the app's support email, so the two agree.
@@ -57,6 +57,15 @@ const contactEmail = 'hello@bhargav.dev';
       against the application they were written for.
     </p>
 
+    <h3>Your saved application answers</h3>
+    <p>
+      If you fill in <em>Application answers</em> in Settings, jlog stores what you entered there:
+      your phone number, the countries you can work in without sponsorship, your salary
+      expectation, your notice period, and whether you prefer to decline equal opportunity
+      questions. The extension uses them to fill application forms. Nothing here is inferred or
+      filled in by jlog; each is exactly what you typed, and clearing a field removes it.
+    </p>
+
     <h3>Your LLM provider key</h3>
     <p>
       If you configure your own AI provider, the API key is <strong>encrypted with AES-GCM-256
@@ -94,6 +103,22 @@ const contactEmail = 'hello@bhargav.dev';
       choose to extract the page. Only then does it read that one tab — and that route does read
       the posting text, so that company, role and location can be pulled out of it. Nothing from
       it is saved until you have seen the result and confirmed it.
+    </p>
+    <p>
+      On <strong>Greenhouse, Lever and Ashby application forms</strong>, including ones a company
+      embeds in its own careers page, the extension shows a <em>Fill with jlog</em> button. It
+      reads the labels of the form's fields in your browser to tell which ones it recognises, asks
+      jlog for your profile and saved answers, and fills the empty fields it can. Nothing about the
+      form is sent to jlog, and the extension <strong>never submits a form</strong>: you read it
+      and press submit yourself. Questions about visa status, salary and equal opportunity are
+      filled only from answers you saved, and left empty otherwise.
+    </p>
+    <p>
+      On the same forms, jlog Pro adds a <em>Draft</em> button to open questions. Only when you
+      click it, the question, the page's address and the text of the posting on the page are sent
+      to jlog, which writes an answer from your stored facts. If you have already saved that
+      application in jlog, the job description you saved is used instead of the page text. jlog
+      does not draft answers to visa, salary, equal opportunity or background questions at all.
     </p>
     <p>
       The extension itself contacts one server and one only: jlog's API. It does not track which
@@ -183,8 +208,9 @@ const contactEmail = 'hello@bhargav.dev';
       </li>
       <li>
         <strong>Your chosen AI provider</strong> — Anthropic, OpenAI or Google, depending on what
-        you configured. When you extract a job posting or generate a tailored document, the
-        relevant job description and CV content are sent to that provider to do the work. If you
+        you configured. When you extract a job posting, generate a tailored document, or draft an
+        answer to an application question, the relevant job description, question and CV content
+        are sent to that provider to do the work. If you
         configure no provider, no AI feature runs and nothing is sent anywhere.
         <br />
         Choosing Ollama sends the same content to whatever address you gave jlog for it. If that is
@@ -212,8 +238,8 @@ const contactEmail = 'hello@bhargav.dev';
     </p>
     <p>
       Deletion is permanent and covers your applications and their timelines, your imported CV and
-      the facts taken from it, every generated document, your stored provider key and your
-      extension keys — including <strong>the uploaded and generated files themselves</strong>,
+      the facts taken from it, every generated document, your saved application answers, your
+      stored provider key and your extension keys — including <strong>the uploaded and generated files themselves</strong>,
       which live outside the database and are removed with it rather than left behind. If you are
       on the paid plan, the subscription is cancelled at the same time, so deleting your account
       does not leave you being billed for it.
