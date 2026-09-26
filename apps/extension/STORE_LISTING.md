@@ -219,9 +219,9 @@ Things that need you:
       LinkedIn posting, the popup mid-extraction on some other careers page, and
       the dashboard the applications land in.
 - [ ] **A developer account**, which costs a one-off $5 registration fee.
-- [ ] **Decide on the version.** The manifest says `0.1.0`. A first public
-      release is usually `1.0.0`, and the store will not let you go backwards
-      once published.
+- [x] **Decide on the version.** `1.0.0` for the first public release. The
+      store will not let a version go backwards once published, so every
+      upload after this needs a higher number.
 - [x] **Decide on the host permissions**: keep them, see the note above.
 - [ ] Optional: a 440×280 promotional tile, which the store uses if it ever
       features the extension.
