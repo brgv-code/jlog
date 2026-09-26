@@ -7,6 +7,7 @@ import { Sidebar } from './Sidebar';
 import { AddApplicationDialog } from './applications/AddApplicationDialog';
 import { ApplicationDetail } from './applications/ApplicationDetail';
 import { ApplicationsTable } from './applications/ApplicationsTable';
+import { JlogMark } from './ui/JlogMark';
 import { Spinner } from './ui/Spinner';
 import { Button } from './ui/button';
 
@@ -155,7 +156,7 @@ export default function ApplicationsShell() {
   }, [auth.status, fetchPage]);
 
   async function handleSignOut() {
-    await apiFetch('/api/auth/logout', { method: 'POST' });
+    await apiFetch('/api/auth/sign-out', { method: 'POST' });
     window.location.href = '/login';
   }
 
@@ -191,7 +192,7 @@ export default function ApplicationsShell() {
           fontFamily: 'var(--font-sans)',
         }}
       >
-        <Spinner />
+        <JlogMark mode="think" size={44} label="Loading" />
       </div>
     );
   }

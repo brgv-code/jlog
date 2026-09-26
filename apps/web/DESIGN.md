@@ -3,6 +3,11 @@
 The implemented system — the file to keep open while editing a component. The longer
 rationale, and the decisions still outstanding, are kept outside the repo.
 
+**`/designsystem`** renders all of this live: every token with its resolved value in both
+themes, every animation playable, and a button that copies the whole spec as plain text
+for pasting into a model prompt. It reads the computed stylesheet rather than restating
+it, so it cannot drift from `tokens.css`. The route is deliberately not in the sidebar.
+
 ## The short version
 
 Light by default. White content, off-white chrome, a hairline between them. Greyscale
@@ -142,8 +147,14 @@ popover (`compact`) and Settings → Appearance.
 
 ## Adding a component
 
-- Read colour from `var(--color-*)`, never a literal. There are currently **zero**
-  hardcoded hex values in `src/` — keep it that way.
+- Read colour from `var(--color-*)`, never a literal. The **only** exception is a brand
+  mark that is not ours to restyle: the jlog logo (`ui/JlogMark.tsx`, matching
+  `public/favicon.svg`) and the provider logos on the sign-in page. Those are literal on
+  purpose — a logo that recolours itself per theme is a different logo. Everywhere else,
+  a hex value in `src/` is a bug.
+- Motion comes from `styles/motion.css` — four durations, three easings, and a named
+  class per gesture. Do not write a bare `@keyframes` in a component; if the gesture you
+  want is missing, add it there with a note on when *not* to use it.
 - shadcn components inherit everything through `styles/shadcn.css`; do not restyle them
   locally.
 - Spacing comes from `--space-*`. If the step you want is missing, add it to the scale

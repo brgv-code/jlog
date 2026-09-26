@@ -15,6 +15,22 @@ export const githubEmailSchema = z.object({
   verified: z.boolean(),
 });
 
+/**
+ * Which sign-in methods an instance offers. Every one is optional — a
+ * self-hoster may run with GitHub alone and no mail domain at all — so the
+ * login page asks rather than assuming.
+ */
+export const authProvidersResponseSchema = z.object({
+  providers: z.object({
+    github: z.boolean(),
+    google: z.boolean(),
+    apple: z.boolean(),
+    email: z.boolean(),
+  }),
+});
+
+export type AuthProviderAvailability = z.infer<typeof authProvidersResponseSchema>['providers'];
+
 export const PLANS = ['free', 'pro'] as const;
 export type Plan = (typeof PLANS)[number];
 
@@ -315,3 +331,64 @@ export const cvProfileSchema = z.object({
 });
 
 export type CvProfileInput = z.infer<typeof cvProfileSchema>;
+
+// --- Autofill saved values (ADR-012 phase 2) ---
+
+/**
+ * What an application form asks that a CV does not answer. Every field is
+ * optional in practice: an empty value means "do not fill", never "no".
+ */
+export const autofillValuesSchema = z.object({
+  phone: z.string().trim().max(40).default(''),
+  /**
+   * Where the user may work without sponsorship, as they would write it:
+   * "Germany", "EU", "United States". Work-authorisation and sponsorship
+   * questions are answered only when they name a country.
+   */
+  authorizedCountries: z.array(z.string().trim().min(1).max(60)).max(30).default([]),
+  salaryExpectation: z.string().trim().max(100).default(''),
+  noticePeriod: z.string().trim().max(100).default(''),
+  /** `decline` picks "Decline to self-identify" on EEO questions. Empty leaves them. */
+  eeo: z.enum(['', 'decline']).catch('').default(''),
+});
+
+export type AutofillValuesInput = z.infer<typeof autofillValuesSchema>;
+
+/**
+ * How long a freshly minted extension key stays valid. Mirrors GitHub's
+ * personal-access-token picker, including the "never" escape hatch: a key that
+ * dies every 24h means re-pasting into the popup every single day, which is
+ * the kind of friction that gets an extension uninstalled.
+ */
+export const EXTENSION_TOKEN_LIFETIMES = ['1d', '7d', '30d', 'never'] as const;
+export type ExtensionTokenLifetime = (typeof EXTENSION_TOKEN_LIFETIMES)[number];
+
+/** Milliseconds each lifetime is worth. `never` is absent on purpose — see NEVER_EXPIRES_AT. */
+const LIFETIME_MS: Record<Exclude<ExtensionTokenLifetime, 'never'>, number> = {
+  '1d': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+};
+
+/**
+ * The sentinel a non-expiring key is stored with. `sessions.expires_at` is NOT
+ * NULL and the auth middleware compares against it on every request, so the
+ * cheapest way to say "never" without a nullable-column rebuild is a date no
+ * clock will reach. Anything at or past this is reported to clients as
+ * `expiresAt: null`, never as a year-9999 date.
+ */
+export const NEVER_EXPIRES_AT = new Date('9999-12-31T23:59:59.000Z');
+
+export function isNeverExpiring(expiresAt: Date): boolean {
+  return expiresAt.getTime() >= NEVER_EXPIRES_AT.getTime();
+}
+
+export function expiryFromLifetime(lifetime: ExtensionTokenLifetime, now = new Date()): Date {
+  if (lifetime === 'never') return NEVER_EXPIRES_AT;
+  return new Date(now.getTime() + LIFETIME_MS[lifetime]);
+}
+
+export const extensionTokenSchema = z.object({
+  expiresIn: z.enum(EXTENSION_TOKEN_LIFETIMES).default('30d'),
+  label: z.string().trim().max(60).optional(),
+});

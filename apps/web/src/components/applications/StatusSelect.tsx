@@ -27,7 +27,21 @@ export function StatusSelect({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [optimistic, setOptimistic] = useState<ApplicationStatus>(currentStatus);
+  /*
+   * Whether the user has just changed the status, held here rather than in the
+   * pill. This component renders three different trees — editing, saving, idle
+   * — so a pill cannot tell a change from its own first mount; this one can,
+   * because it is what performed the change.
+   */
+  const [justChanged, setJustChanged] = useState(false);
   const selectRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (!justChanged) return;
+    // Long enough for the burst, which is the slower of the two.
+    const t = setTimeout(() => setJustChanged(false), 1400);
+    return () => clearTimeout(t);
+  }, [justChanged]);
 
   // Focus the select when editing opens (avoids autoFocus lint rule)
   useEffect(() => {
@@ -39,6 +53,20 @@ export function StatusSelect({
   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newStatus = e.target.value as ApplicationStatus;
     const previous = optimistic;
+    /*
+     * Down first, always.
+     *
+     * Two bugs live here otherwise. A second edit begun within the flag's
+     * lifetime would find it still true, so the pill shown *while saving*
+     * animated a status the server had not accepted yet — picking "offer" could
+     * fire the celebration and then roll back. And setting it true again while
+     * it was already true is not a state change, so the clearing effect never
+     * re-ran and the first edit's timer cut the second animation short.
+     *
+     * Clearing it here makes every change go false → true, which restarts both
+     * the animation and its timer.
+     */
+    setJustChanged(false);
     setOptimistic(newStatus);
     setEditing(false);
 
@@ -60,6 +88,9 @@ export function StatusSelect({
         return;
       }
       onStatusChange(newStatus);
+      // Only on a change the server accepted: celebrating an offer that was
+      // rolled back a moment later would be worse than not celebrating at all.
+      if (newStatus !== previous) setJustChanged(true);
     } catch {
       setOptimistic(previous);
     } finally {
@@ -70,7 +101,7 @@ export function StatusSelect({
   if (saving) {
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-        <StatusPill status={optimistic} />
+        <StatusPill status={optimistic} changed={justChanged} />
         <Spinner size={12} />
       </span>
     );
@@ -116,7 +147,7 @@ export function StatusSelect({
       }}
       title="Click to change status"
     >
-      <StatusPill status={optimistic} />
+      <StatusPill status={optimistic} changed={justChanged} />
     </button>
   );
 }

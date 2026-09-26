@@ -1,23 +1,81 @@
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
+# --- Core ---------------------------------------------------------------
 SESSION_SECRET=generate_with_openssl_rand_hex_32
 ENCRYPTION_SECRET=generate_with_openssl_rand_hex_32
 WEB_ORIGIN=http://localhost:4321
 COOKIE_DOMAIN=localhost
 EXTENSION_ID=your_chrome_extension_id
-# Optional — tracing for /api/extract is skipped entirely if these are unset.
+
+# --- Sign-in methods ----------------------------------------------------
+#
+# All four are optional and independent. The login page asks the API which are
+# configured and shows only those, so an instance with GitHub alone is a
+# perfectly ordinary instance.
+#
+# Authentication is handled by Better Auth, which serves its callbacks at
+# /api/auth/callback/<provider>. Register exactly that path with each provider.
+
+# GitHub — https://github.com/settings/developers
+# Callback URL: http://localhost:8787/api/auth/callback/github
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+
+# Google — https://console.cloud.google.com/apis/credentials
+# Create an "OAuth client ID" of type "Web application".
+# Authorised redirect URI: http://localhost:8787/api/auth/callback/google
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Apple — https://developer.apple.com/account/resources/identifiers
+#
+# Needs a paid Apple Developer Program membership ($99/year); there is no free
+# tier for Sign in with Apple. Leaving all four unset is perfectly ordinary —
+# the provider is not registered and the login page does not offer it. (This is
+# unrelated to accepting Apple Pay, which hosted Stripe Checkout supports with
+# no Apple account at all.)
+#
+# Apple cannot be tested against http://localhost. It refuses localhost redirect
+# URIs and answers with a cross-site form POST, which needs a Secure cookie and
+# therefore HTTPS. Configure it for your deployed origin and test it there.
+#
+# APPLE_CLIENT_ID is the *Services ID* (e.g. dev.bhargav.jlog.web), not the app's
+# bundle id. APPLE_PRIVATE_KEY is the whole contents of the downloaded .p8 file,
+# newlines and all — Apple issues no client secret, so one is signed per request
+# from this key.
+# Return URL: https://your-api-host/api/auth/callback/apple
+APPLE_CLIENT_ID=your.services.id
+APPLE_TEAM_ID=your_10_char_team_id
+APPLE_KEY_ID=your_10_char_key_id
+APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIGT...\n-----END PRIVATE KEY-----"
+
+# Emailed sign-in links, sent through Resend — https://resend.com/api-keys
+# EMAIL_FROM must be on a domain you have verified in Resend. Unset either of
+# these and the login page simply does not offer email sign-in.
+RESEND_API_KEY=re_...
+EMAIL_FROM="jlog <login@yourdomain.com>"
+
+# Optional: only needed when something in front of the worker rewrites the Host
+# header. Normally the origin is derived from the request.
+# API_ORIGIN=http://localhost:8787
+
+# Optional: a separate signing secret for Better Auth. Unset, it falls back to
+# SESSION_SECRET. Changing either signs everyone out.
+# BETTER_AUTH_SECRET=generate_with_openssl_rand_hex_32
+
+# --- LLM tracing (optional) ---------------------------------------------
+# Tracing for /api/extract is skipped entirely if these are unset.
 # Free project at https://cloud.langfuse.com, Settings -> API Keys.
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
 LANGFUSE_BASE_URL=https://cloud.langfuse.com
 # Keeps local traces out of the production ones in the same project.
 LANGFUSE_TRACING_ENVIRONMENT=local
-# Optional — billing for the hosted plan. Unset means /api/billing/* returns
-# BILLING_NOT_CONFIGURED and everything else works, which is the self-hosted
-# case. Use test-mode keys here; never a live key in a file on your laptop.
-# STRIPE_WEBHOOK_SECRET is the whsec_ that `stripe listen` prints, not the one
-# from the dashboard — they are different secrets and only the CLI's verifies
-# against forwarded events:
+
+# --- Billing (optional) --------------------------------------------------
+# Unset means /api/billing/* returns BILLING_NOT_CONFIGURED and everything else
+# works, which is the self-hosted case. Use test-mode keys here; never a live
+# key in a file on your laptop. STRIPE_WEBHOOK_SECRET is the whsec_ that
+# `stripe listen` prints, not the one from the dashboard — they are different
+# secrets and only the CLI's verifies against forwarded events:
 #   stripe listen --forward-to localhost:8787/api/billing/webhook
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...

@@ -66,6 +66,14 @@
   --color-success: #15803d;
   --color-warning: #b45309;
   --color-danger: #b91c1c;
+  /* The quiet ground and edge for a destructive notice — an error banner, a
+     delete confirmation. Defined per theme rather than as one literal, because
+     a pale red panel that reads as gentle on white reads as a mistake on black. */
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  /* Text on a filled danger button. Light theme's danger is dark, so this is
+     white; dark theme's is a pale red, where white would be unreadable. */
+  --color-danger-fg: #ffffff;
   --color-error: #b91c1c;
   --color-info: #2563eb;
 
@@ -216,6 +224,11 @@
   --color-success: #4ade80;
   --color-warning: #fbbf24;
   --color-danger: #f87171;
+  /* Dark counterparts: a deep, desaturated red that sits *under* the page's
+     text rather than glowing out of the page the way #fef2f2 would. */
+  --color-danger-bg: #2a1213;
+  --color-danger-border: #7f2325;
+  --color-danger-fg: #1a0b0b;
   --color-error: #f87171;
   --color-info: #60a5fa;
 

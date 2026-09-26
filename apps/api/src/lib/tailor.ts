@@ -109,3 +109,8 @@ export async function makeJsonCaller(
 export function makeTailor(c: Context<AppContext>): Promise<TailorJson | null> {
   return makeJsonCaller(c, { name: 'tailor-cv', tags: ['tailoring'] });
 }
+
+/** Drafted answers to application questions (ADR-012 phase 3), traced apart from tailoring. */
+export function makeDrafter(c: Context<AppContext>): Promise<TailorJson | null> {
+  return makeJsonCaller(c, { name: 'draft-answer', tags: ['autofill'] });
+}

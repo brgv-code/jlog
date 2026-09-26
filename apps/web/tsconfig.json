@@ -3,5 +3,13 @@
   "compilerOptions": {
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    // Build output. Without this `astro check` walks the minified bundles in
+    // dist/ and reports diagnostics against generated code — and on a large
+    // enough bundle it does not merely complain, it runs out of memory and
+    // aborts, which takes `pnpm typecheck` down with it.
+    "dist"
+  ]
 }

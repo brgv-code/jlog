@@ -1,0 +1,369 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// Google's OAuth consent screen requires a reachable privacy policy URL before
+// an external app can leave testing mode. It is also just the honest thing to
+// publish for a product that holds someone's job search.
+const lastUpdated = '26 September 2026';
+
+// Where data access and deletion requests land. Also what is given to Google as
+// the app's support email, so the two agree.
+const contactEmail = 'hello@bhargav.dev';
+---
+
+<Layout title="Privacy — jlog">
+  <main class="prose">
+    <p class="back"><a href="/">← jlog</a></p>
+
+    <h1>Privacy</h1>
+    <p class="updated">Last updated: {lastUpdated}</p>
+
+    <p class="lede">
+      jlog holds your job search, which is about as personal as work data gets. This page says
+      plainly what is stored, who else sees it, and how to get rid of it. No cookie banners, no
+      advertising networks, no selling anything to anyone.
+    </p>
+
+    <h2>Who this covers</h2>
+    <p>
+      This policy covers the hosted instance at <strong>jlog.bhargav.dev</strong>. jlog is open
+      source and MIT licensed, so anyone can run their own copy — if you are using someone else's
+      instance, or your own, then whoever runs it holds the data and this page does not describe
+      their practices.
+    </p>
+
+    <h2>What is stored</h2>
+
+    <h3>Your account</h3>
+    <p>
+      Your name, email address and avatar URL, as supplied by whichever sign-in method you used —
+      GitHub, Google, or an emailed sign-in link. jlog also stores that provider's own account
+      identifier, so that signing in again recognises you. No password is ever stored, because jlog
+      does not use passwords.
+    </p>
+
+    <h3>Your job applications</h3>
+    <p>
+      Everything you record about an application: company, role, location, status, the link you
+      applied through, dates, salary ranges, your notes, and the job description if you saved one.
+      A timeline of status changes is kept alongside it.
+    </p>
+
+    <h3>Your CV and generated documents</h3>
+    <p>
+      If you import a CV, jlog stores the file itself and the text extracted from it, along with the
+      individual facts pulled out of it — roles, bullet points, skills — so that tailored documents
+      can be traced back to something you actually wrote. Generated CVs and cover letters are stored
+      against the application they were written for.
+    </p>
+
+    <h3>Your saved application answers</h3>
+    <p>
+      If you fill in <em>Application answers</em> in Settings, jlog stores what you entered there:
+      your phone number, the countries you can work in without sponsorship, your salary
+      expectation, your notice period, and whether you prefer to decline equal opportunity
+      questions. The extension uses them to fill application forms. Nothing here is inferred or
+      filled in by jlog; each is exactly what you typed, and clearing a field removes it.
+    </p>
+
+    <h3>Your LLM provider key</h3>
+    <p>
+      If you configure your own AI provider, the API key is <strong>encrypted with AES-GCM-256
+      before it is written to the database</strong> and is never returned to the browser after you
+      save it. The provider and model names are stored in the clear.
+    </p>
+
+    <h3>Billing</h3>
+    <p>
+      For the paid plan, jlog stores your Stripe customer and subscription identifiers, your plan,
+      and its renewal date. <strong>Card details never reach jlog</strong> — payment happens on
+      Stripe's own hosted checkout page, and jlog only ever sees the result.
+    </p>
+
+    <h3>Extension keys</h3>
+    <p>
+      Keys you generate for the Chrome extension, with their label and expiry, so you can see and
+      revoke them from Settings.
+    </p>
+
+    <h2>The Chrome extension</h2>
+    <p>
+      The extension is the one part of jlog that runs inside pages you visit, so it is worth being
+      exact about what it reads and when.
+    </p>
+    <p>
+      On the six job boards it supports — LinkedIn, Wellfound, Ashby, Greenhouse, Lever and Y
+      Combinator's job board — applying is detected automatically, and four things are recorded:
+      the <strong>company</strong>, the <strong>role</strong>, the <strong>link</strong> to the
+      posting, and the <strong>time</strong>. This happens without asking you first, and it does
+      not read the job description. Anything it records can be deleted.
+    </p>
+    <p>
+      On <strong>any other site</strong> it reads nothing at all until you click the jlog icon and
+      choose to extract the page. Only then does it read that one tab — and that route does read
+      the posting text, so that company, role and location can be pulled out of it. Nothing from
+      it is saved until you have seen the result and confirmed it.
+    </p>
+    <p>
+      On <strong>Greenhouse, Lever and Ashby application forms</strong>, including ones a company
+      embeds in its own careers page, the extension shows a <em>Fill with jlog</em> button. It
+      reads the labels of the form's fields in your browser to tell which ones it recognises, asks
+      jlog for your profile and saved answers, and fills the empty fields it can. Nothing about the
+      form is sent to jlog, and the extension <strong>never submits a form</strong>: you read it
+      and press submit yourself. Questions about visa status, salary and equal opportunity are
+      filled only from answers you saved, and left empty otherwise.
+    </p>
+    <p>
+      On the same forms, jlog Pro adds a <em>Draft</em> button to open questions. Only when you
+      click it, the question, the page's address and the text of the posting on the page are sent
+      to jlog, which writes an answer from your stored facts. If you have already saved that
+      application in jlog, the job description you saved is used instead of the page text. jlog
+      does not draft answers to visa, salary, equal opportunity or background questions at all.
+    </p>
+    <p>
+      The extension itself contacts one server and one only: jlog's API. It does not track which
+      pages you visit, does not read pages you have not asked it to, and contains no analytics or
+      advertising code of any kind.
+    </p>
+    <p>
+      Once a posting reaches jlog the ordinary rules below apply to it, and for AI extraction that
+      means it does not stop with jlog. The posting text is sent on to whichever
+      <strong>AI provider</strong> you configured, and on the hosted instance a record of that
+      request also goes to <strong>Langfuse</strong>, which exists so a failed or expensive
+      generation can be investigated. Both are described under <em>Who else sees your data</em>.
+    </p>
+    <p>
+      Worth being precise about the case where you have configured no provider at all. Clicking
+      <em>Extract with AI</em> still sends the page text to <strong>jlog's own API</strong> — that
+      happens first, and is how the request is made. jlog then refuses it, so the text is
+      <strong>not forwarded to any AI provider</strong> and no extraction takes place. The
+      distinction is between the text reaching jlog, which it does, and the text reaching a third
+      party, which it does not.
+    </p>
+    <p>
+      In your browser it stores the key that links it to your account, and a note of whether that
+      key still works so it can tell you when one has expired rather than just failing. Both stay
+      in the browser.
+    </p>
+    <p>
+      If you extract a page with AI, the text of that posting goes to whichever provider you
+      configured, exactly as described under <em>Who else sees your data</em> below. Uninstalling
+      the extension removes the key from your browser; to revoke it everywhere, delete it under
+      Settings.
+    </p>
+
+    <h2>Analytics, which currently do nothing</h2>
+    <p>
+      jlog has a single analytics setting, in Settings, and it is <strong>off by default</strong>.
+      It is worth being exact about what it does today: <strong>it records your preference and
+      nothing else. No analytics data is collected, aggregated or shared with anyone.</strong>
+    </p>
+    <p>
+      The intention behind it is to share anonymised aggregates one day — response rates, time to
+      offer, ghosting patterns, with no company names, role titles, notes or anything identifying
+      you — so that jlog can tell job seekers what the market is actually doing. None of that is
+      built. If it ever is, it will apply only to accounts that have switched the setting on, and
+      this page will say so before it starts rather than after.
+    </p>
+    <p>
+      There is no third-party analytics script on this site, no advertising pixel, and no
+      cross-site tracking.
+    </p>
+
+    <h2>Cookies</h2>
+    <p>
+      One cookie in normal use: the one holding your sign-in session. It is <code>HttpOnly</code>,
+      so page scripts cannot read it, and it expires after 30 days.
+    </p>
+    <p>
+      Signing in adds no second cookie. The half-finished sign-in — the bit that lets the answer
+      coming back from GitHub, Google or Apple be matched to the attempt you actually started — is
+      held as a short-lived row in the database instead, which expires after ten minutes and is
+      swept nightly.
+    </p>
+    <p>
+      Your light/dark theme preference is kept in your browser's local storage and never sent
+      anywhere. That is the lot — no tracking cookies of any kind.
+    </p>
+
+    <h2>Who else sees your data</h2>
+    <p>These are the only third parties involved, and each one gets only what its job requires:</p>
+    <ul>
+      <li>
+        <strong>Cloudflare</strong> — hosts the site, the API, the database and any uploaded CV
+        files.
+      </li>
+      <li>
+        <strong>GitHub, Google or Apple</strong> — only when you choose to sign in with them. jlog
+        receives your name, verified email address and avatar; they do not receive your job data.
+      </li>
+      <li>
+        <strong>Resend</strong> — delivers sign-in link emails. It sees the address the link is
+        sent to.
+      </li>
+      <li>
+        <strong>Stripe</strong> — handles payment for the paid plan, including all card details. It
+        also receives your name, email address and jlog account id when a customer record is
+        created for you at your first checkout, so that a payment can be matched to an account.
+      </li>
+      <li>
+        <strong>Your chosen AI provider</strong> — Anthropic, OpenAI or Google, depending on what
+        you configured. When you extract a job posting, generate a tailored document, or draft an
+        answer to an application question, the relevant job description, question and CV content
+        are sent to that provider to do the work. If you
+        configure no provider, no AI feature runs and nothing is sent anywhere.
+        <br />
+        Choosing Ollama sends the same content to whatever address you gave jlog for it. If that is
+        a machine on your own network, it stays there; if you pointed it at a hosted or tunnelled
+        instance, it goes there instead. jlog cannot tell the difference, so the destination is
+        whichever one you configured.
+      </li>
+      <li>
+        <strong>Langfuse</strong> — only when the instance is configured to trace AI calls, which
+        the hosted one is. It receives the content of the job posting or CV being worked on, the
+        prompt sent to the model and the answer that came back, and your jlog account id, so that a
+        failed or expensive generation can be investigated. It is not used for advertising or
+        analytics.
+      </li>
+    </ul>
+    <p>
+      Nothing is sold, rented, or shared with advertisers. Data is disclosed otherwise only if the
+      law actually requires it.
+    </p>
+
+    <h2>Getting your data out, or deleting it</h2>
+    <p>
+      You can delete your account yourself, from <strong>Settings → Delete account</strong>. It
+      does not go into a queue and nobody reviews it: it happens when you confirm.
+    </p>
+    <p>
+      Deletion is permanent and covers your applications and their timelines, your imported CV and
+      the facts taken from it, every generated document, your saved application answers, your
+      stored provider key and your extension keys — including <strong>the uploaded and generated files themselves</strong>,
+      which live outside the database and are removed with it rather than left behind. If you are
+      on the paid plan, the subscription is cancelled at the same time, so deleting your account
+      does not leave you being billed for it.
+    </p>
+    <p>
+      Email <a href={`mailto:${contactEmail}`}>{contactEmail}</a> for a copy of everything held
+      about you, or if you would rather someone did the deletion for you.
+    </p>
+    <p>
+      If you self-host, none of this applies to you in the first place — the database is yours, and
+      deleting a row is the whole procedure.
+    </p>
+
+    <h2>How long things are kept</h2>
+    <p>
+      Your data stays until you delete it or ask for your account to be removed.
+    </p>
+    <p>
+      Credentials that have run out are swept by a job that runs once a day. Spent and expired
+      sign-in links go as soon as they lapse, along with the short-lived rows recording a sign-in
+      that was started and not finished, and expired browser sessions. Expired extension
+      keys are kept for a further 30 days and then removed — deliberately, so that an extension
+      which has stopped working can still tell you <em>when</em> its key expired rather than saying
+      it has never seen it.
+    </p>
+    <p>
+      During those 30 days the row is still there in full: the key value itself, the account it
+      belonged to, its label and when it was made. An expired key cannot be used to sign in from
+      the moment it lapses, but it has not been erased yet either.
+    </p>
+
+    <h2>Changes</h2>
+    <p>
+      If this policy changes in a way that affects what is collected or who sees it, the date at
+      the top changes and material changes are announced in the app.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+    </p>
+  </main>
+</Layout>
+
+<style>
+  .prose {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: var(--space-12) var(--space-6) var(--space-16);
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    line-height: 1.7;
+  }
+
+  .back {
+    margin-bottom: var(--space-8);
+    font-size: var(--text-sm);
+  }
+
+  .back a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .back a:hover {
+    color: var(--color-text-primary);
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--space-2);
+  }
+
+  .updated {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-8);
+  }
+
+  .lede {
+    font-size: var(--text-lg);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-10);
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-top: var(--space-10);
+    margin-bottom: var(--space-3);
+  }
+
+  h3 {
+    font-size: var(--text-base);
+    font-weight: 650;
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-2);
+  }
+
+  p {
+    margin-bottom: var(--space-4);
+  }
+
+  ul {
+    margin: 0 0 var(--space-4) var(--space-6);
+  }
+
+  li {
+    margin-bottom: var(--space-3);
+  }
+
+  code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.1em 0.35em;
+  }
+
+  a {
+    color: var(--color-primary);
+  }
+</style>

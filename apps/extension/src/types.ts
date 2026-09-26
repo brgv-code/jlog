@@ -31,4 +31,29 @@ export type ExtensionMessage =
   | { type: 'EXTRACT_REQUEST'; text: string; url: string }
   | { type: 'EXTRACT_RESPONSE'; job: ExtractedJob | null; error?: string }
   | { type: 'SAVE_JOB'; job: DetectedJob }
-  | { type: 'SAVE_RESULT'; ok: boolean; error?: string };
+  | { type: 'SAVE_RESULT'; ok: boolean; error?: string }
+  /** Popup asking the background whether the stored key is still accepted. */
+  | { type: 'CHECK_CONNECTION' }
+  /** Popup asking for the last few tracked jobs, to fill its idle screen. */
+  | { type: 'RECENT_ACTIVITY' }
+  /** Autofill content script asking for the CV profile to fill a form with. */
+  | { type: 'AUTOFILL_PROFILE' }
+  /** Draft icon asking the pro API for an answer to one question (ADR-012 phase 3). */
+  | { type: 'DRAFT_ANSWER'; question: string; pageUrl: string; pageText: string };
+
+/** One row of the popup's "recent" list. */
+export interface RecentApplication {
+  id: string;
+  company: string;
+  role: string;
+  status: string;
+  /** Epoch ms of when it was tracked. */
+  createdAt: number | null;
+}
+
+export interface RecentActivity {
+  items: RecentApplication[];
+  /** How many were tracked in the last seven days. */
+  thisWeek: number;
+  total: number;
+}

@@ -12,12 +12,16 @@ import {
   loadFactOrigins,
 } from '../../lib/cvSource';
 import { photoAsset } from '../../lib/photo';
+import { JlogMark } from '../ui/JlogMark';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Skeleton } from '../ui/skeleton';
 import { GroundedCvView, type SelectedRole } from './GroundedCvView';
 
 type TailorResponse = {
+  // The selection the run settled on, in the shape `/documents/compile` takes.
+  // Opaque here on purpose: resolving fact ids is the private package's job.
+  spec: unknown;
   tex: string;
   selected: SelectedRole[];
   reasoning?: string;
@@ -142,13 +146,33 @@ export function TailorCvDialog({
     }
   }
 
+  /**
+   * Compile the spec already on screen — never generate again.
+   *
+   * Downloading used to re-post to `/generate`, which re-ran the model: a
+   * second, independent selection. The PDF was then not guaranteed to be the
+   * document the citations describe, which is the one thing this view promises.
+   * `/documents/compile` renders the same spec and makes no model call.
+   */
   async function downloadPdf() {
+    // A retry starts clean, the way generate() does: otherwise a failure's
+    // notice outlives it and sits over a download that then succeeded.
+    setError(null);
+    if (!result?.spec) {
+      setError({
+        code: 'UNKNOWN',
+        message: 'This result cannot be compiled. Generate it again and retry the download.',
+      });
+      return;
+    }
     setDownloading(true);
     try {
-      const res = await apiFetch('/api/pro/generate', {
+      const files =
+        style.chrome.includes('photo') && profile.photo ? await photoAsset(profile.photo) : null;
+      const res = await apiFetch('/api/pro/documents/compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body, compile: true }),
+        body: JSON.stringify(files ? { spec: result.spec, files } : { spec: result.spec }),
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as ApiError | null;
@@ -162,6 +186,8 @@ export function TailorCvDialog({
       a.download = `CV — ${company}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+    } catch {
+      setError({ code: 'NETWORK', message: 'Could not reach the API.' });
     } finally {
       setDownloading(false);
     }
@@ -270,9 +296,20 @@ export function TailorCvDialog({
                       <Skeleton className="h-3.5 w-[85%]" />
                     </div>
                   ))}
-                  <p className="text-muted-foreground pt-1 text-center text-xs">
-                    Matching your facts against the posting…
-                  </p>
+                  {/*
+                    The mark sits with the status line rather than replacing the
+                    skeletons above it: those are shaped like the result and are
+                    what stops the dialog jumping when it arrives, which is a job
+                    a logo cannot do. This only says that the wait is real work
+                    still in progress — tailoring runs for seconds, which is long
+                    enough for a still page to read as a stalled one.
+                  */}
+                  <div className="flex items-center justify-center gap-2.5 pt-1">
+                    <JlogMark mode="think" size={22} label="Tailoring" />
+                    <p className="text-muted-foreground text-xs">
+                      Matching your facts against the posting…
+                    </p>
+                  </div>
                 </div>
               )}
 

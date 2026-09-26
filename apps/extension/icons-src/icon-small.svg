@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="jlog">
+  <!--
+    The 16 and 32 px renders come from here rather than icon.svg. At toolbar
+    size the dot in the full mark closes up against the hook and the whole thing
+    reads as a smudge, so this variant pulls them apart and fattens the stroke.
+    Optical correction, not a different logo.
+  -->
+  <rect width="32" height="32" rx="7" fill="#18181b" />
+  <circle cx="20.5" cy="6" r="3" fill="#2563eb" />
+  <path
+    d="M20.5 14 V19.5 A4.5 4.5 0 0 1 11.5 19.5"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="4.6"
+    stroke-linecap="round"
+  />
+</svg>
