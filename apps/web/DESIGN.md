@@ -160,3 +160,19 @@ popover (`compact`) and Settings → Appearance.
 - Spacing comes from `--space-*`. If the step you want is missing, add it to the scale
   rather than typing a pixel value — an undefined `var()` fails silently and the
   declaration is dropped.
+
+## The public site
+
+Marketing pages have their own system, `src/styles/site.css`, applied through
+`SiteLayout.astro` (`<body class="site">`), so the signed-in app is not
+repainted by it. The direction is "career infrastructure": editorial and
+technical, warm paper and near-black ink, one cobalt accent used sparingly,
+Instrument Serif for statements, Geist and Geist Mono for everything else.
+The product's own objects (documents, forms, tables, traces) are the artwork.
+
+- Primitives: `.display` `.h2` `.lead` `.body` `.meta` (type), `.chapter`
+  (numbered, ruled section), `.btn-ink` `.btn-line` `.tag` `.sheet` `.frame`.
+- Each feature page gets its own visual metaphor on these primitives.
+  `/features/tailored-cv` is the first.
+- Every claim a page makes has to be what the code does. The tailored-CV page
+  says posting links are quotes checked to exist, and no more, until BRG-228.

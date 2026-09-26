@@ -1,0 +1,324 @@
+---
+/*
+ * Marketing pages: the site's own design system (styles/site.css), a nav with
+ * a Product menu, and a footer. Wraps Layout for the head, so canonical and
+ * social-card tags stay in one place.
+ *
+ * The Product menu lists only what exists. A feature with its own page links
+ * to it; the rest point at their section of the homepage until they get one.
+ */
+import '../styles/site.css';
+import Layout from './Layout.astro';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+
+const GITHUB_URL = 'https://github.com/brgv-code/jlog';
+
+const product = [
+  { href: '/features/tailored-cv', label: 'Tailored CV', note: 'every line has a source' },
+  { href: '/#apply', label: 'Autofill', note: 'fills forms, never submits' },
+  { href: '/#capture', label: 'Job capture', note: 'six boards, no copy-paste' },
+  { href: '/#try', label: 'Tracking', note: 'saved to offer, in one list' },
+];
+
+const path = Astro.url.pathname.replace(/\/$/, '');
+---
+
+<Layout title={title} description={description} bodyClass="site">
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="nav">
+    <div class="wrap nav-row">
+      <a href="/" class="mark" aria-label="jlog home">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="7" fill="currentColor"></rect>
+          <circle cx="20" cy="6.5" r="2.2" fill="var(--paper)"></circle>
+          <path
+            d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5"
+            stroke="var(--paper)"
+            stroke-width="4"
+            stroke-linecap="round"
+            fill="none"></path>
+        </svg>
+        <span>jlog</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main">
+        <details class="menu">
+          <summary>Product</summary>
+          <ul class="menu-panel">
+            {
+              product.map((p) => (
+                <li>
+                  <a href={p.href} aria-current={path === p.href ? 'page' : undefined}>
+                    <span class="menu-label">{p.label}</span>
+                    <span class="menu-note">{p.note}</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </details>
+        <a href="/#plans">Pricing</a>
+        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+
+      <div class="nav-cta">
+        <a href="/login" class="signin">Sign in</a>
+        <a href="/login" class="btn btn-ink">Get started</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="content">
+    <slot />
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-row">
+      <p class="foot-line">
+        <span class="foot-brand">jlog</span>: Job applications, without the busywork.
+      </p>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="/features/tailored-cv">Tailored CV</a>
+        <a href="/#plans">Pricing</a>
+        <a href="/privacy">Privacy</a>
+        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href={`${GITHUB_URL}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">
+          MIT licence
+        </a>
+      </nav>
+    </div>
+  </footer>
+</Layout>
+
+<script>
+  // Close the Product menu on outside click and on Escape, as a menu should.
+  const menu = document.querySelector<HTMLDetailsElement>('.menu');
+  if (menu) {
+    document.addEventListener('click', (e) => {
+      if (menu.open && !menu.contains(e.target as Node)) menu.open = false;
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && menu.open) {
+        menu.open = false;
+        menu.querySelector('summary')?.focus();
+      }
+    });
+  }
+
+  // Reveal on scroll, once. Without the observer everything is simply shown.
+  const items = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in');
+            io.unobserve(entry.target);
+          }
+        }
+      },
+      { rootMargin: '0px 0px -10% 0px' },
+    );
+    for (const el of items) io.observe(el);
+  } else {
+    for (const el of items) el.classList.add('in');
+  }
+</script>
+
+<style>
+  .skip {
+    position: absolute;
+    left: -9999px;
+  }
+
+  .skip:focus {
+    left: 1rem;
+    top: 1rem;
+    z-index: 100;
+    background: var(--sheet);
+    padding: 0.5rem 0.75rem;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .nav-row {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    height: 64px;
+  }
+
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.0625rem;
+    letter-spacing: -0.02em;
+  }
+
+  .mark svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: var(--t-small);
+  }
+
+  .nav-links > a,
+  .menu summary {
+    color: var(--ink-2);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .nav-links > a:hover,
+  .menu summary:hover {
+    color: var(--ink);
+  }
+
+  .menu {
+    position: relative;
+  }
+
+  .menu summary {
+    list-style: none;
+  }
+
+  .menu summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .menu summary::after {
+    content: '▾';
+    margin-left: 0.3rem;
+    font-size: 0.7em;
+    color: var(--muted);
+  }
+
+  .menu-panel {
+    position: absolute;
+    top: calc(100% + 14px);
+    left: -1rem;
+    width: 280px;
+    list-style: none;
+    padding: 0.5rem;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    box-shadow: 0 16px 40px -24px rgb(23 21 15 / 0.4);
+  }
+
+  .menu-panel a {
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+
+  .menu-panel a:hover,
+  .menu-panel a[aria-current='page'] {
+    background: var(--paper);
+  }
+
+  .menu-label {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .menu-note {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+
+  .nav-cta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    font-size: var(--t-small);
+  }
+
+  .signin {
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+
+  .foot {
+    border-top: 1px solid var(--rule);
+    padding: 3rem 0;
+  }
+
+  .foot-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .foot-line {
+    font-family: var(--display);
+    font-size: 1.5rem;
+  }
+
+  .foot-brand {
+    font-style: italic;
+  }
+
+  .foot-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    font-size: var(--t-small);
+  }
+
+  .foot-links a {
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+
+  .foot-links a:hover {
+    color: var(--ink);
+  }
+
+  @media (max-width: 760px) {
+    .nav-row {
+      gap: 1rem;
+    }
+
+    .nav-links > a {
+      display: none;
+    }
+
+    .signin {
+      display: none;
+    }
+
+    .menu-panel {
+      left: -4rem;
+      width: min(280px, calc(100vw - 2rem));
+    }
+  }
+</style>
