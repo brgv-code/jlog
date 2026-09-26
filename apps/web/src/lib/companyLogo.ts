@@ -28,10 +28,17 @@ function fetchLogo(company: string): Promise<string | null> {
   return pending;
 }
 
-export function useCompanyLogo(company: string): string | null {
+/**
+ * `enabled` exists for the signed-out landing page, which renders the real
+ * applications table against fixtures. The endpoint needs a session, so leaving
+ * this on there would fire a cross-origin request per employer, collect a 401
+ * for each, and fall back to the monogram it could have drawn immediately.
+ */
+export function useCompanyLogo(company: string, enabled = true): string | null {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     fetchLogo(company).then((next) => {
       if (live) setUrl(next);
@@ -42,7 +49,7 @@ export function useCompanyLogo(company: string): string | null {
     // Blob URLs are deliberately not revoked: they are shared through the
     // module cache, so revoking on unmount would break every other row showing
     // the same employer. They live until the page does.
-  }, [company]);
+  }, [company, enabled]);
 
   return url;
 }

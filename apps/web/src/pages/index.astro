@@ -1,406 +1,5227 @@
 ---
+/*
+ * Written by scripts/render-thumbs.mjs, which renders the committed template
+ * PDFs to WebP. Imported rather than the filenames being assumed, so a
+ * template whose picture was never rendered fails this build by name instead
+ * of shipping a broken <img> nobody notices.
+ */
+import thumbs from '../../public/templates/thumbs/manifest.json';
+import { ProductDemo } from '../components/landing/ProductDemo';
 import Layout from '../layouts/Layout.astro';
+
+/*
+ * The landing page.
+ *
+ * Two different jobs, deliberately split:
+ *
+ * - The hero carries a slanted, layered stack of UI fragments with a light
+ *   running its leading edge. It is decoration and is marked aria-hidden. Its
+ *   job is the four seconds before someone decides to keep reading.
+ * - The section below mounts the REAL ApplicationsTable against fixtures. A
+ *   visitor can filter it, change a status, walk it with j/k. That component
+ *   was already presentational, so nothing had to be loosened to get it here.
+ *
+ * Flat and straight-on for the part you interact with, slanted for the part you
+ * only look at. A demo rotated 16 degrees is a poster, not a demo.
+ *
+ * The old version of this page hand-drew four rows in CSS and called that the
+ * product, which is how it sat on emoji feature cards through an entire
+ * redesign without anyone noticing it had stopped describing anything.
+ */
+
+const GITHUB_URL = 'https://github.com/brgv-code/jlog';
+
+/*
+ * The Chrome Web Store listing. Empty until the extension is published: the
+ * store assigns the URL on first upload, and a button that 404s for a reviewer
+ * or a visitor is worse than none. While it is empty the page says how to
+ * build the extension from source; set it and every install button appears.
+ */
+const STORE_URL = '';
+
+const steps = [
+  {
+    id: 'capture',
+    title: 'Capture',
+    body: 'Apply on LinkedIn, Wellfound, Ashby, Greenhouse, Lever or YC and the row writes itself. Anywhere else, one click reads the page.',
+  },
+  {
+    id: 'track',
+    title: 'Track',
+    body: 'Home leads with what needs you today — gone quiet, awaiting a reply, mid-interview — rather than with a count.',
+  },
+  {
+    id: 'tailor',
+    title: 'Tailor',
+    body: 'A CV and cover letter written for the posting in front of you, compiled to PDF from real LaTeX. Built from your history, not from a prompt.',
+  },
+];
+
+/* Six boards with their own content script, named because the list is the claim. */
+const BOARDS = ['LinkedIn', 'Wellfound', 'Ashby', 'Greenhouse', 'Lever', 'YC Jobs'];
+
+/*
+ * Home's charts, at plausible density.
+ *
+ * Fixed rather than random so the page renders identically on every build, and
+ * internally consistent — the funnel, the sources and the hero's row count all
+ * add up to the same 72 applications. A mock whose own numbers disagree is the
+ * fastest way to tell a reader the screenshot is fiction.
+ */
+const WEEKLY = [1, 0, 2, 3, 1, 4, 2, 5, 3, 6, 4, 7, 5, 4, 8, 6, 9, 7, 11, 8, 12, 9, 14, 10, 13, 9];
+
+const TREND_W = 560;
+const TREND_H = 120;
+
+/** Baseline at the bottom edge, peak 12px clear of the top. */
+const trendPoints = WEEKLY.map((v, i) => {
+  const x = (i / (WEEKLY.length - 1)) * TREND_W;
+  const y = TREND_H - 12 - (v / Math.max(...WEEKLY)) * (TREND_H - 24);
+  return `${x.toFixed(1)},${y.toFixed(1)}`;
+});
+const trendLine = trendPoints.join(' ');
+const trendArea = `0,${TREND_H} ${trendLine} ${TREND_W},${TREND_H}`;
+
+const funnel = [
+  { status: 'saved', label: 'Saved', count: 11 },
+  { status: 'applied', label: 'Applied', count: 34 },
+  { status: 'interviewing', label: 'Interviewing', count: 9 },
+  { status: 'offer', label: 'Offer', count: 2 },
+  { status: 'rejected', label: 'Rejected', count: 13 },
+  { status: 'withdrawn', label: 'Withdrawn', count: 3 },
+];
+
+const sources = [
+  { label: 'LinkedIn', count: 26 },
+  { label: 'Greenhouse', count: 14 },
+  { label: 'Ashby', count: 11 },
+  { label: 'Lever', count: 8 },
+  { label: 'Wellfound', count: 7 },
+  { label: 'Manual', count: 6 },
+];
+
+/* Fixed bins, matching the real chart: a histogram whose bins move with the
+   data cannot be compared against the same chart a month later. */
+const replyBuckets = [
+  { label: '0-3d', count: 6 },
+  { label: '3-7d', count: 11 },
+  { label: '1-2w', count: 9 },
+  { label: '2-4w', count: 5 },
+  { label: '4w+', count: 3 },
+];
+
+/** The three states Home opens on, because each one implies an action. */
+const attention = [
+  { label: 'Ghosted', value: 7, hint: 'applied over 14 days ago, still silent' },
+  { label: 'Awaiting response', value: 12, hint: 'recent enough that silence is normal' },
+  { label: 'In interview', value: 9, hint: 'mid-process, and yours to move' },
+];
+
+/* The providers the app actually adapts to. Ollama is the point of the list. */
+const providers = [
+  { name: 'Anthropic', note: 'Claude' },
+  { name: 'OpenAI', note: 'GPT' },
+  { name: 'Gemini', note: 'Google' },
+  { name: 'Ollama', note: 'local, no key, nothing leaves the machine' },
+];
+
+/*
+ * The real pages, not diagrams of them.
+ *
+ * These used to be six abstract skeletons drawn in CSS — a name bar and some
+ * repeating-gradient body text — on the reasoning that six pdf.js canvases is
+ * a lot of JavaScript for a marketing page. That reasoning still holds; the
+ * mistake was concluding the alternative was a drawing. `render-thumbs.mjs`
+ * renders the committed PDFs to WebP once, by hand, and the page ships six
+ * 18KB images of actual typeset documents. A claim about typesetting that is
+ * illustrated with grey rectangles is a claim nobody has to believe.
+ *
+ * `note` is the one thing a picture of a first page does not say by itself.
+ */
+const templates: { id: keyof typeof thumbs; label: string; note: string }[] = [
+  { id: 'classic', label: 'Classic', note: 'moderncv, dated left column' },
+  { id: 'banking', label: 'Banking', note: 'centred rule under the name' },
+  { id: 'casual', label: 'Casual', note: 'larger name, looser leading' },
+  { id: 'oldstyle', label: 'Oldstyle', note: 'serif, centred headings' },
+  { id: 'fancy', label: 'Fancy', note: 'filled header block' },
+  { id: 'plain', label: 'Plain', note: 'single column, ATS-safe' },
+];
+
+for (const template of templates) {
+  if (!thumbs[template.id]) {
+    throw new Error(
+      `No rendered thumbnail for the "${template.id}" template. Run scripts/render-thumbs.mjs.`,
+    );
+  }
+}
+
+/*
+ * The pinned act.
+ *
+ * Five beats of one continuous gesture — posting, capture, row, document,
+ * compile — scrubbed by scroll rather than played on a timer. The page already
+ * made each of these claims in its own section; what it never showed was that
+ * they are one motion. `label` names the beat in the rail, `caption` is the
+ * line that fades in under the scene while that beat is current.
+ */
+const beats = [
+  {
+    id: 'posting',
+    label: 'The posting',
+    caption: 'A job page like any other. You were going to apply to it anyway.',
+  },
+  {
+    id: 'capture',
+    label: 'Captured',
+    caption: 'The extension recognises the apply and reads the page. Nothing to click.',
+  },
+  {
+    id: 'row',
+    label: 'Tracked',
+    caption: 'It becomes a row in the pipeline, with a status you can move.',
+  },
+  {
+    id: 'document',
+    label: 'Written',
+    caption: 'A CV for this posting, composed from facts you imported once.',
+  },
+  {
+    id: 'compiled',
+    label: 'Compiled',
+    caption: 'Every line traced back to its source, then typeset through real LaTeX.',
+  },
+];
+
+/*
+ * The thread diagram.
+ *
+ * Grounding is the one claim on this page nobody else can make, and it was
+ * being carried by two <mark> background colours. Here each generated line is
+ * drawn with a curve running back to the fact it came from and the requirement
+ * it answers — teal for your CV, ochre for the posting, the same pairing the
+ * app uses. `y` is the row's centre in the SVG's own coordinate space, so the
+ * curves and the text cannot drift apart when the copy changes.
+ */
+/*
+ * Rows are a fixed height so the SVG gutters can be drawn in the same
+ * coordinate space as the HTML beside them: three 84px rows with 8px between
+ * puts the row centres at 42, 134 and 226 of a 268-tall box, and the curves
+ * land on them without anything being measured at runtime.
+ */
+const THREAD_ROW = 84;
+const THREAD_GAP = 8;
+const THREAD_H = THREAD_ROW * 3 + THREAD_GAP * 2;
+/** Centre of row i, in the gutters' own coordinates. */
+const threadY = (i: number) => THREAD_ROW / 2 + i * (THREAD_ROW + THREAD_GAP);
+
+/** What you wrote, once, and had to tick before it was stored. */
+const threadFacts = [
+  'Owned the design system — 40 engineers, 6 product teams',
+  'Cut dashboard load 3.2s → 900ms by code-splitting',
+  'Specified interaction and empty states with designers',
+];
+
+/** What this posting asked for, in the order the posting asked for it. */
+const threadNeeds = [
+  'Work directly with designers on interaction detail',
+  'Own our design system and component library',
+  'Keep the app fast — performance is a feature here',
+];
+
+/*
+ * The generated lines, each one the join of a fact and a requirement.
+ *
+ * `need` is deliberately not the identity mapping. A CV is written in your
+ * order and a posting is written in theirs, so the ochre threads cross and the
+ * teal ones do not — which is the actual shape of the problem, and the reason
+ * a CV has to be rewritten per posting rather than reordered.
+ */
+const threadLines = [
+  {
+    fact: 0,
+    need: 1,
+    text: 'Owned the design system 40 engineers across 6 product teams built on.',
+  },
+  { fact: 1, need: 2, text: 'Cut median dashboard load from 3.2s to 900ms by code-splitting.' },
+  { fact: 2, need: 0, text: 'Specified interaction and empty states with designers before build.' },
+];
+
+/**
+ * A gentle S rather than a straight rule: a thread, not a table border.
+ *
+ * A curve between two rows at the same height has identical control points and
+ * comes out dead straight, which reads as a border someone forgot to remove.
+ * Those get a small sag instead, so the teal runs are visibly drawn even where
+ * they connect a fact to the line directly below it.
+ */
+const threadPath = (from: number, to: number, width: number) => {
+  const y1 = threadY(from);
+  const y2 = threadY(to);
+  const sag = from === to ? 9 : 0;
+  return `M0,${y1} C${width * 0.42},${y1 + sag} ${width * 0.58},${y2 + sag} ${width},${y2}`;
+};
 ---
 
-<Layout title="jlog — Track every application. Land the right job.">
+<Layout
+  title="jlog — track every application, and write a CV for each one"
+  description="An open-source job tracker that captures applications from the board you're already on, then writes a CV for each posting from your real history — every line traceable to something you wrote."
+>
   <div class="page">
-
-    <!-- Nav -->
+    <!--
+      Film grain. A pure-white page is optically flat, and flatness is most of
+      what makes a light landing page feel like a document template rather than
+      a designed surface. One inline SVG turbulence at 3% — no request, no
+      raster, and it tiles at any zoom.
+    -->
+    <div class="grain" aria-hidden="true"></div>
     <header class="nav">
-      <span class="wordmark">jlog</span>
-      <div class="nav-actions">
-        <a href="/login" class="btn-ghost">Sign in</a>
-        <a href="/login" class="btn-primary">Get started free</a>
-      </div>
+      <a href="/" class="wordmark" aria-label="jlog home">
+        <svg class="wordmark-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect class="mark-ground" width="32" height="32" rx="7"></rect>
+          <circle class="mark-dot" cx="20" cy="6.5" r="2.2"></circle>
+          <path
+            class="mark-j"
+            d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5"
+            stroke-width="4"
+            stroke-linecap="round"></path>
+        </svg>
+        <span>jlog</span>
+      </a>
+      <!--
+        Read position, as a hairline on the nav's own bottom edge. It is the
+        one piece of chrome that can say how long this page is without a number
+        or a scrollbar, and it costs one element and one custom property.
+      -->
+      <span class="nav-progress" aria-hidden="true"></span>
+      <nav class="nav-actions">
+        <a href={GITHUB_URL} class="nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="/login" class="nav-link">Sign in</a>
+        <a href="/login" class="btn btn-primary">Get started free</a>
+      </nav>
     </header>
 
-    <!-- Hero -->
-    <section class="hero">
-      <h1 class="headline">Track every application.<br />Land the right job.</h1>
-      <p class="subheading">
-        jlog is an open-source job tracker with a Chrome extension that auto-captures
-        applications from LinkedIn, Wellfound, and more.
-      </p>
-      <div class="cta-row">
-        <a href="/login" class="btn-primary btn-lg">Get started free</a>
-        <a href="https://github.com/brgv-code/jlog" class="btn-ghost btn-lg" target="_blank" rel="noopener noreferrer">
-          View on GitHub
-        </a>
-      </div>
-
-      <!-- Mock dashboard -->
-      <div class="mock-dashboard" aria-hidden="true">
-        <div class="mock-toolbar">
-          <span class="mock-pill active">All</span>
-          <span class="mock-pill">Applied</span>
-          <span class="mock-pill">Interviewing</span>
-          <span class="mock-pill">Offer</span>
-          <span class="mock-search">Search company or role…</span>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Open source · Self-hostable · Bring your own model</p>
+        <!--
+          Split for the entrance only. Each word is its own span so they can
+          resolve in sequence rather than the block fading in as one; the text
+          is intact for a screen reader, a crawler, and anyone with motion
+          turned off, because the spans are inert until the script opts in.
+        -->
+        <h1 class="headline">
+          <span class="ln">
+            <span class="w">Every</span> <span class="w">job</span> <span class="w">you</span>
+            <span class="w">apply</span> <span class="w">to,</span> <span class="w">captured.</span>
+          </span>
+          <span class="ln">
+            <span class="w">Every</span> <span class="w">CV</span> <span class="w">you</span>
+            <span class="w">send,</span> <span class="w">written</span> <span class="w">for</span>
+            <span class="w">it.</span>
+          </span>
+        </h1>
+        <p class="subheading">
+          jlog logs the application from the job board you were already on, then writes a CV for
+          that posting out of your real history — every line traceable back to something you
+          actually wrote.
+        </p>
+        <div class="cta-row">
+          <a href="/login" class="btn btn-primary btn-lg">Get started free</a>
+          <a href={GITHUB_URL} class="btn btn-ghost btn-lg" target="_blank" rel="noopener noreferrer">
+            View on GitHub
+          </a>
         </div>
-        <div class="mock-table">
-          <div class="mock-row mock-row-header">
-            <span>Company</span><span>Role</span><span>Status</span><span>Added</span>
-          </div>
-          <div class="mock-row">
-            <span class="mock-company">Stripe</span>
-            <span>Software Engineer, Infra</span>
-            <span><span class="mock-badge interviewing">Interviewing</span></span>
-            <span class="mock-muted">May 14, 2026</span>
-          </div>
-          <div class="mock-row mock-selected">
-            <span class="mock-company">Linear</span>
-            <span>Frontend Engineer</span>
-            <span><span class="mock-badge applied">Applied</span></span>
-            <span class="mock-muted">May 12, 2026</span>
-          </div>
-          <div class="mock-row">
-            <span class="mock-company">Vercel</span>
-            <span>Staff Engineer</span>
-            <span><span class="mock-badge offer">Offer</span></span>
-            <span class="mock-muted">May 10, 2026</span>
-          </div>
-          <div class="mock-row">
-            <span class="mock-company">Figma</span>
-            <span>Product Engineer</span>
-            <span><span class="mock-badge saved">Saved</span></span>
-            <span class="mock-muted">May 8, 2026</span>
+
+        <!--
+          Decorative, and aria-hidden: nothing here says anything the copy above
+          has not. Four fragments of the app in perspective — the posting it
+          reads, the pipeline it fills, the document it writes, and the compile
+          that ends it — so the depth carries the sequence without a caption.
+
+          The content is written out at real density rather than suggested with
+          grey bars. A hero that abstracts the product into rectangles is a
+          diagram of software; the detail is the part that reads as a real thing
+          someone uses.
+        -->
+        <div class="stage" aria-hidden="true">
+          <div class="glow"></div>
+          <div class="stack">
+            <!-- 1. The posting, furthest back and softest. -->
+            <div class="layer layer-jd">
+              <div class="bar">
+                <span class="dots"><i></i><i></i><i></i></span>
+                <span class="bar-url">jobs.ashbyhq.com/linear</span>
+              </div>
+              <div class="jd">
+                <h3 class="jd-title">Senior Product Engineer</h3>
+                <p class="jd-meta">Linear · Remote · Full-time</p>
+                <p class="jd-p">
+                  We are looking for a senior engineer to join the apps team and take ownership of
+                  the surfaces our customers live in.
+                </p>
+                <p class="jd-h">What you'll do</p>
+                <ul class="jd-list">
+                  <li>Ship product surfaces end to end, from spec to release.</li>
+                  <li class="jd-hit">Own our design system and component library.</li>
+                  <li>Keep the app fast — performance is a feature here.</li>
+                  <li>Work directly with designers on interaction detail.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- 2. The pipeline. The widest panel and the centre of the composition. -->
+            <div class="layer layer-list">
+              <div class="bar">
+                <span class="bar-title">Applications</span>
+                <span class="bar-tools">
+                  <span class="tab on">All</span>
+                  <span class="tab">Applied</span>
+                  <span class="tab">Interviewing</span>
+                  <span class="search">Search company or role…</span>
+                </span>
+                <span class="bar-count">72</span>
+              </div>
+              <div class="rows">
+                <div class="row">
+                  <span class="mono-tile" data-h="14">S</span>
+                  <span class="cell">
+                    <span class="co">Stripe</span>
+                    <span class="ro">Staff Frontend Engineer</span>
+                  </span>
+                  <span class="meta">Remote — EU · LinkedIn</span>
+                  <span class="pill interviewing">Interviewing</span>
+                </div>
+                <div class="row row-on">
+                  <span class="mono-tile" data-h="252">L</span>
+                  <span class="cell">
+                    <span class="co">Linear</span>
+                    <span class="ro">Senior Product Engineer</span>
+                  </span>
+                  <span class="meta">Remote · Ashby</span>
+                  <span class="pill applied">Applied</span>
+                </div>
+                <div class="row">
+                  <span class="mono-tile" data-h="196">V</span>
+                  <span class="cell">
+                    <span class="co">Vercel</span>
+                    <span class="ro">Developer Experience Engineer</span>
+                  </span>
+                  <span class="meta">Berlin, DE · Greenhouse</span>
+                  <span class="pill offer">Offer</span>
+                </div>
+                <div class="row">
+                  <span class="mono-tile" data-h="28">A</span>
+                  <span class="cell">
+                    <span class="co">Anthropic</span>
+                    <span class="ro">Product Engineer</span>
+                  </span>
+                  <span class="meta">Remote — EU · Greenhouse</span>
+                  <span class="pill interviewing">Interviewing</span>
+                </div>
+                <div class="row">
+                  <span class="mono-tile" data-h="120">C</span>
+                  <span class="cell">
+                    <span class="co">Cloudflare</span>
+                    <span class="ro">Systems Engineer, Workers</span>
+                  </span>
+                  <span class="meta">Lisbon, PT · Workday</span>
+                  <span class="pill applied">Applied</span>
+                </div>
+                <div class="row">
+                  <span class="mono-tile" data-h="320">R</span>
+                  <span class="cell">
+                    <span class="co">Raycast</span>
+                    <span class="ro">Frontend Engineer</span>
+                  </span>
+                  <span class="meta">London, UK · Manual</span>
+                  <span class="pill saved">Saved</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. The document, nearest and sharpest, on paper rather than UI. -->
+            <div class="layer layer-cv">
+              <svg class="comet" viewBox="0 0 400 260" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cometTail" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0"></stop>
+                    <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="1"></stop>
+                  </linearGradient>
+                </defs>
+                <rect
+                  x="1" y="1" width="398" height="258" rx="11"
+                  fill="none" stroke="url(#cometTail)" stroke-width="2"
+                  pathLength="100" stroke-dasharray="14 86" stroke-linecap="round"></rect>
+              </svg>
+
+              <div class="cv">
+                <div class="cv-head">
+                  <span class="cv-name">John Doe</span>
+                  <span class="cv-contact">john@example.com · Berlin · github.com/jdoe</span>
+                </div>
+                <p class="cv-sec">Experience</p>
+                <div class="cv-entry">
+                  <span class="cv-when">2021 — 2025</span>
+                  <span class="cv-what">
+                    <span class="cv-role">Senior Frontend Engineer, Acme</span>
+                    <span class="cv-b">
+                      Owned the <mark class="cite cite-jd">design system</mark> that
+                      <mark class="cite cite-cv">40 engineers</mark> across 6 product teams built on.
+                    </span>
+                    <span class="cv-b">
+                      Cut median dashboard load from <mark class="cite cite-cv">3.2s to 900ms</mark>
+                      by code-splitting the bundle.
+                    </span>
+                  </span>
+                </div>
+                <div class="cv-entry">
+                  <span class="cv-when">2018 — 2021</span>
+                  <span class="cv-what">
+                    <span class="cv-role">Frontend Engineer, Northwind</span>
+                    <span class="cv-b">
+                      Specified interaction and empty states with designers before build.
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="cv-key">
+                <span><i class="sw sw-cv"></i>your CV</span>
+                <span><i class="sw sw-jd"></i>the posting</span>
+              </div>
+            </div>
+
+            <!-- 4. The extension, caught mid-capture. This is where the sequence
+                 actually starts, so it sits highest and furthest right — the
+                 eye enters there and travels down-left through the stack. -->
+            <div class="layer layer-ext">
+              <div class="ext-head">
+                <span class="ext-mark">j</span>
+                <span class="ext-title">Captured from Ashby</span>
+              </div>
+              <dl class="ext-fields">
+                <div><dt>Company</dt><dd>Linear</dd></div>
+                <div><dt>Role</dt><dd>Senior Product Engineer</dd></div>
+                <div><dt>Location</dt><dd>Remote</dd></div>
+              </dl>
+              <span class="ext-cta">Save to jlog</span>
+            </div>
+
+            <!-- 5. The small one. Closest to the viewer, and the only thing moving
+                 on its own, which is what makes the rest read as still rather
+                 than as dead. -->
+            <div class="layer layer-chip">
+              <span class="ping"></span>
+              <span class="chip-main">Compiled to PDF</span>
+              <span class="chip-sub">tectonic · 1.8s · classic</span>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Features -->
-    <section class="features">
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">⚡</div>
-          <h3 class="feature-title">Auto-capture</h3>
-          <p class="feature-desc">
-            Extension detects applications on LinkedIn, Wellfound, Ashby, and more — no copy-pasting required.
+      <section class="proof reveal">
+        <dl class="proof-grid stagger">
+          <div><dt data-count="6">6</dt><dd>job boards captured automatically</dd></div>
+          <div><dt data-count="6">6</dt><dd>CV designs, compiled from LaTeX</dd></div>
+          <div><dt data-count="4">4</dt><dd>model providers, including local Ollama</dd></div>
+          <div><dt>MIT</dt><dd>runs on Cloudflare's free tier</dd></div>
+        </dl>
+        <!--
+          Three copies, and the track travels exactly one copy before it loops,
+          so the wrap has no seam. Three rather than two because six board names
+          do not fill a wide viewport once: at two copies the whole list stood on
+          screen twice at rest, which reads as a duplicated list, not a ticker.
+          aria-hidden on the copies keeps a screen reader from reading the six
+          boards three times.
+        -->
+        <div class="marquee">
+          <div class="marquee-track">
+            <span class="marquee-set">
+              {BOARDS.map((board) => <span class="board">{board}</span>)}
+            </span>
+            {[0, 1].map(() => (
+              <span class="marquee-set" aria-hidden="true">
+                {BOARDS.map((board) => <span class="board">{board}</span>)}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="steps reveal">
+        {
+          steps.map((step) => (
+            <article class="step">
+              <svg class={`step-icon step-icon-${step.id}`} viewBox="0 0 24 24" aria-hidden="true">
+                {step.id === 'capture' && (
+                  <g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3v11" />
+                    <path d="M8 10l4 4 4-4" />
+                    <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                  </g>
+                )}
+                {step.id === 'track' && (
+                  <g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 6h11" />
+                    <path d="M9 12h11" />
+                    <path d="M9 18h11" />
+                    <path d="M4 6h.01" />
+                    <path d="M4 12h.01" />
+                    <path d="M4 18h.01" />
+                  </g>
+                )}
+                {step.id === 'tailor' && (
+                  <g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5" />
+                    <path d="M14 3v5h5" />
+                    <path d="M20 13l-5.5 5.5-2.5.6.6-2.5L18.1 11a1.3 1.3 0 0 1 1.9 1.9z" />
+                  </g>
+                )}
+              </svg>
+              <h2 class="step-title">{step.title}</h2>
+              <p class="step-body">{step.body}</p>
+            </article>
+          ))
+        }
+      </section>
+
+      <!--
+        The act.
+
+        The three claims above are the three claims this page has always made,
+        and it made them as three paragraphs and, further down, as four separate
+        static panels. What none of that showed is that they are one continuous
+        motion — a posting you were reading becomes a row becomes a document
+        without you doing anything in between.
+
+        So this is that motion, pinned and scrubbed: the rail is tall, the stage
+        sticks to the top of it, and scroll position drives the scene rather than
+        scrolling past it. Everything inside is driven by six numbers the script
+        writes on the stage each frame — an overall --q and one 0-to-1 progress
+        per beat — so the whole choreography is CSS calc against those, and it
+        runs backwards as cleanly as forwards.
+
+        Without JS, under prefers-reduced-motion, in print, and on a phone it is
+        not pinned at all: the default styles lay the five panels out as a plain
+        static composition and every beat is simply visible. The pinned version
+        is what `html.motion` opts into.
+      -->
+      <section class="act" aria-labelledby="act-title">
+        <div class="act-rail">
+          <div class="act-stage" data-beat="0">
+            <div class="act-side">
+              <div>
+                <p class="eyebrow">Start to finish</p>
+                <h2 class="section-title section-title-xl" id="act-title">One posting, all the way through</h2>
+              </div>
+
+              <!--
+                The caption lives inside its beat rather than in a box of its
+                own, so the rail stays one list and the eye never leaves it. In
+                the pinned version all but the current one are collapsed to zero
+                height; in the static fallback they are simply all open, which
+                is the right way to read five steps you cannot scrub.
+              -->
+              <ol class="act-steps">
+                {
+                  beats.map((beat, i) => (
+                    <li class="act-step" data-i={i}>
+                      <span class="act-step-n">{String(i + 1).padStart(2, '0')}</span>
+                      <span class="act-step-l">{beat.label}</span>
+                      <span class="act-step-c">{beat.caption}</span>
+                    </li>
+                  ))
+                }
+              </ol>
+            </div>
+
+            <div class="act-frame" aria-hidden="true">
+              <div class="act-scene">
+                <!-- 1. The posting. On screen from the first frame; it is where
+                     the story starts and it never leaves, it is only left
+                     behind by the camera. -->
+                <div class="act-panel act-jd">
+                  <div class="bar">
+                    <span class="dots"><i></i><i></i><i></i></span>
+                    <span class="bar-url">jobs.ashbyhq.com/linear</span>
+                  </div>
+                  <div class="jd">
+                    <h3 class="jd-title">Senior Product Engineer</h3>
+                    <p class="jd-meta">Linear · Remote · Full-time</p>
+                    <p class="jd-h">What you'll do</p>
+                    <ul class="jd-list">
+                      <li>Ship product surfaces end to end, from spec to release.</li>
+                      <li class="jd-hit">Own our design system and component library.</li>
+                      <li>Keep the app fast — performance is a feature here.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- 2. The capture card, whose three fields fill in sequence
+                     rather than all at once: filling one at a time is the only
+                     way a reader can tell it is reading the page rather than
+                     showing a form. -->
+                <div class="act-panel act-ext">
+                  <div class="ext-head">
+                    <span class="ext-mark">j</span>
+                    <span class="ext-title">Captured from Ashby</span>
+                  </div>
+                  <dl class="ext-fields">
+                    <div style="--i:0"><dt>Company</dt><dd>Linear</dd></div>
+                    <div style="--i:1"><dt>Role</dt><dd>Senior Product Engineer</dd></div>
+                    <div style="--i:2"><dt>Location</dt><dd>Remote</dd></div>
+                  </dl>
+                  <span class="ext-cta">Saved</span>
+                </div>
+
+                <!-- 3. The pipeline. The rows that were already there are
+                     static; the Linear row is the one that writes itself, so it
+                     is the only one carrying --i and the highlight. -->
+                <div class="act-panel act-list">
+                  <div class="bar">
+                    <span class="bar-title">Applications</span>
+                    <span class="bar-tools">
+                      <span class="tab on">All</span>
+                      <span class="tab">Applied</span>
+                      <span class="tab">Interviewing</span>
+                    </span>
+                    <span class="bar-count act-count">72</span>
+                  </div>
+                  <div class="rows">
+                    <div class="row">
+                      <span class="mono-tile" data-h="14">S</span>
+                      <span class="cell">
+                        <span class="co">Stripe</span>
+                        <span class="ro">Staff Frontend Engineer</span>
+                      </span>
+                      <span class="meta">Remote — EU · LinkedIn</span>
+                      <span class="pill interviewing">Interviewing</span>
+                    </div>
+                    <div class="row act-row-new">
+                      <span class="mono-tile" data-h="252">L</span>
+                      <span class="cell">
+                        <span class="co">Linear</span>
+                        <span class="ro">Senior Product Engineer</span>
+                      </span>
+                      <span class="meta">Remote · Ashby</span>
+                      <span class="pill applied">Applied</span>
+                    </div>
+                    <div class="row">
+                      <span class="mono-tile" data-h="196">V</span>
+                      <span class="cell">
+                        <span class="co">Vercel</span>
+                        <span class="ro">Developer Experience Engineer</span>
+                      </span>
+                      <span class="meta">Berlin, DE · Greenhouse</span>
+                      <span class="pill offer">Offer</span>
+                    </div>
+                    <div class="row">
+                      <span class="mono-tile" data-h="28">A</span>
+                      <span class="cell">
+                        <span class="co">Anthropic</span>
+                        <span class="ro">Product Engineer</span>
+                      </span>
+                      <span class="meta">Remote — EU · Greenhouse</span>
+                      <span class="pill interviewing">Interviewing</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 4 and 5. The document, then the compile that ends it. The
+                     bullets compose on beat four and their citations light on
+                     beat five, which is the order the app does it in: it writes
+                     first and attributes after. -->
+                <div class="act-panel act-paper">
+                  <svg class="comet act-comet" viewBox="0 0 400 260" preserveAspectRatio="none">
+                    <!-- Its own gradient rather than the hero's. A paint server
+                         does resolve across two inline SVGs in one document, but
+                         then this panel breaks the day the hero is edited. -->
+                    <defs>
+                      <linearGradient id="actCometTail" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0"></stop>
+                        <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="1"></stop>
+                      </linearGradient>
+                    </defs>
+                    <rect
+                      x="1" y="1" width="398" height="258" rx="11"
+                      fill="none" stroke="url(#actCometTail)" stroke-width="2"
+                      pathLength="100" stroke-dasharray="14 86" stroke-linecap="round"></rect>
+                  </svg>
+                  <div class="cv">
+                    <div class="cv-head" style="--i:0">
+                      <span class="cv-name">John Doe</span>
+                      <span class="cv-contact">john@example.com · Berlin · github.com/jdoe</span>
+                    </div>
+                    <p class="cv-sec" style="--i:1">Experience</p>
+                    <div class="cv-entry" style="--i:2">
+                      <span class="cv-when">2021 — 2025</span>
+                      <span class="cv-what">
+                        <span class="cv-role">Senior Frontend Engineer, Acme</span>
+                        <span class="cv-b">
+                          Owned the <mark class="cite cite-jd">design system</mark> that
+                          <mark class="cite cite-cv">40 engineers</mark> across 6 product teams built on.
+                        </span>
+                      </span>
+                    </div>
+                    <div class="cv-entry" style="--i:3">
+                      <span class="cv-when"></span>
+                      <span class="cv-what">
+                        <span class="cv-b">
+                          Cut median dashboard load from
+                          <mark class="cite cite-cv">3.2s to 900ms</mark> by
+                          <mark class="cite cite-jd">code-splitting the bundle</mark>.
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="act-panel act-chip">
+                  <span class="ping"></span>
+                  <span class="chip-main">Compiled to PDF</span>
+                  <span class="chip-sub">tectonic · 1.8s · classic</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!--
+        Capture, in full.
+        The trio above says "the row writes itself" in one line, which is the
+        claim people disbelieve. This is the answer: three tiers, named, with
+        the cost of each stated — because the honest version of "automatic" is
+        that six boards are automatic and everything else costs a click.
+      -->
+      <section class="capture reveal">
+        <div class="capture-copy">
+          <p class="eyebrow">Capture</p>
+          <h2 class="section-title">Three ways in. You will only ever use the first.</h2>
+          <p class="section-body">
+            Six boards have a detector that watches the page for the apply you just made — the Easy
+            Apply modal closing, a submit button, a thank-you screen — and writes the row itself.
+            Nothing to click, nothing to paste, no tab to come back to.
+          </p>
+          <p class="section-body">
+            Everywhere else the extension reads the page you are already on. A job that reached you
+            by email or a referral goes in by hand. However it arrives it is the same row, in the
+            same list, with the same pipeline behind it.
           </p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">📋</div>
-          <h3 class="feature-title">One dashboard</h3>
-          <p class="feature-desc">
-            Track status, notes, and timeline for every application in one place with full keyboard navigation.
-          </p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🤖</div>
-          <h3 class="feature-title">Bring your AI</h3>
-          <p class="feature-desc">
-            Use Anthropic, OpenAI, Gemini, or local Ollama to extract job details and summarise listings.
-          </p>
-        </div>
-      </div>
-    </section>
+        <ol class="tiers stagger">
+          <li class="tier">
+            <span class="tier-n">01</span>
+            <div class="tier-body">
+              <p class="tier-t">Detected</p>
+              <p class="tier-b">
+                LinkedIn, Wellfound, Ashby, Greenhouse, Lever and YC. A content script per site,
+                watching for the apply event rather than scraping a listing.
+              </p>
+            </div>
+            <span class="tier-cost">no click</span>
+          </li>
+          <li class="tier">
+            <span class="tier-n">02</span>
+            <div class="tier-body">
+              <p class="tier-t">Read with your model</p>
+              <p class="tier-b">
+                Any other job page. The extension sends the text to the model you configured and
+                fills company, role and location for you to confirm before it saves.
+              </p>
+            </div>
+            <span class="tier-cost">one click</span>
+          </li>
+          <li class="tier">
+            <span class="tier-n">03</span>
+            <div class="tier-body">
+              <p class="tier-t">By hand</p>
+              <p class="tier-b">
+                A referral, a recruiter email, a conversation at a meetup. Added in the app, and
+                indistinguishable from a captured one once it is in.
+              </p>
+            </div>
+            <span class="tier-cost">always there</span>
+          </li>
+        </ol>
+      </section>
 
-    <!-- Footer -->
+      <!--
+        Apply.
+
+        Capture is what happens after you apply; this is the form itself. The
+        "never submits" line is in the heading's paragraph, not in small print:
+        an extension that fills forms is exactly the one people should ask that
+        of, and the answer is a design decision rather than a setting.
+      -->
+      <section class="apply reveal">
+        <div class="apply-copy">
+          <p class="eyebrow">Apply</p>
+          <h2 class="section-title">The form, filled from what you already wrote down.</h2>
+          <p class="section-body">
+            On Greenhouse, Lever and Ashby, including the forms companies embed in their own careers
+            pages, one button fills the fields jlog recognises from your profile. It only fills what
+            is empty, and it never submits: you read the form and press the button yourself.
+          </p>
+          <p class="section-body">
+            Visa, salary and equal opportunity questions are never guessed. They are answered from
+            what you saved once in settings, or left for you.
+          </p>
+        </div>
+        <ol class="tiers stagger">
+          <li class="tier">
+            <span class="tier-n">01</span>
+            <div class="tier-body">
+              <p class="tier-t">Filled from your profile</p>
+              <p class="tier-b">
+                Name, email, location and links from the CV you imported, and the phone number you
+                saved. Anything the browser or you already typed stays as it is.
+              </p>
+            </div>
+            <span class="tier-cost">one click</span>
+          </li>
+          <li class="tier">
+            <span class="tier-n">02</span>
+            <div class="tier-body">
+              <p class="tier-t">Answered only from what you saved</p>
+              <p class="tier-b">
+                Work authorisation, sponsorship, notice period, salary. Filled when the question
+                names one country you listed, left empty when it does not.
+              </p>
+            </div>
+            <span class="tier-cost">saved once</span>
+          </li>
+          <li class="tier">
+            <span class="tier-n">03</span>
+            <div class="tier-body">
+              <p class="tier-t">Drafted from your facts</p>
+              <p class="tier-b">
+                "Why do you want to work here?" gets a draft built from your stored experience, with
+                the facts it used listed underneath. If your profile does not cover the question, it
+                says so instead of writing one.
+              </p>
+            </div>
+            <span class="tier-cost">pro</span>
+          </li>
+        </ol>
+      </section>
+
+      <!--
+        client:visible rather than client:load. This is below the fold on most
+        screens, and a landing page that ships React before its own headline has
+        painted is arguing against its first section.
+      -->
+      <section class="try reveal section-roomy">
+        <div class="try-head">
+          <div>
+            <p class="eyebrow">Try it</p>
+            <h2 class="section-title section-title-xl">The actual interface, with sample data</h2>
+          </div>
+          <p class="section-body">
+            Not a screenshot and not a drawing — the shipped component, running here. Filter it,
+            change a status, click a generated line to see what it was written from.
+          </p>
+        </div>
+        <!--
+          The strongest thing on the page was sitting inside the same 1128px
+          measure as a paragraph. It gets a stage wider than the text column and
+          a frame, because a live product is the one element here that should
+          look bigger than the writing about it.
+        -->
+        <div class="try-stage">
+          <ProductDemo client:visible />
+        </div>
+      </section>
+
+      <!--
+        Home.
+        The one section that shows a whole screen rather than a fragment, because
+        what is being claimed is an arrangement: three states that imply an
+        action, and the charts kept behind them. Drawn rather than screenshotted
+        so it themes, scales and stays true when the real charts change.
+
+        Chart rules are DESIGN.md's: the trend carries the accent because shape
+        is the point, every bar is neutral ink, and status colour rides a dot
+        beside its label rather than filling a bar whose length is the
+        comparison.
+      -->
+      <section class="home reveal">
+        <p class="eyebrow">Home</p>
+        <h2 class="section-title">It opens on what has gone quiet</h2>
+        <p class="section-body section-body-wide">
+          Not a count of applications — a count is not something you can act on. Home leads with the
+          three states that need a decision today, each one a filter you can land in, and keeps six
+          months of pipeline behind them rather than in front.
+        </p>
+
+        <div class="home-panel" aria-hidden="true">
+          <div class="attention">
+            {
+              attention.map((tile) => (
+                <div class="att">
+                  <span class="att-k">{tile.label}</span>
+                  <span class="att-v">{tile.value}</span>
+                  <span class="att-h">{tile.hint}</span>
+                </div>
+              ))
+            }
+          </div>
+
+          <div class="charts">
+            <figure class="chart chart-wide">
+              <figcaption>Applications added<span>26 weeks</span></figcaption>
+              <svg class="trend" viewBox={`0 0 ${TREND_W} ${TREND_H}`} preserveAspectRatio="none">
+                <polyline class="trend-area" points={trendArea}></polyline>
+                <polyline class="trend-line" pathLength="1" points={trendLine}></polyline>
+              </svg>
+              <div class="axis"><span>Apr</span><span>Sep</span></div>
+            </figure>
+
+            <figure class="chart">
+              <figcaption>Pipeline<span>where everything stands</span></figcaption>
+              <ul class="bars">
+                {
+                  funnel.map((row) => (
+                    <li>
+                      <span class={`bar-k dot dot-${row.status}`}>{row.label}</span>
+                      <span class="bar-track">
+                        <span class="bar-fill" style={`width:${(row.count / 34) * 100}%`} />
+                      </span>
+                      <span class="bar-v">{row.count}</span>
+                    </li>
+                  ))
+                }
+              </ul>
+            </figure>
+
+            <figure class="chart">
+              <figcaption>Where they came from<span>by source</span></figcaption>
+              <ul class="bars">
+                {
+                  sources.map((row) => (
+                    <li>
+                      <span class="bar-k">{row.label}</span>
+                      <span class="bar-track">
+                        <span class="bar-fill" style={`width:${(row.count / 26) * 100}%`} />
+                      </span>
+                      <span class="bar-v">{row.count}</span>
+                    </li>
+                  ))
+                }
+              </ul>
+            </figure>
+
+            <figure class="chart">
+              <figcaption>How long replies take<span>median 9d</span></figcaption>
+              <ul class="cols">
+                {
+                  replyBuckets.map((bucket) => (
+                    <li>
+                      <span class="col" style={`height:${(bucket.count / 11) * 100}%`} />
+                      <span class="col-k">{bucket.label}</span>
+                    </li>
+                  ))
+                }
+              </ul>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!--
+        One application, up close.
+        The before/after is the section. Everything else here is a claim you
+        have to take on trust; this one can be checked by reading two panels,
+        and it happens to be the least glamorous, most-used thing the app does.
+      -->
+      <section class="detail reveal">
+        <div class="detail-copy">
+          <p class="eyebrow">One application</p>
+          <h2 class="section-title">The posting, made readable again</h2>
+          <p class="section-body">
+            Postings arrive as plain text — whatever markup made them readable on the job board is
+            gone, so headings, bullets and paragraphs all land as undifferentiated lines. jlog puts
+            the structure back by inference before anything renders: typographic bullets become list
+            items, short unpunctuated lines that introduce a list become headings, and lines
+            hard-wrapped mid-sentence are rejoined into paragraphs.
+          </p>
+          <p class="section-body">
+            It is a heuristic and it will sometimes be wrong, so there is a toggle back to exactly
+            what was captured. A formatter you cannot see through is worse than no formatter.
+          </p>
+          <ul class="detail-rail stagger">
+            <li><span>Notes</span>Markdown, rendered, and never inferred over — you wrote that on purpose</li>
+            <li><span>Activity</span>Every status change, timestamped, in one column</li>
+            <li><span>Follow-up</span>Drafted against the posting, and logged the moment you send it</li>
+          </ul>
+        </div>
+
+        <div class="ba" aria-hidden="true">
+          <figure class="ba-pane">
+            <figcaption><span class="ba-tag">As captured</span>plain text, hard-wrapped</figcaption>
+            <pre class="ba-raw">About the role
+We are looking for a senior engineer to join the
+apps team and take ownership of the surfaces our
+customers live in.
+What you'll do
+• Ship product surfaces end to end, from spec to
+release.
+• Own our design system and component library.
+• Keep the app fast — performance is a feature here.</pre>
+          </figure>
+
+          <figure class="ba-pane">
+            <figcaption><span class="ba-tag ba-tag-on">As rendered</span>structure inferred</figcaption>
+            <div class="ba-out">
+              <p class="ba-h">About the role</p>
+              <p class="ba-p">
+                We are looking for a senior engineer to join the apps team and take ownership of the
+                surfaces our customers live in.
+              </p>
+              <p class="ba-h">What you'll do</p>
+              <ul class="ba-ul">
+                <li>Ship product surfaces end to end, from spec to release.</li>
+                <li>Own our design system and component library.</li>
+                <li>Keep the app fast — performance is a feature here.</li>
+              </ul>
+            </div>
+          </figure>
+        </div>
+      </section>
+
+      <!--
+        Import.
+        The on-ramp to every generated document, and the step that decides
+        whether any of the grounding claims below are worth anything: facts are
+        what tailoring may select from, so a parse that guessed wrong has to be
+        caught by a person before it is stored, not after it has been sent.
+      -->
+      <section class="import reveal">
+        <p class="eyebrow">Your history</p>
+        <h2 class="section-title">Import a CV once. Everything after is selection, not invention.</h2>
+        <p class="section-body section-body-wide">
+          Paste or upload the CV you already have. jlog reads it into individual facts — a role, a
+          bullet, a number — shows you every one it found, and writes nothing until you have ticked
+          what is true. Those rows become the only material generation is allowed to draw on.
+        </p>
+
+        <div class="review" aria-hidden="true">
+          <div class="review-head">
+            <span class="review-file">john-doe-cv.pdf</span>
+            <span class="review-count">24 facts read · 22 kept</span>
+          </div>
+          <ul class="review-rows stagger">
+            <li class="on">
+              <span class="tick"></span>
+              <span class="review-t">Senior Frontend Engineer, Acme · 2021 — 2025</span>
+              <span class="review-kind">role</span>
+            </li>
+            <li class="on">
+              <span class="tick"></span>
+              <span class="review-t">Owned the design system 40 engineers across 6 product teams built on.</span>
+              <span class="review-kind">bullet</span>
+            </li>
+            <li class="on">
+              <span class="tick"></span>
+              <span class="review-t">Cut median dashboard load from 3.2s to 900ms by code-splitting the bundle.</span>
+              <span class="review-kind">bullet</span>
+            </li>
+            <li>
+              <span class="tick"></span>
+              <span class="review-t">References available on request</span>
+              <span class="review-kind">bullet</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="grounding reveal section-roomy">
+        <div class="grounding-copy">
+          <p class="eyebrow">Grounding</p>
+          <h2 class="section-title section-title-xl">Nothing it writes is unattributable</h2>
+          <p class="section-body">
+            Generation runs against a corpus of facts mined from your own CVs, not against a CV as
+            a block of text. The model picks facts by id and never writes the line, so every line
+            keeps a pointer back to the fact it came from.
+          </p>
+          <p class="section-body">
+            The requirement a line answers is quoted from the posting and looked up in it; a quote
+            that is not there is dropped rather than shown. A CV that quietly embellishes is worse
+            than no CV — you find out in the interview.
+          </p>
+        </div>
+        <ul class="grounding-facts stagger">
+          <li>
+            <span class="fact-k">Traced to</span>
+            <span class="fact-v">the sentence in your CV it was derived from</span>
+          </li>
+          <li>
+            <span class="fact-k">Quoted from</span>
+            <span class="fact-v">the posting, and checked to be in it</span>
+          </li>
+          <li>
+            <span class="fact-k">Output</span>
+            <span class="fact-v">real LaTeX, compiled to PDF — not HTML pretending</span>
+          </li>
+          <li>
+            <span class="fact-k">Unmatched</span>
+            <span class="fact-v">flagged, never fabricated</span>
+          </li>
+        </ul>
+
+        <!--
+          The thread.
+
+          The one claim on this page nobody else is making, and until now it was
+          carried by two <mark> background colours. Drawn properly it is the
+          page's motif: teal runs from a fact you wrote to the line built out of
+          it, ochre runs from the requirement that line answers, and the ochre
+          threads cross because a posting is not written in the order your CV is.
+
+          Geometry comes from the frontmatter, not from measurement — fixed row
+          heights put the HTML rows and the SVG gutters in the same coordinate
+          space, so the curves stay on their rows when the copy changes.
+        -->
+        <figure class="thread" aria-hidden="true">
+          <div class="thread-grid">
+            <div class="thread-col">
+              <p class="thread-h thread-h-cv">Your CV, read as facts</p>
+              <div class="thread-rows">
+                {threadFacts.map((fact) => <p class="thread-row thread-row-cv">{fact}</p>)}
+              </div>
+            </div>
+
+            <svg class="thread-gutter" viewBox={`0 0 120 ${THREAD_H}`} preserveAspectRatio="none">
+              {
+                threadLines.map((row, i) => (
+                  <path class="wire wire-cv" pathLength="1" d={threadPath(row.fact, i, 120)} />
+                ))
+              }
+            </svg>
+
+            <div class="thread-col thread-col-out">
+              <p class="thread-h">Written for this posting</p>
+              <div class="thread-rows">
+                {threadLines.map((row) => <p class="thread-row thread-row-out">{row.text}</p>)}
+              </div>
+            </div>
+
+            <svg class="thread-gutter" viewBox={`0 0 120 ${THREAD_H}`} preserveAspectRatio="none">
+              {
+                threadLines.map((row, i) => (
+                  <path class="wire wire-jd" pathLength="1" d={threadPath(i, row.need, 120)} />
+                ))
+              }
+            </svg>
+
+            <div class="thread-col">
+              <p class="thread-h thread-h-jd">What the posting asked for</p>
+              <div class="thread-rows">
+                {threadNeeds.map((need) => <p class="thread-row thread-row-jd">{need}</p>)}
+              </div>
+            </div>
+          </div>
+
+          <figcaption>
+            A line with nothing on its left cannot be written: the model chooses stored facts by
+            id and has no field to write prose in. That is the anti-hallucination policy, and it is
+            a data structure rather than a prompt.
+          </figcaption>
+        </figure>
+      </section>
+
+      <!--
+        Templates.
+
+        Moved off drawings and onto the real pages. Each card links to the PDF
+        it is a picture of, which is the only version of this claim that can be
+        checked: a gallery you cannot open is a gallery you have to believe.
+      -->
+      <section class="templates reveal">
+        <p class="eyebrow">Templates</p>
+        <h2 class="section-title">Six designs, not six countries</h2>
+        <p class="section-body section-body-wide">
+          A template is a design. Where conventions differ — whether a photo belongs on the page,
+          how long it runs — that is a property of the design you picked, applied for you, not a
+          country you have to choose first. Open any of them.
+        </p>
+        <ul class="template-strip stagger">
+          {
+            templates.map((template) => (
+              <li class="template">
+                <a
+                  class="sheet"
+                  href={`/templates/${template.id}.pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    src={`/templates/thumbs/${template.id}.webp`}
+                    alt={`The ${template.label} template, rendered as a PDF`}
+                    width={thumbs[template.id].w}
+                    height={thumbs[template.id].h}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </a>
+                <span class="template-label">
+                  {template.label}
+                  <span class="template-note">{template.note}</span>
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <section class="oss reveal">
+        <div class="oss-copy">
+          <p class="eyebrow">Self-hosting</p>
+          <h2 class="section-title">Yours, including the parts you'd rather not hand over</h2>
+          <p class="section-body">
+            MIT licensed, and it runs on Cloudflare's free tier. Self-host the whole thing on your
+            own account and your application history — every posting, every note, every rejection —
+            never leaves it.
+          </p>
+          <div class="oss-actions">
+            {
+              STORE_URL && (
+                <a href={STORE_URL} class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+                  Add to Chrome
+                </a>
+              )
+            }
+            <a href={GITHUB_URL} class="btn btn-ghost" target="_blank" rel="noopener noreferrer">
+              Read the source
+            </a>
+            {
+              !STORE_URL && (
+                <span class="oss-note">
+                  The extension is built from source until its Chrome Web Store listing is live.
+                </span>
+              )
+            }
+          </div>
+        </div>
+
+        <!--
+          The model list is its own column rather than a clause in the paragraph
+          above, because Ollama is the whole argument: a job search is the most
+          sensitive text most people own, and "we do not train on your data" is a
+          promise, while a model running on your laptop is not one.
+        -->
+        <div class="oss-model">
+          <p class="eyebrow">Your model</p>
+          <ul class="providers stagger">
+            {
+              providers.map((provider) => (
+                <li>
+                  <span class="prov-n">{provider.name}</span>
+                  <span class="prov-note">{provider.note}</span>
+                </li>
+              ))
+            }
+          </ul>
+          <p class="prov-foot">
+            Your key, not ours, and encrypted with AES-GCM-256 before it is stored. Point it at a
+            local Ollama and no part of a posting or a CV leaves the machine.
+          </p>
+        </div>
+      </section>
+
+      <!--
+        Plans.
+        The footer carried this as a single line, which is how a paid feature
+        reads when nobody wants to say it out loud. It is a better trade than
+        that: the tracker is the free thing and it is the part used every day.
+      -->
+      <section class="plans reveal">
+        <p class="eyebrow">Plans</p>
+        <h2 class="section-title">Tracking is free, and stays free</h2>
+        <div class="plan-split">
+          <article class="plan">
+            <p class="plan-k">Free</p>
+            <p class="plan-lead">Everything that runs a search.</p>
+            <ul class="plan-list stagger">
+              <li>Automatic capture on six job boards</li>
+              <li>Application forms filled from your profile, never submitted</li>
+              <li>Extraction on any other page, with your own model key</li>
+              <li>Unlimited applications, statuses, notes and follow-ups</li>
+              <li>Home, the pipeline, and every chart behind it</li>
+              <li>CV import and the facts it reads out</li>
+              <li>Self-host the whole thing on your own Cloudflare account</li>
+            </ul>
+          </article>
+
+          <article class="plan">
+            <p class="plan-k plan-k-pro">Pro</p>
+            <p class="plan-lead">Everything above, plus documents.</p>
+            <ul class="plan-list stagger">
+              <li>A CV written for the posting in front of you</li>
+              <li>A cover letter built from the same stored facts</li>
+              <li>Drafted answers to open questions, with the facts they used</li>
+              <li>Six LaTeX designs, compiled to real PDF</li>
+              <li>Every line traceable to the sentence it came from</li>
+              <li>Unmatched lines flagged rather than invented</li>
+            </ul>
+            <p class="plan-note">Billed through Stripe. Cancel any time.</p>
+          </article>
+        </div>
+      </section>
+
+      <!--
+        The closer.
+
+        This was set at --text-2xl, the same size as a mid-page subhead — the
+        last line anyone reads, delivered in the same voice as a caption. It is
+        the one place on the page where the type is allowed to be the graphic,
+        so it is set against the viewport rather than against a type scale, and
+        it breaks the 1128px measure the rest of the page keeps.
+      -->
+      <section class="closer reveal">
+        <h2 class="closer-title">
+          <span class="ln"><span class="w">Start</span> <span class="w">with</span> <span class="w">the</span></span>
+          <span class="ln"><span class="w">applications</span> <span class="w">you</span></span>
+          <span class="ln"><span class="w">have</span> <span class="w">open</span> <span class="w">now.</span></span>
+        </h2>
+        <div class="cta-row">
+          <a href="/login" class="btn btn-primary btn-lg">Get started free</a>
+          {
+            STORE_URL && (
+              <a href={STORE_URL} class="btn btn-ghost btn-lg" target="_blank" rel="noopener noreferrer">
+                Add to Chrome
+              </a>
+            )
+          }
+          <a href={GITHUB_URL} class="btn btn-ghost btn-lg" target="_blank" rel="noopener noreferrer">
+            View on GitHub
+          </a>
+        </div>
+        <p class="closer-note">Free to track, for as long as you use it. No card to start.</p>
+      </section>
+    </main>
+
+    <!--
+      The footer carried the whole ending in one 12px line. It is the last thing
+      on a long page and it is where someone who read all of it arrives, so it
+      gets the mark, the three things worth linking, and the one sentence that
+      says what the deal is.
+    -->
     <footer class="footer">
-      <p>jlog is open source. MIT licensed.</p>
-      <a href="/privacy" class="footer-link">Privacy</a>
-      <a href="https://github.com/brgv-code/jlog" target="_blank" rel="noopener noreferrer" class="footer-link">
-        GitHub →
-      </a>
+      <div class="footer-top">
+        <a href="/" class="wordmark footer-mark" aria-label="jlog home">
+          <svg class="wordmark-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <rect class="mark-ground" width="32" height="32" rx="7"></rect>
+            <circle class="mark-dot" cx="20" cy="6.5" r="2.2"></circle>
+            <path
+              class="mark-j"
+              d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5"
+              stroke-width="4"
+              stroke-linecap="round"></path>
+          </svg>
+          <span>jlog</span>
+        </a>
+        <nav class="footer-nav">
+          <a class="footer-link" href="/login">Sign in</a>
+          <a class="footer-link" href="/privacy">Privacy</a>
+          <a class="footer-link" href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>
+          <a
+            class="footer-link"
+            href={`${GITHUB_URL}/blob/main/LICENSE`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            MIT licence
+          </a>
+        </nav>
+      </div>
+      <div class="footer-base">
+        <span>Tracking is free and stays free. Tailored documents are the paid part.</span>
+        <span>Self-hostable on Cloudflare's free tier.</span>
+      </div>
     </footer>
-
   </div>
 </Layout>
 
+<!--
+  All page motion. Inline, dependency-free, and one rAF-batched scroll handler
+  for the lot of it — a landing page that ships an animation library to move
+  five boxes has already lost the argument it is trying to make.
+
+  Every effect is additive. The page is complete and correct with this script
+  removed: sections are visible, the headline is set, the counters read their
+  final values. Nothing here runs at all under prefers-reduced-motion.
+-->
+<script is:inline>
+  (() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+
+    const root = document.documentElement;
+    root.classList.add('motion');
+
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+    /* ---- type that resolves a word at a time ---- */
+
+    /*
+     * Used twice: the headline on load, and the closer when it arrives. Both
+     * are marked up as .w spans that are inert until this runs, so with the
+     * script removed the type is simply set.
+     */
+    const light = (el, step = 38) => {
+      if (!el || el.classList.contains('lit')) return;
+      el.querySelectorAll('.w').forEach((w, i) => {
+        w.style.transitionDelay = `${40 + i * step}ms`;
+      });
+      // Two frames: one for the hidden state to be committed, one to leave it,
+      // or the browser coalesces both and there is no transition to watch.
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('lit')));
+    };
+
+    light(document.querySelector('.headline'));
+
+    /* ---- counters ---- */
+    const runCount = (el) => {
+      const target = Number(el.dataset.count);
+      if (!Number.isFinite(target)) return;
+      const started = performance.now();
+      const tick = (now) => {
+        // easeOutCubic: fast enough to read as a count, settled before it bores.
+        const t = Math.min((now - started) / 900, 1);
+        el.textContent = String(Math.round(target * (1 - (1 - t) ** 3)));
+        if (t < 1) requestAnimationFrame(tick);
+      };
+      el.textContent = '0';
+      requestAnimationFrame(tick);
+    };
+
+    /* ---- section reveal ---- */
+    const pending = new Set(document.querySelectorAll('.reveal'));
+    for (const el of pending) el.classList.add('will-reveal');
+
+    const revealCheck = () => {
+      for (const el of pending) {
+        if (el.getBoundingClientRect().top < window.innerHeight * 0.88) {
+          el.classList.add('revealed');
+          pending.delete(el);
+          for (const c of el.querySelectorAll('[data-count]')) runCount(c);
+          // The closer is display type, so its words resolve more slowly than
+          // the headline's — there are fewer of them and each one is bigger.
+          light(el.querySelector('.closer-title'), 52);
+        }
+      }
+    };
+
+    /* ---- hero: scroll-linked settle and per-layer parallax ---- */
+    const stage = document.querySelector('.stage');
+    const stack = document.querySelector('.stack');
+    const hero = document.querySelector('.hero');
+
+    const heroCheck = () => {
+      if (!stage || !hero) return;
+      /*
+       * Progress of the hero leaving the viewport, 0 to 1.
+       *
+       * Everything downstream is a CSS calc against --p, so the whole
+       * composition — rotation, depth separation, each layer's parallax — is
+       * driven by this one number written once per frame. The layers settle
+       * toward square-on as they rise, which is the whole trick: the stack
+       * looks like an object you are walking around rather than a static
+       * render that happens to be tilted.
+       */
+      const h = hero.getBoundingClientRect();
+      const p = Math.min(Math.max(-h.top / Math.max(h.height * 0.9, 1), 0), 1);
+      stage.style.setProperty('--p', p.toFixed(4));
+    };
+
+    /* ---- the pinned act ---- */
+
+    /*
+     * One number per beat, written on the stage each frame, and every position,
+     * fade and highlight in the scene is a CSS calc against them. Holding the
+     * choreography in five numbers rather than in a timeline is what makes it
+     * scrub backwards as cleanly as forwards — there is no state to unwind,
+     * only a different value of q.
+     *
+     * The windows overlap by a couple of points so each beat has begun before
+     * the one before it has finished. Butted up exactly, the scene visibly
+     * stops between beats.
+     */
+    const ACT_WINDOWS = [
+      [0, 0.14],
+      [0.14, 0.36],
+      [0.34, 0.58],
+      [0.56, 0.8],
+      [0.78, 1],
+    ];
+    const STICKY_TOP = 56;
+
+
+    const actRail = document.querySelector('.act-rail');
+    const actStage = document.querySelector('.act-stage');
+    const actSteps = actStage ? [...actStage.querySelectorAll('.act-step')] : [];
+    const actCount = actStage ? actStage.querySelector('.act-count') : null;
+
+    /*
+     * Below 1040px the stylesheet puts the act back to a static column, and
+     * then the rail is barely taller than the stage and this maths would be
+     * noise. Asking the element whether it is actually sticky is more honest
+     * than duplicating the breakpoint here, where it would rot.
+     */
+    let actPinned = false;
+    const actMeasure = () => {
+      actPinned = !!actStage && getComputedStyle(actStage).position === 'sticky';
+    };
+
+    let actBeat = -1;
+    const actCheck = () => {
+      if (!actPinned || !actRail || !actStage) return;
+      const travel = actRail.offsetHeight - actStage.offsetHeight;
+      if (travel <= 0) return;
+
+      const q = clamp((STICKY_TOP - actRail.getBoundingClientRect().top) / travel, 0, 1);
+
+      let active = 0;
+      for (let i = 0; i < ACT_WINDOWS.length; i++) {
+        const [from, to] = ACT_WINDOWS[i];
+        const v = clamp((q - from) / (to - from), 0, 1);
+        actStage.style.setProperty(`--b${i}`, v.toFixed(4));
+        // The leading beat, not the nearest one: where two windows overlap the
+        // later beat has started, and that is the one the rail should name.
+        if (v > 0) active = i;
+      }
+
+      if (active !== actBeat) {
+        actBeat = active;
+        actStage.dataset.beat = String(active);
+        actSteps.forEach((el, i) => {
+          el.classList.toggle('on', i === active);
+          el.classList.toggle('done', i < active);
+        });
+      }
+
+      // The pipeline count goes up by one when the row lands. A list that
+      // gains a row and keeps the same total is the kind of detail that tells
+      // a reader the whole thing is a drawing.
+      if (actCount) {
+        const n = q > ACT_WINDOWS[2][0] + 0.07 ? '73' : '72';
+        if (actCount.textContent !== n) actCount.textContent = n;
+      }
+    };
+
+    /*
+     * The ticker leans into the scroll.
+     *
+     * A damped accumulation rather than raw delta: raw delta makes the strip
+     * twitch on every wheel notch, and an undamped accumulation drifts away
+     * and never comes back. This leans, then settles, which is what a physical
+     * object on a moving surface does.
+     */
+    const marquee = document.querySelector('.marquee-track');
+    let lastY = window.scrollY;
+    let nudge = 0;
+    let settling = 0;
+
+    /*
+     * The decay has to keep running after the scroll stops, or the strip
+     * freezes wherever the last wheel notch left it — permanently offset, for
+     * the life of the page. So the lean is applied on scroll and a short rAF
+     * loop walks it back to zero, ending itself once it gets there.
+     */
+    const settle = () => {
+      nudge *= 0.88;
+      marquee.style.setProperty('--mq-nudge', `${nudge.toFixed(1)}px`);
+      settling = Math.abs(nudge) > 0.4 ? requestAnimationFrame(settle) : 0;
+    };
+
+    const navProgress = document.querySelector('.nav-progress');
+
+    const readCheck = () => {
+      if (!navProgress) return;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const read = max > 0 ? Math.min(Math.max(window.scrollY / max, 0), 1) : 0;
+      navProgress.style.setProperty('--read', read.toFixed(4));
+    };
+
+    const marqueeCheck = () => {
+      if (!marquee) return;
+      const y = window.scrollY;
+      nudge = Math.max(-90, Math.min(90, nudge * 0.86 + (y - lastY) * 1.1));
+      lastY = y;
+      marquee.style.setProperty('--mq-nudge', `${nudge.toFixed(1)}px`);
+      if (!settling) settling = requestAnimationFrame(settle);
+    };
+
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        heroCheck();
+        actCheck();
+        marqueeCheck();
+        readCheck();
+        // The reveal set empties itself; the hero and act halves run for the
+        // life of the page, so the listeners stay attached either way.
+        if (pending.size) revealCheck();
+      });
+    };
+
+    const onResize = () => {
+      actMeasure();
+      onScroll();
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
+    actMeasure();
+    heroCheck();
+    actCheck();
+    readCheck();
+    revealCheck();
+
+    /* ---- hero: the stack assembles itself, once ---- */
+
+    /*
+     * The headline resolved word by word and the stack simply existed. Now the
+     * four panels arrive from a collapsed pile, nearest last, which is the one
+     * moment that says the composition has depth before anyone has moved the
+     * pointer over it.
+     */
+    if (stack) {
+      stack.querySelectorAll('.layer').forEach((el, i) => {
+        el.style.transitionDelay = `${120 + i * 90}ms`;
+      });
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          stage.classList.add('set');
+          // The delays are for the entrance only. Left on, every later change
+          // of --p arrives a beat late and the parallax drags behind the
+          // scroll, so they come off once the panels have landed.
+          window.setTimeout(() => {
+            for (const el of stack.querySelectorAll('.layer')) el.style.transitionDelay = '';
+          }, 900);
+        }),
+      );
+    }
+
+    /* ---- hero: pointer tilt, and drag to orbit ---- */
+    // Fine pointers only. A touch screen has no hover to answer, and the
+    // handler would be pure battery cost.
+    if (!stage || !window.matchMedia('(pointer: fine)').matches) return;
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let heldY = 0;
+    let heldX = 0;
+    let tiltFrame = 0;
+
+    const setTilt = (x, y) => {
+      stage.style.setProperty('--tilt-y', `${x.toFixed(2)}deg`);
+      stage.style.setProperty('--tilt-x', `${y.toFixed(2)}deg`);
+    };
+
+    stage.addEventListener('pointermove', (e) => {
+      if (tiltFrame) return;
+      tiltFrame = requestAnimationFrame(() => {
+        tiltFrame = 0;
+        const box = stage.getBoundingClientRect();
+
+        if (dragging) {
+          /*
+           * Dragging accumulates on top of wherever the stack was grabbed, and
+           * is clamped: past about 26 degrees the far panel turns edge-on and
+           * the composition stops being readable, which is a worse toy than a
+           * bounded one.
+           */
+          setTilt(
+            clamp(heldY + (e.clientX - startX) * 0.16, -26, 26),
+            clamp(heldX - (e.clientY - startY) * 0.1, -16, 16),
+          );
+          return;
+        }
+
+        const x = (e.clientX - box.left) / box.width - 0.5;
+        const y = (e.clientY - box.top) / box.height - 0.5;
+        setTilt(x * 8, -y * 5.5);
+      });
+    });
+
+    const readTilt = (name) => Number.parseFloat(stage.style.getPropertyValue(name)) || 0;
+
+    stage.addEventListener('pointerdown', (e) => {
+      // Left button only, and never on a link — the stack is decorative, but
+      // the nav sits above it and a drag that swallows a click is worse than
+      // no drag at all.
+      if (e.button !== 0) return;
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      heldY = readTilt('--tilt-y');
+      heldX = readTilt('--tilt-x');
+      stage.classList.add('dragging');
+      stage.setPointerCapture(e.pointerId);
+    });
+
+    const release = () => {
+      if (!dragging) return;
+      dragging = false;
+      stage.classList.remove('dragging');
+      // Back to square, on the stack's own easing. A toy you can leave
+      // crooked makes every later screenshot of the page look broken.
+      setTilt(0, 0);
+    };
+
+    stage.addEventListener('pointerup', release);
+    stage.addEventListener('pointercancel', release);
+
+    stage.addEventListener('pointerleave', () => {
+      if (dragging) return;
+      setTilt(0, 0);
+    });
+  })();
+</script>
+
 <style>
+  /* ---------- shell ---------- */
+
   .page {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    /*
+     * The stage and the ticker both break their measure with `width: 100vw`,
+     * and 100vw counts a classic scrollbar the layout viewport does not — so
+     * on a platform that reserves gutter space the page picked up a horizontal
+     * scrollbar of exactly that width. `clip` rather than `hidden`: it does not
+     * turn this into a scroll container, so nothing inside loses stickiness.
+     */
+    overflow-x: clip;
     background: var(--color-bg);
     color: var(--color-text-primary);
     font-family: var(--font-sans);
   }
 
-  /* Nav */
+  main {
+    flex: 1;
+  }
+
+  section {
+    max-width: 1128px;
+    margin: 0 auto;
+    width: 100%;
+    padding: var(--space-16) var(--space-6);
+  }
+
+  .proof,
+  .steps,
+  .capture,
+  .apply,
+  .try,
+  .home,
+  .detail,
+  .import,
+  .grounding,
+  .templates,
+  .oss,
+  .plans,
+  .closer {
+    border-top: 1px solid var(--color-border);
+  }
+
+  /*
+   * Two-column sections share one shape: prose on the left at its own measure,
+   * the thing being described on the right. Declared once so the five of them
+   * cannot drift apart a column at a time.
+   */
+  .capture,
+  .apply,
+  .detail,
+  .oss {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-12);
+    align-items: start;
+  }
+
+  /*
+   * The mono eyebrow. The one thing here the app does not do: inside jlog, mono
+   * means "a value you copy". On a page with seven sections and no navigation
+   * it earns a second job, as the label that gives each section a top edge.
+   */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--space-4);
+  }
+
+  .section-title {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    margin-bottom: var(--space-4);
+  }
+
+  /*
+   * The middle tier.
+   *
+   * The page had exactly two type sizes below the hero — every heading at
+   * 24px, then the closer — so fourteen sections arrived at identical weight
+   * and the eye had nothing to rank them by. Three of them are the actual
+   * claims (the sequence, the live product, the grounding); they are set
+   * larger, and given more room around them, so the page has a shape you can
+   * feel before you have read a word of it. This is the rhythm that a change
+   * of ground would otherwise have carried.
+   */
+  .section-title-xl {
+    font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+    letter-spacing: -0.032em;
+    line-height: 1.12;
+    max-width: 18ch;
+    margin-bottom: var(--space-5);
+  }
+
+  /* Air is the other half of it. A bigger heading in the same box is just a
+     bigger heading. */
+  .section-roomy {
+    padding-top: calc(var(--space-16) * 1.6);
+    padding-bottom: calc(var(--space-16) * 1.6);
+  }
+
+  /* ---------- headings resolve ---------- */
+
+  /*
+   * A wipe up from the baseline, on every section heading.
+   *
+   * Done with clip-path rather than the hero's per-word spans because it needs
+   * no markup: fourteen headings cannot each be split by hand and stay
+   * editable. The negative bottom inset is deliberate — inset(… 0 …) would
+   * shave the descenders off a 'g' at the moment the transition ends.
+   */
+  :global(.motion) .will-reveal .section-title {
+    clip-path: inset(0 0 108% 0);
+    transform: translateY(0.16em);
+  }
+
+  :global(.motion) .revealed .section-title {
+    clip-path: inset(0 0 -30% 0);
+    transform: none;
+    transition:
+      clip-path 780ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .section-body {
+    font-size: var(--text-base);
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+    max-width: 62ch;
+  }
+
+  .section-body + .section-body {
+    margin-top: var(--space-4);
+  }
+
+  .section-body-wide {
+    margin-bottom: var(--space-10);
+  }
+
+  /* ---------- motion ---------- */
+
+  .will-reveal {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  .revealed {
+    opacity: 1;
+    transform: none;
+    transition: opacity 480ms ease-out, transform 480ms ease-out;
+  }
+
+  /*
+   * Nothing scrolls a printed page, so the observer never fires and every
+   * section below the hero would come out blank. Same reasoning applies to any
+   * renderer that paginates rather than scrolls.
+   */
+  @media print {
+    .will-reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /*
+   * Grain.
+   *
+   * A pure-white page is optically flat, and flatness reads as "template".
+   * Three percent of turbulence over the whole surface gives the white
+   * something to be, without becoming a texture anyone notices. Inline, so it
+   * costs no request, and fixed so it does not swim while the page scrolls.
+   */
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.032;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* The grain is light-on-dark once the ground inverts, so it has to lighten
+     rather than darken or it reads as dirt. */
+  :global([data-theme='dark']) .grain {
+    opacity: 0.05;
+    mix-blend-mode: screen;
+  }
+
+  /* ---------- the headline resolves ---------- */
+
+  .ln {
+    display: block;
+  }
+
+  .w {
+    display: inline-block;
+    transition:
+      opacity 620ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 620ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 620ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /*
+   * Scoped to html.motion, which only the script adds. Without JS the words
+   * never enter the hidden state at all, so the headline is simply set — the
+   * failure mode of every word-reveal that ships as a plain "start at opacity
+   * zero" rule.
+   */
+  :global(.motion) .headline:not(.lit) .w,
+  :global(.motion) .closer-title:not(.lit) .w {
+    opacity: 0;
+    transform: translateY(0.42em);
+    filter: blur(6px);
+  }
+
+  /* ---------- nav ---------- */
+
   .nav {
+    position: sticky;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 var(--space-8);
+    gap: var(--space-4);
     height: 56px;
+    padding: 0 var(--space-6);
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
+    background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .nav-progress {
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    height: 1px;
+    width: 100%;
+    background: var(--color-accent);
+    transform: scaleX(var(--read, 0));
+    transform-origin: left center;
+    /* The rAF writes --read every frame, so this only has to smooth a wheel's
+       steps; any more and the line lags the page it is measuring. */
+    transition: transform 120ms linear;
+  }
+
+  /* The bar sits on the nav's own border, so at rest the border is all you
+     see and the page has gained no chrome. */
+  .nav::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 1px;
+    background: var(--color-border);
   }
 
   .wordmark {
-    font-weight: 700;
-    font-size: var(--text-lg);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 600;
+    font-size: var(--text-base);
     letter-spacing: -0.02em;
     color: var(--color-text-primary);
+    text-decoration: none;
+  }
+
+  .wordmark-mark {
+    width: 22px;
+    height: 22px;
+    display: block;
+  }
+
+  /*
+   * Filled from CSS rather than from fill="var(--…)" presentation attributes:
+   * those resolve in Chrome and Firefox but have a history of not resolving in
+   * Safari, and a wordmark that renders as a black square on one browser is not
+   * worth the two saved lines. This also lets the mark invert with the theme.
+   */
+  .mark-ground {
+    fill: var(--color-primary);
+  }
+
+  .mark-dot {
+    fill: var(--color-accent);
+  }
+
+  .mark-j {
+    fill: none;
+    stroke: var(--color-primary-fg);
   }
 
   .nav-actions {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-5);
   }
 
-  /* Buttons */
-  .btn-primary {
-    background: var(--color-primary);
-    color: var(--color-primary-fg);
-    border: none;
+  .nav-link {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .nav-link:hover {
+    color: var(--color-text-primary);
+  }
+
+  /* ---------- buttons ---------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: var(--radius-md);
-    padding: 6px 16px;
+    padding: 7px 16px;
     font-size: var(--text-sm);
     font-family: var(--font-sans);
     text-decoration: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
+    white-space: nowrap;
+    transition:
+      background var(--transition-fast),
+      border-color var(--transition-fast),
+      transform var(--transition-fast),
+      box-shadow var(--transition-fast);
+  }
+
+  /* The one loud thing on the page. */
+  .btn-primary {
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
+    border: 1px solid var(--color-primary);
   }
 
   .btn-primary:hover {
     background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn:active {
+    transform: translateY(0);
   }
 
   .btn-ghost {
-    background: none;
-    color: var(--color-text-secondary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: 6px 16px;
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
-    text-decoration: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
+    background: transparent;
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-strong);
   }
 
   .btn-ghost:hover {
-    border-color: var(--color-border-strong);
-    color: var(--color-text-primary);
+    background: var(--color-surface-hover);
   }
 
   .btn-lg {
-    padding: 10px 24px;
+    padding: 11px 22px;
     font-size: var(--text-base);
   }
 
-  /* Hero */
+  /* ---------- hero ---------- */
+
   .hero {
-    padding: var(--space-16) var(--space-8) var(--space-12);
-    max-width: 860px;
-    margin: 0 auto;
-    width: 100%;
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-16);
+    text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    text-align: center;
   }
 
   .headline {
-    font-size: var(--text-4xl);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.15;
-    color: var(--color-text-primary);
-    margin-bottom: var(--space-6);
+    font-size: var(--text-5xl);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+    /*
+     * No ch cap. The <br> sets the break, and a measure narrow enough to be
+     * useful for prose re-wrapped a two-line headline into four. The clamp on
+     * --text-5xl is what keeps it in bounds at small widths instead.
+     */
+    text-wrap: balance;
   }
 
   .subheading {
+    margin-top: var(--space-6);
     font-size: var(--text-lg);
-    color: var(--color-text-secondary);
-    max-width: 560px;
     line-height: 1.6;
-    margin-bottom: var(--space-8);
+    color: var(--color-text-secondary);
+    max-width: 60ch;
   }
 
   .cta-row {
+    margin-top: var(--space-8);
     display: flex;
     gap: var(--space-3);
-    margin-bottom: var(--space-12);
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
-  /* Mock dashboard */
-  .mock-dashboard {
-    width: 100%;
-    max-width: 720px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+  /* ---------- the slanted stack ---------- */
+
+  /*
+   * The hero visual.
+   *
+   * Four layers at different translateZ inside one perspective. Parallax is not
+   * simulated — rotating .stack rotates genuinely separated planes, so the
+   * layers slide past each other at rates set by their Z, the way they would if
+   * they were really at different distances.
+   *
+   * Depth of field is doing most of the work that "3D" usually gets credit for:
+   * the far layer is blurred and desaturated, the near one is sharp. Without it
+   * four sharp panels read as four stickers on glass.
+   */
+  .stage {
+    --tilt-x: 0deg;
+    --tilt-y: 0deg;
+    /* The highlight a panel edge catches from the notional light above-left.
+       Near-white on paper; on a dark ground that same value reads as a drawn
+       white line rather than as a lit edge, so it drops to a sixth of it. */
+    --edge-light: color-mix(in srgb, #fff 70%, transparent);
+    position: relative;
+    width: 100vw;
+    /* Break the section's measure. The composition wants to run past the text
+       column and bleed off both edges, so it reads as a window onto something
+       larger rather than as a picture pasted into the page. */
+    margin-left: calc(50% - 50vw);
+    margin-top: var(--space-10);
+    margin-bottom: calc(var(--space-16) * -1);
+    height: 660px;
+    perspective: 2000px;
+    perspective-origin: 52% 42%;
     overflow: hidden;
+    /* The hero centres its copy; the panels are interface and documents, which
+       are set left. Without this every row label and CV bullet inherits the
+       centring and the whole stack stops looking like software. */
+    text-align: left;
   }
 
-  .mock-toolbar {
+  .glow {
+    position: absolute;
+    inset: 6% 18% 10%;
+    background:
+      radial-gradient(
+        ellipse 55% 60% at 42% 45%,
+        color-mix(in srgb, var(--color-accent) 22%, transparent) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 40% 50% at 68% 62%,
+        color-mix(in srgb, var(--color-cite-cv) 18%, transparent) 0%,
+        transparent 72%
+      );
+    filter: blur(60px);
+    pointer-events: none;
+  }
+
+  .stack {
+    position: absolute;
+    /* Sized and centred as a fixed 1240px composition so the layout does not
+       reflow with the viewport — it scales, which keeps the geometry honest. */
+    width: 1240px;
+    height: 660px;
+    left: 50%;
+    top: 0;
+    margin-left: -620px;
+    transform-style: preserve-3d;
+    /*
+     * Rotation is scaled by --p, the hero's progress out of the viewport, so
+     * the stack settles toward square-on as it rises. That is the whole trick:
+     * a tilt that never changes is a render, a tilt that resolves as you move
+     * is an object you are walking around.
+     */
+    transform: rotateX(calc((9deg + var(--tilt-x)) * (1 - var(--p, 0) * 0.72)))
+      rotateY(calc((-15deg + var(--tilt-y)) * (1 - var(--p, 0) * 0.72)));
+    transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /*
+   * --z  how far forward this layer sits, which sets how fast it slides when
+   *      the stack rotates. Real separation, not a simulated offset.
+   * --par how much it drifts vertically with scroll. Nearer layers travel
+   *      further, which is the same rule a camera obeys.
+   */
+  .layer {
+    --z: 0px;
+    --par: 0;
+    position: absolute;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    transform-style: preserve-3d;
+    /* A light source at upper-left: a hairline highlight on the top edge and a
+       long shadow below. Two lines, and it is most of what makes a flat panel
+       look like a physical one. */
+    box-shadow:
+      inset 0 1px 0 var(--edge-light),
+      var(--shadow-lg);
+    animation: float 9s ease-in-out infinite;
+    /* Separation collapses as the hero leaves, so the stack gathers itself on
+       the way out instead of simply scrolling off still exploded. */
+    transform: translateZ(calc(var(--z) * (1 - var(--p, 0) * 0.5)))
+      translateY(calc(var(--p, 0) * var(--par) * -130px));
+    /* The same easing the stack's rotation uses. Both are driven by --p, and a
+       container that eases while its children snap reads as two objects. */
+    transition:
+      transform 500ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 500ms ease-out;
+  }
+
+  /*
+   * The stack assembles itself, once.
+   *
+   * The headline resolved a word at a time and the composition beside it simply
+   * existed on the first frame. The panels start collapsed at z zero and fly
+   * out to their own depths on a stagger the script sets — the one moment that
+   * says the thing has depth before anyone has moved a pointer over it.
+   *
+   * Scoped to html.motion and to :not(.set), so without the script the panels
+   * are never hidden in the first place.
+   */
+  :global(.motion) .stage:not(.set) .layer {
+    opacity: 0;
+    transform: translateZ(0) translateY(34px) scale(0.97);
+  }
+
+  /* While a drag is in progress the tilt must track the pointer exactly. The
+     500ms ease that makes the release feel weighted makes the grab feel
+     broken. */
+  .stage.dragging .stack {
+    transition: none;
+  }
+
+  /* Only where the drag handler is actually attached: the script binds it
+     behind the same two conditions, and a grab cursor on something that cannot
+     be grabbed is worse than no affordance. */
+  @media (pointer: fine) {
+    :global(.motion) .stage {
+      cursor: grab;
+    }
+
+    :global(.motion) .stage.dragging {
+      cursor: grabbing;
+    }
+  }
+
+  /* Staggered so the four never bob in unison, which is what makes float
+     animations look mechanical. */
+  .layer-jd {
+    width: 430px;
+    left: 40px;
+    top: 26px;
+    --z: -190px;
+    --par: -0.3;
+    opacity: 0.82;
+    filter: blur(1.4px) saturate(0.82);
+    animation-duration: 11s;
+  }
+
+  .layer-list {
+    width: 620px;
+    left: 258px;
+    top: 148px;
+    --z: -30px;
+    --par: 0.08;
+    filter: blur(0.35px);
+    animation-duration: 9.5s;
+    animation-delay: -2.4s;
+  }
+
+  .layer-cv {
+    width: 400px;
+    left: 706px;
+    top: 276px;
+    --z: 140px;
+    --par: 0.42;
+    background: var(--color-paper);
+    animation-duration: 8.5s;
+    animation-delay: -5.1s;
+  }
+
+  /*
+   * Last in the sequence, so it sits at the end of it: over the CV's lower
+   * right, clear of the cited bullets, which is the one part of that panel
+   * worth reading. It used to sit top-right, where the capture card now is.
+   */
+  .layer-chip {
+    width: 214px;
+    left: 1040px;
+    top: 505px;
+    --z: 250px;
+    --par: 0.7;
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: var(--color-surface);
+    animation-duration: 7s;
+    animation-delay: -1.2s;
+  }
+
+  /* `translate` is its own property, so this composes with the transform above
+     instead of fighting it. */
+  @keyframes float {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -13px;
+    }
+  }
+
+  /* ---- window chrome / panel bars ---- */
+
+  .bar {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
+    gap: var(--space-3);
+    padding: 9px var(--space-4);
     border-bottom: 1px solid var(--color-border);
-    flex-wrap: wrap;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    font-size: 11px;
   }
 
-  .mock-pill {
-    background: none;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
-    font-size: var(--text-xs);
-    padding: 3px 10px;
+  .dots {
+    display: inline-flex;
+    gap: 5px;
   }
 
-  .mock-pill.active {
-    background: var(--color-surface-raised);
-    border-color: var(--color-border);
-    color: var(--color-text-primary);
-  }
-
-  .mock-search {
-    margin-left: auto;
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    color: var(--color-text-tertiary);
-    font-size: var(--text-xs);
-    padding: 3px 10px;
-  }
-
-  .mock-table {
-    width: 100%;
-  }
-
-  .mock-row {
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr 1fr;
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--color-border);
-    font-size: var(--text-sm);
-    align-items: center;
-    gap: var(--space-4);
-  }
-
-  .mock-row:last-child {
-    border-bottom: none;
-  }
-
-  .mock-row-header {
-    color: var(--color-text-secondary);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: var(--color-bg);
-  }
-
-  .mock-selected {
-    background: var(--color-surface-raised);
-  }
-
-  .mock-company {
-    font-weight: 600;
-    color: var(--color-text-primary);
-  }
-
-  .mock-muted {
-    color: var(--color-text-tertiary);
-    font-size: var(--text-xs);
-  }
-
-  .mock-badge {
-    display: inline-block;
-    padding: 2px 8px;
+  .dots i {
+    width: 8px;
+    height: 8px;
     border-radius: var(--radius-full);
-    font-size: var(--text-xs);
+    background: var(--color-border-strong);
+  }
+
+  .bar-url {
+    font-family: var(--font-mono);
+    color: var(--color-text-tertiary);
+    font-size: 10px;
+  }
+
+  .bar-title {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    font-size: 10px;
+  }
+
+  .bar-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: var(--space-2);
+  }
+
+  .tab {
+    padding: 3px 8px;
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: 10px;
+  }
+
+  .tab.on {
+    background: var(--color-surface-active);
+    color: var(--color-text-primary);
     font-weight: 500;
   }
 
-  .mock-badge.applied {
-    background: color-mix(in srgb, var(--color-status-applied) 10%, transparent);
-    color: var(--color-status-applied);
-  }
-
-  .mock-badge.interviewing {
-    background: color-mix(in srgb, var(--color-status-interviewing) 10%, transparent);
-    color: var(--color-status-interviewing);
-  }
-
-  .mock-badge.offer {
-    background: color-mix(in srgb, var(--color-status-offer) 10%, transparent);
-    color: var(--color-status-offer);
-  }
-
-  .mock-badge.saved {
-    background: color-mix(in srgb, var(--color-status-saved) 10%, transparent);
-    color: var(--color-status-saved);
-  }
-
-  /* Features */
-  .features {
-    padding: var(--space-12) var(--space-8);
-    max-width: 960px;
-    margin: 0 auto;
-    width: 100%;
-  }
-
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-6);
-  }
-
-  @media (max-width: 640px) {
-    .features-grid {
-      grid-template-columns: 1fr;
-    }
-    .headline {
-      font-size: var(--text-3xl);
-    }
-  }
-
-  .feature-card {
-    background: var(--color-surface);
+  .search {
+    margin-left: var(--space-2);
+    padding: 3px 10px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-6);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    color: var(--color-text-tertiary);
+    font-size: 10px;
+    white-space: nowrap;
   }
 
-  .feature-icon {
-    font-size: var(--text-2xl);
-    margin-bottom: var(--space-3);
-    line-height: 1;
+  .bar-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    color: var(--color-text-tertiary);
+    font-size: 10px;
   }
 
-  .feature-title {
-    font-size: var(--text-base);
+  /* ---- the posting ---- */
+
+  .jd {
+    padding: var(--space-4);
+  }
+
+  .jd-title {
+    font-size: 15px;
     font-weight: 600;
-    margin-bottom: var(--space-2);
+    letter-spacing: -0.01em;
+  }
+
+  .jd-meta {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+  }
+
+  .jd-p {
+    margin-top: var(--space-3);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+  }
+
+  .jd-h {
+    margin-top: var(--space-4);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-tertiary);
+  }
+
+  .jd-list {
+    margin-top: var(--space-2);
+    padding-left: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .jd-list li {
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+  }
+
+  /* The requirement the generated bullet on the front layer answers. */
+  .jd-hit {
+    list-style: none;
+    margin-left: calc(var(--space-4) * -1);
+    padding: 3px var(--space-2) 3px var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-cite-jd-fill);
+    box-shadow: inset 2px 0 0 var(--color-cite-jd);
     color: var(--color-text-primary);
   }
 
-  .feature-desc {
-    font-size: var(--text-sm);
-    color: var(--color-text-secondary);
-    line-height: 1.6;
-  }
+  /* ---- the pipeline ---- */
 
-  /* Footer */
-  .footer {
-    margin-top: auto;
-    padding: var(--space-8);
-    border-top: 1px solid var(--color-border);
+  .row {
     display: flex;
     align-items: center;
+    gap: var(--space-3);
+    padding: 9px var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .row:last-child {
+    border-bottom: none;
+  }
+
+  .row-on {
+    background: var(--color-surface-raised);
+    box-shadow: inset 2px 0 0 var(--color-accent);
+  }
+
+  /* The same hashed-hue monogram the real list draws when an employer has no
+     cached logo, which is most of them. */
+  .mono-tile {
+    width: 26px;
+    height: 26px;
+    flex: none;
+    border-radius: var(--radius-md);
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    background-color: hsl(var(--h) 46% 91%);
+    color: hsl(var(--h) 42% 32%);
+  }
+
+  /* Mirrors [data-theme="dark"] .jlog-monogram in tokens.css. Without it the
+     hero keeps light tiles while the real list below it flips, and the two are
+     on screen within one scroll of each other. */
+  :global([data-theme='dark']) .mono-tile {
+    background-color: hsl(var(--h) 24% 17%);
+    color: hsl(var(--h) 46% 72%);
+  }
+
+  :global([data-theme='dark']) .stage {
+    --edge-light: color-mix(in srgb, #fff 11%, transparent);
+  }
+
+  .mono-tile[data-h='14'] {
+    --h: 14;
+  }
+  .mono-tile[data-h='28'] {
+    --h: 28;
+  }
+  .mono-tile[data-h='120'] {
+    --h: 120;
+  }
+  .mono-tile[data-h='196'] {
+    --h: 196;
+  }
+  .mono-tile[data-h='252'] {
+    --h: 252;
+  }
+  .mono-tile[data-h='320'] {
+    --h: 320;
+  }
+
+  .cell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .co {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .ro {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    line-height: 1.3;
+  }
+
+  .meta {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: var(--radius-full);
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex: none;
+    width: 78px;
+    text-align: center;
+  }
+
+  .pill.saved {
+    color: var(--color-status-saved);
+    background: color-mix(in srgb, var(--color-status-saved) 12%, transparent);
+  }
+
+  .pill.applied {
+    color: var(--color-status-applied);
+    background: color-mix(in srgb, var(--color-status-applied) 12%, transparent);
+  }
+
+  .pill.interviewing {
+    color: var(--color-status-interviewing);
+    background: color-mix(in srgb, var(--color-status-interviewing) 12%, transparent);
+  }
+
+  .pill.offer {
+    color: var(--color-status-offer);
+    background: color-mix(in srgb, var(--color-status-offer) 12%, transparent);
+  }
+
+  /* ---- the document ---- */
+
+  .cv {
+    padding: var(--space-5) var(--space-5) var(--space-3);
+    color: var(--color-paper-ink);
+  }
+
+  .cv-head {
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-paper-ink) 18%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .cv-name {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  .cv-contact {
+    font-size: 9.5px;
+    color: color-mix(in srgb, var(--color-paper-ink) 58%, transparent);
+  }
+
+  .cv-sec {
+    margin-top: var(--space-4);
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: color-mix(in srgb, var(--color-paper-ink) 62%, transparent);
+  }
+
+  /* moderncv's hint column: dates left, entry right. */
+  .cv-entry {
+    margin-top: var(--space-3);
+    display: grid;
+    grid-template-columns: 62px 1fr;
+    gap: var(--space-3);
+  }
+
+  .cv-when {
+    font-size: 9.5px;
+    text-align: right;
+    padding-top: 1px;
+    color: color-mix(in srgb, var(--color-paper-ink) 55%, transparent);
+  }
+
+  .cv-what {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .cv-role {
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .cv-b {
+    font-size: 10.5px;
+    line-height: 1.55;
+  }
+
+  .cite {
+    background: none;
+    color: inherit;
+    padding-bottom: 1px;
+  }
+
+  .cite-cv {
+    box-shadow: inset 0 -2px 0 var(--color-cite-cv);
+    background: var(--color-cite-cv-fill);
+  }
+
+  .cite-jd {
+    box-shadow: inset 0 -2px 0 var(--color-cite-jd);
+    background: var(--color-cite-jd-fill);
+  }
+
+  .cv-key {
+    display: flex;
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-5) var(--space-3);
+    font-size: 9.5px;
+    color: color-mix(in srgb, var(--color-paper-ink) 58%, transparent);
+  }
+
+  .cv-key span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .sw {
+    width: 7px;
+    height: 7px;
+    border-radius: var(--radius-full);
+  }
+
+  .sw-cv {
+    background: var(--color-cite-cv);
+  }
+
+  .sw-jd {
+    background: var(--color-cite-jd);
+  }
+
+  /* ---- the compile chip ---- */
+
+  .chip-main {
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .chip-sub {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--color-text-tertiary);
+  }
+
+  /* The one genuinely live element. A status light that has just gone green
+     says the thing finished; four still panels cannot. */
+  .ping {
+    position: absolute;
+    top: 13px;
+    right: 13px;
+    width: 7px;
+    height: 7px;
+    border-radius: var(--radius-full);
+    background: var(--color-status-offer);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-status-offer) 60%, transparent);
+    animation: ping 2.6s ease-out infinite;
+  }
+
+  @keyframes ping {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-status-offer) 55%, transparent);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 9px transparent;
+    }
+  }
+
+  /* ---- the comet ---- */
+
+  .comet {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    overflow: visible;
+  }
+
+  .comet rect {
+    animation: comet 4.5s linear infinite;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-accent) 70%, transparent));
+  }
+
+  @keyframes comet {
+    from {
+      stroke-dashoffset: 100;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /*
+   * Everything above is ornament. Under prefers-reduced-motion the composition
+   * stays exactly as it is and simply stops moving — the layout is the content,
+   * the animation is not.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .layer,
+    .comet rect,
+    .ping {
+      animation: none;
+    }
+  }
+
+
+  /* ---------- the extension, mid-capture ---------- */
+
+  /*
+   * Nearest to the viewer and highest in the frame, but not so high that
+   * perspective magnification pushes its head through the top of the stage —
+   * a z of 300 lifts a panel roughly 130px before it is drawn, which is what
+   * was cropping the card's own title off.
+   */
+  .layer-ext {
+    width: 268px;
+    left: 890px;
+    top: 172px;
+    --z: 280px;
+    --par: 0.86;
+    background: var(--color-surface);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    animation-duration: 10.5s;
+    animation-delay: -3.6s;
+  }
+
+  .ext-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .ext-mark {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .ext-title {
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .ext-fields {
+    padding: var(--space-3) 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .ext-fields div {
+    display: grid;
+    grid-template-columns: 62px 1fr;
+    gap: var(--space-2);
+    align-items: baseline;
+  }
+
+  .ext-fields dt {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-tertiary);
+  }
+
+  .ext-fields dd {
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .ext-cta {
+    display: block;
+    text-align: center;
+    padding: 6px;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* ---------- proof band ---------- */
+
+  .proof-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: var(--space-6);
+  }
+
+  .proof-grid dt {
+    /* Tabular figures: without them the box reflows on every frame of the
+       count-up as digit widths change, and the label under it twitches. */
+    font-variant-numeric: tabular-nums;
+    /* Display size. These count up on reveal, and a counting numeral set at
+       30px is a detail nobody looks at; set against the viewport it is the
+       first thing under the hero worth stopping for. */
+    font-size: clamp(2.25rem, 5.5vw, 4.25rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: var(--space-2);
+  }
+
+  .proof-grid dd {
     font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+
+  /*
+   * The board list as a ticker.
+   *
+   * Three identical sets, the track travelling exactly one of them before it
+   * loops, so the wrap is invisible — and masked at both ends so it reads as a
+   * strip passing through the page rather than a row that starts and stops at
+   * the margins.
+   *
+   * Full-bleed and set large on purpose. At pill size one set was 510px inside
+   * a 1080px column, so both copies stood on screen at once and the thing read
+   * as the list printed twice rather than as a loop. A ticker only works when
+   * one set is wider than its window.
+   */
+  .marquee {
+    margin-top: var(--space-12);
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+  }
+
+  /*
+   * --mq-nudge is a damped accumulation of scroll delta the script writes, and
+   * it rides on `translate` rather than `transform` so it composes with the
+   * keyframe animation instead of replacing it. The ticker keeps its own idle
+   * pace and leans into the direction you are scrolling, which is the cheapest
+   * way to make a decorative element feel attached to the reader.
+   */
+  .marquee-track {
+    translate: var(--mq-nudge, 0px) 0;
+    display: flex;
+    width: max-content;
+    animation: marquee 34s linear infinite;
+  }
+
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  .marquee-set {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    padding-right: var(--space-12);
+  }
+
+  @keyframes marquee {
+    to {
+      /* One copy of three. */
+      transform: translateX(-33.3333%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
+      animation: none;
+    }
+  }
+
+  .board {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-12);
+    font-family: var(--font-mono);
+    font-size: var(--text-3xl);
+    letter-spacing: -0.01em;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+  }
+
+  /* The separator belongs to the item, not to the gap, so the last board of one
+     set is spaced from the first of the next exactly like every other pair and
+     the seam stays invisible. */
+  .board::after {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-border);
+  }
+
+  /* ---------- steps ---------- */
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+  }
+
+  .step {
+    padding: 0 var(--space-6);
+  }
+
+  .step:first-child {
+    padding-left: 0;
+  }
+
+  .step + .step {
+    border-left: 1px solid var(--color-border);
+  }
+
+  .step-icon {
+    width: 22px;
+    height: 22px;
+    display: block;
+    margin-bottom: var(--space-4);
+  }
+
+  /* The sidebar's per-destination hues, reused so the page and the app agree. */
+  .step-icon-capture {
+    color: var(--color-icon-applications);
+  }
+
+  .step-icon-track {
+    color: var(--color-icon-home);
+  }
+
+  .step-icon-tailor {
+    color: var(--color-icon-cv);
+  }
+
+  .step-title {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+  }
+
+  .step-body {
+    font-size: var(--text-sm);
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+  }
+
+  /* ---------- grounding ---------- */
+
+  .grounding {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: var(--space-12);
+    align-items: start;
+  }
+
+  .grounding-facts {
+    list-style: none;
+  }
+
+  .grounding-facts li {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: var(--space-4);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  .grounding-facts li:first-child {
+    padding-top: 0;
+  }
+
+  .grounding-facts li:last-child {
+    border-bottom: none;
+  }
+
+  .fact-k {
+    color: var(--color-text-tertiary);
+  }
+
+  .fact-v {
+    color: var(--color-text-primary);
+  }
+
+  /* ---------- templates ---------- */
+
+  /*
+   * Six real pages, fanned.
+   *
+   * These were six abstract skeletons drawn with repeating gradients, on the
+   * reasoning that six pdf.js canvases is too much JavaScript for a marketing
+   * page. True, and the wrong conclusion: `render-thumbs.mjs` renders the
+   * committed PDFs to WebP once, by hand, so the page ships 18KB pictures of
+   * the actual documents and no JavaScript at all.
+   */
+  .template-strip {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: var(--space-4);
+  }
+
+  .template {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  /*
+   * Square, not fanned.
+   *
+   * These were turned a degree or two each, on the idea that six documents
+   * should read as a stack someone spread out. At that angle, under six
+   * perfectly level labels, it read as six cards that had slipped — and a
+   * gallery's actual job is comparison, which wants them all on the same
+   * baseline. The life comes from the pages themselves and from the one you
+   * point at lifting off the row.
+   */
+  .sheet {
+    position: relative;
+    display: block;
+    aspect-ratio: 1 / 1.28;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--color-paper);
+    box-shadow: var(--shadow-sm);
+    transition:
+      transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 340ms ease,
+      border-color var(--transition-fast);
+  }
+
+  .sheet img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* The sample CV is one short page, so the bottom third of every render is
+       blank paper. The card frames the part that has typesetting in it. */
+    object-fit: cover;
+    object-position: top center;
+  }
+
+  .sheet:hover,
+  .sheet:focus-visible {
+    transform: translateY(-12px) scale(1.06);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-border-strong);
+    z-index: 2;
+  }
+
+  /* The affordance, drawn on the card rather than written under it. */
+  .sheet::after {
+    content: 'Open PDF';
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 22px var(--space-3) 9px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.62), transparent);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  .sheet:hover::after,
+  .sheet:focus-visible::after {
+    opacity: 1;
+  }
+
+  .template-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+
+  .template-note {
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--color-text-tertiary);
+  }
+
+  /* ---------- open source ---------- */
+
+  .oss-actions {
+    margin-top: var(--space-8);
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    flex-wrap: wrap;
+  }
+
+  .oss-note {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    max-width: 40ch;
+    line-height: 1.5;
+  }
+
+  /* ---------- closer ---------- */
+
+  .closer {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-8);
+    padding-top: var(--space-16);
+    padding-bottom: var(--space-16);
+  }
+
+  /*
+   * The one place on this page where the type is the graphic.
+   *
+   * It was --text-2xl: the last line anyone reads, set at the size of a
+   * mid-page subhead. Sized against the viewport instead, and let past the
+   * 1128px measure everything else keeps, because an ending that is the same
+   * size as a caption is not an ending.
+   */
+  .closer-title {
+    font-size: clamp(2.5rem, 9vw, 7rem);
+    font-weight: 600;
+    letter-spacing: -0.045em;
+    line-height: 0.97;
+    max-width: none;
+    text-wrap: balance;
+  }
+
+  .closer-note {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+  }
+
+  /* ---------- footer ---------- */
+
+  /*
+   * This was one 12px line. It is the last thing on a long page and the place
+   * someone who read all of it arrives, so it carries the mark, the three
+   * things worth linking, and the one sentence that states the deal.
+   */
+  .footer {
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+    padding: var(--space-12) var(--space-6) var(--space-8);
+  }
+
+  .footer-top,
+  .footer-base {
+    max-width: 1128px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-5) var(--space-8);
+    flex-wrap: wrap;
+  }
+
+  .footer-mark {
+    font-size: var(--text-lg);
+  }
+
+  .footer-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+  }
+
+  .footer-base {
+    margin-top: var(--space-8);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-xs);
     color: var(--color-text-tertiary);
   }
 
   .footer-link {
+    font-size: var(--text-sm);
     color: var(--color-text-secondary);
     text-decoration: none;
   }
 
   .footer-link:hover {
     color: var(--color-text-primary);
+  }
+
+  /* ---------- capture ---------- */
+
+  .tiers {
+    list-style: none;
+  }
+
+  .tier {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-4);
+    align-items: baseline;
+    padding: var(--space-5) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .tier:first-child {
+    padding-top: 0;
+  }
+
+  .tier:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .tier-n {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  .tier-t {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+  }
+
+  .tier-b {
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+  }
+
+  /* The honest half of "automatic": what each tier actually costs you. */
+  .tier-cost {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+  }
+
+  /* ---------- home ---------- */
+
+  /*
+   * One panel, drawn rather than screenshotted: it themes with the page, stays
+   * sharp at any zoom, and cannot go stale the way an exported PNG of a chart
+   * does the first time the real chart changes.
+   */
+  /* Not `.board` — that name already belongs to a job board in the ticker
+     above, and inheriting its inline-flex mono display turned this panel into
+     one very wide line. */
+  .home-panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-bg);
+    overflow: hidden;
+  }
+
+  .attention {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .att {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-5) var(--space-6);
+  }
+
+  .att + .att {
+    border-left: 1px solid var(--color-border);
+  }
+
+  .att-k {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+  }
+
+  .att-v {
+    font-size: var(--text-3xl);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .att-h {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--color-text-tertiary);
+  }
+
+  /*
+   * Trend across the top, then the three comparisons in one row. At two
+   * columns the fourth chart sat alone on a third row with half the panel
+   * empty beside it, which reads as a chart that failed to load.
+   */
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .chart {
+    padding: var(--space-5) var(--space-6) var(--space-6);
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* Every chart in the bottom row except the first gets the divider; the first
+     follows the full-width trend, where a left border would run into nothing. */
+  .chart:not(.chart-wide) + .chart {
+    border-left: 1px solid var(--color-border);
+  }
+
+  /* The trend spans both columns: it is the only chart whose shape, rather
+     than whose values, is the thing being read. */
+  .chart-wide {
+    grid-column: 1 / -1;
+    border-top: none;
+  }
+
+  .chart figcaption {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    margin-bottom: var(--space-4);
+  }
+
+  .chart figcaption span {
+    font-weight: 400;
+    color: var(--color-text-tertiary);
+  }
+
+  .trend {
+    display: block;
+    width: 100%;
+    height: 96px;
+  }
+
+  /* The one chart carrying the accent (DESIGN.md). Everything else is ink. */
+  .trend-line {
+    fill: none;
+    stroke: var(--color-chart-mark);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .trend-area {
+    fill: color-mix(in srgb, var(--color-chart-mark) 10%, transparent);
+    stroke: none;
+  }
+
+  .axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+  }
+
+  .bars {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .bars li {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr) 20px;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 11px;
+  }
+
+  .bar-k {
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  /* Status rides a dot beside the label, never the bar fill: offer and rejected
+     are 4.2 ΔE apart under deuteranopia, which is fine on a labelled pill and
+     misleading when bar length is the comparison. */
+  .dot::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: var(--radius-full);
+    background: var(--tone);
+    vertical-align: middle;
+  }
+
+  .dot-saved {
+    --tone: var(--color-status-saved);
+  }
+  .dot-applied {
+    --tone: var(--color-status-applied);
+  }
+  .dot-interviewing {
+    --tone: var(--color-status-interviewing);
+  }
+  .dot-offer {
+    --tone: var(--color-status-offer);
+  }
+  .dot-rejected {
+    --tone: var(--color-status-rejected);
+  }
+  .dot-withdrawn {
+    --tone: var(--color-status-withdrawn);
+  }
+
+  .bar-track {
+    height: 8px;
+    background: var(--color-chart-grid);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  /* Square at the baseline, rounded at the data end — the spec the real charts
+     follow, so a rounded start never reads as a value it does not hold. */
+  .bar-fill {
+    display: block;
+    height: 100%;
+    min-width: 3px;
+    background: var(--color-chart-bar);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  .bar-v {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cols {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: end;
+    gap: var(--space-3);
+    height: 116px;
+  }
+
+  .cols li {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
+    gap: var(--space-2);
+    height: 100%;
+  }
+
+  /* 24px is the spec's ceiling for bar thickness, and a histogram column
+     stretched to a third of a panel stops reading as a measurement. */
+  .col {
+    display: block;
+    width: 100%;
+    max-width: 24px;
+    margin: 0 auto;
+    background: var(--color-chart-bar);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    min-height: 3px;
+  }
+
+  .col-k {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    text-align: center;
+  }
+
+  /* ---------- one application ---------- */
+
+  .detail-rail {
+    list-style: none;
+    margin-top: var(--space-8);
+  }
+
+  .detail-rail li {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: var(--space-4);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+
+  .detail-rail span {
+    color: var(--color-text-tertiary);
+  }
+
+  .ba {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .ba-pane {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .ba-pane figcaption {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+  }
+
+  .ba-tag {
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-active);
+    color: var(--color-text-secondary);
+    font-weight: 500;
+  }
+
+  .ba-tag-on {
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
+  }
+
+  /* The captured half is shown as what it is — a text file — wraps and all. */
+  .ba-raw {
+    padding: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1.7;
+    color: var(--color-text-tertiary);
+    white-space: pre-wrap;
+  }
+
+  .ba-out {
+    padding: var(--space-4);
+  }
+
+  .ba-h {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-tertiary);
+  }
+
+  .ba-h + .ba-p,
+  .ba-h + .ba-ul {
+    margin-top: var(--space-2);
+  }
+
+  .ba-p {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+  }
+
+  .ba-p + .ba-h,
+  .ba-ul + .ba-h {
+    margin-top: var(--space-4);
+  }
+
+  .ba-ul {
+    padding-left: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .ba-ul li {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+    list-style: disc;
+  }
+
+  /* ---------- import ---------- */
+
+  .review {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+  }
+
+  .review-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .review-file {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .review-count {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  .review-rows {
+    list-style: none;
+  }
+
+  .review-rows li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .review-rows li:last-child {
+    border-bottom: none;
+  }
+
+  .tick {
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-strong);
+  }
+
+  .tick {
+    position: relative;
+  }
+
+  .review-rows .on .tick {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+  }
+
+  /*
+   * The tick is drawn, not shown.
+   *
+   * This panel's whole claim is that a person confirmed each fact before it
+   * was stored, so the checkmarks arriving one after another is the argument.
+   * Scaling the rotated box from its own corner draws the two strokes in the
+   * order a hand would.
+   */
+  :global(.motion) .import.will-reveal .review-rows .on .tick::after {
+    transform: rotate(45deg) scale(0);
+  }
+
+  :global(.motion) .import.revealed .review-rows .on .tick::after {
+    transform: rotate(45deg) scale(1);
+    transition: transform 420ms cubic-bezier(0.34, 1.4, 0.5, 1);
+  }
+
+  :global(.motion) .import.revealed .review-rows li:nth-child(1) .tick::after {
+    transition-delay: 260ms;
+  }
+  :global(.motion) .import.revealed .review-rows li:nth-child(2) .tick::after {
+    transition-delay: 360ms;
+  }
+  :global(.motion) .import.revealed .review-rows li:nth-child(3) .tick::after {
+    transition-delay: 460ms;
+  }
+
+  /* Two borders on a rotated box, not a glyph: it keeps its stroke weight at
+     any size and takes the theme's foreground with its ground. */
+  .review-rows .on .tick::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 3px;
+    height: 7px;
+    border: solid var(--color-primary-fg);
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+    transform-origin: 60% 40%;
+  }
+
+  .review-t {
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  .review-rows li:not(.on) .review-t {
+    color: var(--color-text-tertiary);
+    text-decoration: line-through;
+  }
+
+  .review-kind {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+  }
+
+  /* ---------- self-hosting ---------- */
+
+  .providers {
+    list-style: none;
+  }
+
+  .providers li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .prov-n {
+    font-size: var(--text-base);
+    font-weight: 500;
+  }
+
+  .prov-note {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    text-align: right;
+  }
+
+  .prov-foot {
+    margin-top: var(--space-5);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+  }
+
+  /* ---------- plans ---------- */
+
+  .plan-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-12);
+    margin-top: var(--space-10);
+  }
+
+  /* A hairline between them, not two cards. Boxing a price is how a quiet page
+     acquires its first advertisement. */
+  .plan + .plan {
+    padding-left: var(--space-12);
+    border-left: 1px solid var(--color-border);
+    margin-left: calc(var(--space-12) * -1);
+  }
+
+  .plan-k {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--space-3);
+  }
+
+  .plan-k-pro {
+    color: var(--color-text-primary);
+  }
+
+  .plan-lead {
+    font-size: var(--text-lg);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin-bottom: var(--space-5);
+  }
+
+  .plan-list {
+    list-style: none;
+  }
+
+  .plan-list li {
+    position: relative;
+    padding: var(--space-2) 0 var(--space-2) var(--space-5);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+  }
+
+  .plan-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.95em;
+    width: 10px;
+    height: 1px;
+    background: var(--color-border-strong);
+  }
+
+  .plan-note {
+    margin-top: var(--space-5);
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  /* ---------- the pinned act ---------- */
+
+  /*
+   * Static by default, pinned only under html.motion.
+   *
+   * With no JS, under prefers-reduced-motion, in print, and on a phone this is
+   * a plain stacked composition: five panels in a column, every beat visible,
+   * nothing sticky. The scrubbed version is what the script opts into — the
+   * same rule the headline follows, for the same reason. An effect that leaves
+   * the page blank when it does not run is not an effect, it is a bug with a
+   * nice easing curve.
+   */
+  .act {
+    max-width: none;
+    padding: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .act-rail {
+    max-width: 1128px;
+    margin: 0 auto;
+    padding: var(--space-16) var(--space-6);
+  }
+
+  .act-stage {
+    display: grid;
+    gap: var(--space-10);
+  }
+
+  .act-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .act-steps {
+    list-style: none;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .act-step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    column-gap: var(--space-3);
+    padding: var(--space-3) 0 var(--space-3) var(--space-5);
+    transition: opacity var(--transition-base);
+  }
+
+  /* The travelling marker. Sits on the rail's own hairline rather than beside
+     it, so the line reads as one line with a lit segment. */
+  .act-step::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-accent);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+  }
+
+  .act-step-n {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--color-text-tertiary);
+  }
+
+  .act-step-l {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .act-step-c {
+    grid-column: 2;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+    margin-top: var(--space-2);
+  }
+
+  .act-frame {
+    min-width: 0;
+  }
+
+  .act-scene {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .act-panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
+  }
+
+  .act-ext {
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    background: var(--color-surface);
+  }
+
+  .act-paper {
+    position: relative;
+    background: var(--color-paper);
+  }
+
+  .act-chip {
+    position: relative;
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: var(--color-surface);
+  }
+
+  /*
+   * ---- pinned and scrubbed ----
+   *
+   * The rail is tall and the stage sticks to the top of it, so scroll drives
+   * the scene instead of scrolling past it. Everything below is a calc against
+   * five numbers the script writes on the stage once a frame — one 0-to-1
+   * progress per beat — which is what makes the whole thing run backwards as
+   * cleanly as it runs forwards.
+   */
+  :global(.motion) .act-rail {
+    position: relative;
+    max-width: none;
+    padding: 0;
+    /* Pinned distance. Five beats want roughly a screen each; much less and
+       the scene snaps between states, much more and it feels stuck. */
+    height: 480vh;
+  }
+
+  :global(.motion) .act-stage {
+    position: sticky;
+    top: 56px;
+    height: calc(100vh - 56px);
+    max-width: 1128px;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-6);
+    grid-template-columns: 300px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-10);
+    overflow: hidden;
+  }
+
+  :global(.motion) .act-step {
+    opacity: 0.42;
+  }
+
+  /* A beat you have been through stays legible; only the current one is lit. */
+  :global(.motion) .act-step.done {
+    opacity: 0.72;
+  }
+
+  :global(.motion) .act-step.on {
+    opacity: 1;
+  }
+
+  :global(.motion) .act-step.on::before {
+    opacity: 1;
+  }
+
+  :global(.motion) .act-step.on .act-step-n {
+    color: var(--color-accent);
+  }
+
+  /* The caption is an accordion in the rail rather than a separate box, so the
+     five beats stay one list and the reading eye never has to leave it. */
+  :global(.motion) .act-step-c {
+    overflow: hidden;
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+    transition:
+      max-height 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-top 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 260ms ease;
+  }
+
+  :global(.motion) .act-step.on .act-step-c {
+    max-height: 7em;
+    margin-top: var(--space-2);
+    opacity: 1;
+  }
+
+  /* The window. The scene behind it is wider than the frame and pans. */
+  :global(.motion) .act-frame {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    /*
+     * A panning camera slices whatever is crossing the frame edge, and a slice
+     * through a line of 11px type reads as a rendering fault rather than as a
+     * pan. Six percent of fade at each side turns the cut into a horizon.
+     */
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  }
+
+  :global(.motion) .act-scene {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    display: block;
+    width: 1980px;
+    /* Hugs the panels rather than the frame. The scene is centred in the
+       stage, so every pixel of scene that no panel occupies is dead air
+       pushing the composition off-centre — which is what 560 was doing. */
+    height: 480px;
+    margin-top: -240px;
+    /*
+     * The camera: scroll-linked, and front-loaded inside its beat.
+     *
+     * This has now been wrong in both of the obvious ways. Spread evenly
+     * across a beat, the camera was always half a beat behind its subject —
+     * the pipeline panel was still sliding in, clipped by the right edge,
+     * throughout the beat that is about the pipeline. Stepped to a constant
+     * per beat and eased over 680ms it stopped being late and started being a
+     * cut: the move ran on its own clock while the scroll ran on the reader's,
+     * and the middle of it was an empty frame.
+     *
+     * So: still driven by scroll, so it can never be out of step with the hand
+     * doing the scrolling, but mapped so the whole pan happens in the first
+     * 40% of the beat and holds for the rest. The subject is framed almost
+     * immediately and stays framed, and nothing moves that the reader did not
+     * move.
+     */
+    --pan-list: clamp(0, calc(var(--b2, 0) * 2.5), 1);
+    --pan-paper: clamp(0, calc(var(--b3, 0) * 2.5), 1);
+    --cam: calc(var(--pan-list) * -750px + var(--pan-paper) * -490px);
+    transform: translate3d(var(--cam), 0, 0);
+    /* Just enough to smooth a wheel's discrete steps. Any longer and the
+       camera lags the scroll, which is the lurch this replaces. */
+    transition: transform 200ms linear;
+  }
+
+  /*
+   * Fixed positions in the scene's own 1400x520 space. Nothing here moves
+   * between beats; the camera moves, which is why the panels stay put relative
+   * to each other and the sequence reads as one place rather than five slides.
+   */
+  :global(.motion) .act-panel {
+    position: absolute;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent),
+      var(--shadow-lg);
+    transition:
+      opacity 320ms ease,
+      transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /*
+    * Scene coordinates, in a 1980x560 space the camera pans across. The frame
+    * the grid leaves is about 740px wide at the 1128px cap, so each beat's
+    * subject is sized and placed to sit inside that with a margin, and the
+    * camera targets in the script are simply "put this one in the middle".
+    */
+  :global(.motion) .act-jd {
+    left: 180px;
+    top: 115px;
+    width: 380px;
+  }
+
+  /*
+   * The card arrives on its own beat and is then simply left behind. It used
+   * to fade out again as the next beat started, which is exactly what put an
+   * empty frame in the middle of the pan. Nothing in this scene dissolves now:
+   * things enter once, and after that the camera alone decides what is visible.
+   */
+  :global(.motion) .act-ext {
+    left: 440px;
+    top: 58px;
+    width: 280px;
+    z-index: 3;
+    opacity: clamp(0, calc(var(--b1, 0) * 3), 1);
+    transform: translate3d(calc((1 - var(--b1, 0)) * 44px), calc((1 - var(--b1, 0)) * -12px), 0)
+      scale(calc(0.94 + var(--b1, 0) * 0.06));
+  }
+
+  /* One field at a time. Filling all three together looks like a form being
+     shown; filling them in sequence looks like a page being read. */
+  :global(.motion) .act-ext .ext-fields div {
+    opacity: clamp(0, calc((var(--b1, 0) - 0.22 - var(--i) * 0.2) * 6), 1);
+    transition: opacity 200ms ease;
+  }
+
+  :global(.motion) .act-ext .ext-cta {
+    opacity: clamp(0, calc((var(--b1, 0) - 0.84) * 8), 1);
+  }
+
+  /* No entrance. It sits off frame until the camera pans to it, and a panel
+     that fades in as the camera arrives is two reveals of one thing. */
+  :global(.motion) .act-list {
+    left: 800px;
+    top: 115px;
+    width: 640px;
+    z-index: 2;
+  }
+
+  /*
+   * The row opens; it does not appear.
+   *
+   * It used to be faded in where it already sat, which meant the list rendered
+   * for a third of a second as a complete list with a hole punched in it —
+   * Stripe, a blank gap, Vercel — and then patched itself. That reads as a
+   * rendering fault rather than as a row being written. Now the list is always
+   * a correct list: it opens a space, and the row is written into the space,
+   * which is what an inserted row actually looks like.
+   *
+   * 50px is the row's measured height. The padding and the hairline scale with
+   * it so the box closes to nothing rather than to a 19px band of padding.
+   */
+  :global(.motion) .act-row-new {
+    --open: clamp(0, calc((var(--b2, 0) - 0.34) * 3.2), 1);
+    position: relative;
+    overflow: hidden;
+    height: calc(var(--open) * 50px);
+    padding-top: calc(var(--open) * 9px);
+    padding-bottom: calc(var(--open) * 9px);
+    border-bottom-width: calc(var(--open) * 1px);
+    background: color-mix(
+      in srgb,
+      var(--color-accent-subtle) calc(100% - var(--b3, 0) * 100%),
+      transparent
+    );
+  }
+
+  /* The contents land just after the space does, so it reads as "room is made,
+     then the row is filled" rather than as both at once. */
+  :global(.motion) .act-row-new > * {
+    opacity: clamp(0, calc((var(--b2, 0) - 0.5) * 4), 1);
+  }
+
+  /* The accent edge that marks the row as new, and fades once it is just
+     another row — which is the honest end state. */
+  :global(.motion) .act-row-new::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: var(--color-accent);
+    opacity: calc(var(--open) * (1 - var(--b3, 0)));
+  }
+
+  /* Likewise. The sheet is already on the desk; what happens on its beat is
+     the writing, not the arrival of the paper. */
+  :global(.motion) .act-paper {
+    left: 1540px;
+    top: 80px;
+    width: 420px;
+    z-index: 2;
+  }
+
+  /*
+   * Lines compose one after another rather than arriving as a block.
+   *
+   * The sheet keeps its full height throughout — the children fade rather than
+   * being inserted — so nothing reflows as they land. Composition starts at
+   * 0.38 of the beat rather than 0.14: the camera pan finishes at 0.40, and a
+   * document that writes itself while the camera is still travelling is two
+   * events competing for the same moment.
+   */
+  :global(.motion) .act-paper .cv > * {
+    --lit: clamp(0, calc((var(--b3, 0) - 0.38 - var(--i) * 0.1) * 8), 1);
+    opacity: var(--lit);
+    transform: translateY(calc((1 - var(--lit)) * 6px));
+    transition:
+      opacity 220ms ease,
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /*
+   * Citations light on the last beat, not with the line that carries them.
+   * That is the order the app works in — it writes first and attributes after
+   * — and showing it that way round is the difference between a highlight and
+   * a claim about provenance.
+   */
+  :global(.motion) .act-paper .cite {
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  /* Driven by the beat's progress rather than switched on when the rail's
+     label changes: a mark that snaps on is the one thing in the scene that is
+     not answering the scroll. */
+  :global(.motion) .act-paper .cite-cv {
+    --mark: clamp(0, calc((var(--b4, 0) - 0.1) * 3), 1);
+    background-color: color-mix(
+      in srgb,
+      var(--color-cite-cv-fill) calc(var(--mark) * 100%),
+      transparent
+    );
+    box-shadow: inset 0 calc(var(--mark) * -2px) 0 var(--color-cite-cv);
+  }
+
+  :global(.motion) .act-paper .cite-jd {
+    --mark: clamp(0, calc((var(--b4, 0) - 0.18) * 3), 1);
+    background-color: color-mix(
+      in srgb,
+      var(--color-cite-jd-fill) calc(var(--mark) * 100%),
+      transparent
+    );
+    box-shadow: inset 0 calc(var(--mark) * -2px) 0 var(--color-cite-jd);
+  }
+
+  :global(.motion) .act-comet {
+    opacity: clamp(0, calc((var(--b4, 0) - 0.2) * 5), 1);
+    transition: opacity 320ms ease;
+  }
+
+  /* Under the document's lower right, close enough to read as the thing that
+     just happened to it rather than as a fifth panel. */
+  :global(.motion) .act-chip {
+    left: 1680px;
+    top: 340px;
+    width: 240px;
+    z-index: 4;
+    opacity: clamp(0, calc((var(--b4, 0) - 0.45) * 5), 1);
+    transform: translate3d(0, calc((1 - clamp(0, calc((var(--b4, 0) - 0.45) * 5), 1)) * 16px), 0);
+  }
+
+  /* The requirement this whole sequence is answering, lit on the first beat so
+     the posting is not just scenery. */
+  :global(.motion) .act-jd .jd-hit {
+    background-color: color-mix(
+      in srgb,
+      var(--color-cite-jd-fill) calc(var(--b0, 0) * 100%),
+      transparent
+    );
+    box-shadow: inset calc(var(--b0, 0) * 2px) 0 0 var(--color-cite-jd);
+  }
+
+  /*
+   * Below this the stage has no room for a 300px rail beside a 1400px scene,
+   * and a scene scaled to fit would put 10px type at 6px. Straight back to the
+   * static composition, which was always the fallback rather than a lesser
+   * version of it.
+   */
+  @media (max-width: 1040px) {
+    :global(.motion) .act-rail {
+      position: static;
+      height: auto;
+      max-width: 1128px;
+      margin: 0 auto;
+      padding: var(--space-12) var(--space-5);
+    }
+
+    :global(.motion) .act-stage {
+      position: static;
+      height: auto;
+      grid-template-columns: 1fr;
+      padding: 0;
+      overflow: visible;
+      gap: var(--space-10);
+    }
+
+    :global(.motion) .act-step,
+    :global(.motion) .act-step.done {
+      opacity: 1;
+    }
+
+    :global(.motion) .act-step-c {
+      max-height: none;
+      margin-top: var(--space-2);
+      opacity: 1;
+      overflow: visible;
+    }
+
+    :global(.motion) .act-frame {
+      position: static;
+      height: auto;
+      overflow: visible;
+    }
+
+    :global(.motion) .act-scene {
+      position: static;
+      display: flex;
+      width: auto;
+      height: auto;
+      margin-top: 0;
+      transform: none;
+    }
+
+    :global(.motion) .act-panel {
+      position: static;
+      width: auto;
+      opacity: 1;
+      transform: none;
+      box-shadow: var(--shadow-sm);
+    }
+
+    :global(.motion) .act-ext .ext-fields div,
+    :global(.motion) .act-ext .ext-cta,
+    :global(.motion) .act-paper .cv > *,
+    :global(.motion) .act-comet {
+      opacity: 1;
+    }
+
+    :global(.motion) .act-paper .cite-cv {
+      background-color: var(--color-cite-cv-fill);
+      box-shadow: inset 0 -2px 0 var(--color-cite-cv);
+    }
+
+    :global(.motion) .act-paper .cite-jd {
+      background-color: var(--color-cite-jd-fill);
+      box-shadow: inset 0 -2px 0 var(--color-cite-jd);
+    }
+
+    :global(.motion) .act-jd .jd-hit {
+      background-color: var(--color-cite-jd-fill);
+      box-shadow: inset 2px 0 0 var(--color-cite-jd);
+    }
+
+    /* The open-by-height animation has to be undone too, or the row is a
+       zero-height sliver in the static composition. */
+    :global(.motion) .act-row-new {
+      height: auto;
+      padding-top: 9px;
+      padding-bottom: 9px;
+      border-bottom-width: 1px;
+      background: none;
+      overflow: visible;
+    }
+
+    :global(.motion) .act-row-new > * {
+      opacity: 1;
+    }
+
+    :global(.motion) .act-row-new::before {
+      background: none;
+      opacity: 1;
+    }
+  }
+
+  /* ---------- the thread ---------- */
+
+  /*
+   * Grounding is the one claim on this page nobody else is making, and it was
+   * carried by two <mark> background colours. Drawn out it becomes the page's
+   * motif: teal from a fact you wrote to the line built out of it, ochre from
+   * the requirement that line answers.
+   *
+   * The ochre threads cross and the teal ones do not, because a posting is not
+   * written in the order your CV is — which is the actual shape of the problem
+   * and the reason a CV has to be rewritten per posting rather than reordered.
+   */
+  .thread {
+    grid-column: 1 / -1;
+    margin-top: var(--space-12);
+  }
+
+  .thread-grid {
+    display: grid;
+    grid-template-columns: 1fr 110px 1.3fr 110px 1fr;
+    align-items: end;
+  }
+
+  .thread-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+
+  .thread-h {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .thread-h-cv {
+    color: var(--color-cite-cv);
+  }
+
+  .thread-h-jd {
+    color: var(--color-cite-jd);
+  }
+
+  /*
+   * Fixed row heights, and the same 8px gap the frontmatter assumes. This is
+   * what lets the SVG gutters be drawn in the rows' own coordinate space
+   * instead of anything being measured at runtime — change one and change
+   * THREAD_ROW / THREAD_GAP with it.
+   */
+  .thread-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .thread-row {
+    height: 84px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .thread-row-cv {
+    box-shadow: inset 2px 0 0 var(--color-cite-cv);
+  }
+
+  .thread-row-jd {
+    box-shadow: inset -2px 0 0 var(--color-cite-jd);
+  }
+
+  /* The generated column is on paper, not on chrome — the same distinction the
+     app makes between a panel and a document it is showing you. */
+  .thread-row-out {
+    background: var(--color-paper);
+    border-color: var(--color-border-strong);
+    color: var(--color-paper-ink);
+    font-size: 12.5px;
+  }
+
+  .thread-gutter {
+    width: 100%;
+    height: 268px;
+    align-self: end;
+    overflow: visible;
+  }
+
+  /* pathLength="1" in the markup, so the dash maths is the same for every
+     curve regardless of how long it actually is. */
+  .wire {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-dasharray: 1;
+    vector-effect: non-scaling-stroke;
+    opacity: 0.9;
+  }
+
+  .wire-cv {
+    stroke: var(--color-cite-cv);
+  }
+
+  .wire-jd {
+    stroke: var(--color-cite-jd);
+  }
+
+  /*
+   * Both classes are on the element at once — the script adds `revealed`, it
+   * does not take `will-reveal` off — so the drawn state has to carry the
+   * `.motion` prefix too. Without it the hidden rule is one class more specific
+   * and simply wins, and the curves never appear at all.
+   */
+  :global(.motion) .grounding.will-reveal .wire {
+    stroke-dashoffset: 1;
+  }
+
+  :global(.motion) .grounding.revealed .wire {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  :global(.motion) .grounding.revealed .wire:nth-child(2) {
+    transition-delay: 130ms;
+  }
+
+  :global(.motion) .grounding.revealed .wire:nth-child(3) {
+    transition-delay: 260ms;
+  }
+
+  .thread figcaption {
+    margin-top: var(--space-8);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-text-tertiary);
+    max-width: 62ch;
+  }
+
+  /* ---------- the demo, given a stage ---------- */
+
+  .try-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-10);
+    align-items: end;
+    margin-bottom: var(--space-10);
+  }
+
+  .try-head .section-title {
+    margin-bottom: 0;
+  }
+
+  /*
+   * The strongest thing on the page was sitting inside the same measure as a
+   * paragraph. --pull is how far past the text column it is allowed to grow;
+   * it resolves to zero once the viewport is narrower than the column, so the
+   * same rule does both jobs.
+   */
+  .try-stage {
+    --pull: calc((min(1400px, 100vw - 3rem) - 100%) / 2);
+    margin-left: calc(var(--pull) * -1);
+    margin-right: calc(var(--pull) * -1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+
+  /* ---------- the charts draw themselves ---------- */
+
+  /*
+   * Four charts that simply existed, on a page whose whole argument is that it
+   * shows you the real thing. A chart that draws is not decoration: a trend
+   * that sweeps left to right and bars that grow from their baseline are the
+   * two gestures that say "this is a measurement", and they cost one transition
+   * each.
+   *
+   * Every rule here carries :global(.motion) on both the hidden and the shown
+   * state. Astro scopes each compound selector with a [data-astro-cid-*]
+   * attribute, so a pair that does not match in shape does not tie — the hidden
+   * half simply wins, which is how three separate effects on this page have
+   * already failed silently.
+   */
+  :global(.motion) .home.will-reveal .trend-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  :global(.motion) .home.revealed .trend-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1400ms cubic-bezier(0.33, 0.9, 0.3, 1);
+  }
+
+  /* The fill follows the line rather than arriving with it, so the shape is
+     read as a line first and a quantity second. */
+  :global(.motion) .home.will-reveal .trend-area {
+    opacity: 0;
+  }
+
+  :global(.motion) .home.revealed .trend-area {
+    opacity: 1;
+    transition: opacity 900ms ease-out 500ms;
+  }
+
+  /* Bars grow from the baseline, never from the middle: the rounded data end
+     travelling away from a square origin is the whole readability of the mark. */
+  :global(.motion) .home.will-reveal .bar-fill {
+    transform: scaleX(0);
+  }
+
+  :global(.motion) .home.revealed .bar-fill {
+    transform: scaleX(1);
+    transition: transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .bar-fill {
+    transform-origin: left center;
+  }
+
+  :global(.motion) .home.will-reveal .col {
+    transform: scaleY(0);
+  }
+
+  :global(.motion) .home.revealed .col {
+    transform: scaleY(1);
+    transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .col {
+    transform-origin: bottom center;
+  }
+
+  /* Left to right, one row at a time. Simultaneous growth reads as a loading
+     state; in sequence it reads as a chart being plotted. */
+  :global(.motion) .home.revealed .bars li:nth-child(1) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(1) .col {
+    transition-delay: 120ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(2) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(2) .col {
+    transition-delay: 190ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(3) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(3) .col {
+    transition-delay: 260ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(4) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(4) .col {
+    transition-delay: 330ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(5) .bar-fill,
+  :global(.motion) .home.revealed .cols li:nth-child(5) .col {
+    transition-delay: 400ms;
+  }
+  :global(.motion) .home.revealed .bars li:nth-child(6) .bar-fill {
+    transition-delay: 470ms;
+  }
+
+  /* ---------- staggered entrances ---------- */
+
+  /*
+   * One 12px fade-up for eleven sections is what made them feel
+   * interchangeable. A list marked `stagger` resolves its children in sequence
+   * instead, so a row of six templates arrives as six things rather than as one
+   * rectangle. Scoped to html.motion, like everything else here: without the
+   * script the children were never hidden.
+   */
+  :global(.motion) .will-reveal .stagger > * {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  /*
+   * The `.motion` prefix is load-bearing on the visible rule too.
+   *
+   * Astro scopes every compound selector with a [data-astro-cid-*] attribute,
+   * so the hidden rule above counts six class-or-attribute selectors and this
+   * one would count five. Without the prefix the hidden rule is simply more
+   * specific and the children of a staggered list never come back — which is
+   * exactly how the provider list rendered as an empty column.
+   */
+  :global(.motion) .revealed .stagger > * {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 520ms ease-out,
+      transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  :global(.motion) .revealed .stagger > *:nth-child(1) {
+    transition-delay: 30ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(2) {
+    transition-delay: 90ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(3) {
+    transition-delay: 150ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(4) {
+    transition-delay: 210ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(5) {
+    transition-delay: 270ms;
+  }
+  :global(.motion) .revealed .stagger > *:nth-child(6) {
+    transition-delay: 330ms;
+  }
+
+  /* ---------- narrow ---------- */
+
+  /*
+   * The stack is a fixed 1240px composition, so it scales as one object rather
+   * than reflowing — perspective children cannot be laid out by a grid, and
+   * rewrapping them would break the geometry that makes the depth read.
+   */
+  /*
+   * Height follows the scale. `scale` shrinks the stack about its centre, so a
+   * 660px composition at 0.86 still occupies 568px of the stage — trim the
+   * stage below that and the crop lands on the chip in the lower right, which
+   * is a 65px object and reads as broken rather than as a bleed.
+   */
+  @media (max-width: 1280px) {
+    .stage {
+      height: 620px;
+    }
+
+    .stack {
+      scale: 0.86;
+    }
+
+    /* Scaling pulls the composition in from the left but perspective still
+       throws the nearest layer outward, so the chip alone needs walking back
+       inside the frame. */
+    .layer-chip {
+      left: 1000px;
+    }
+  }
+
+  @media (max-width: 1040px) {
+    .stage {
+      height: 540px;
+    }
+
+    .stack {
+      scale: 0.72;
+    }
+  }
+
+  @media (max-width: 900px) {
+    section {
+      padding: var(--space-12) var(--space-5);
+    }
+
+    .proof-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-8) var(--space-6);
+    }
+
+    /* A ticker set wider than the window is the whole point of one, but at
+       display size a 390px window holds a word and a half and the strip stops
+       reading as a list at all. */
+    .board {
+      font-size: var(--text-xl);
+      gap: var(--space-6);
+    }
+
+    .marquee-set {
+      gap: var(--space-6);
+      padding-right: var(--space-6);
+    }
+
+    .grounding {
+      grid-template-columns: 1fr;
+      gap: var(--space-8);
+    }
+
+    .steps {
+      grid-template-columns: 1fr;
+    }
+
+    .step {
+      padding: var(--space-6) 0;
+    }
+
+    .step:first-child {
+      padding-top: 0;
+    }
+
+    .step + .step {
+      border-left: none;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .template-strip {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* Every two-column section folds on the same rule, in the same order:
+       prose first, the thing it describes under it. */
+    .capture,
+    .apply,
+    .detail,
+    .oss,
+    .plan-split {
+      grid-template-columns: 1fr;
+      gap: var(--space-10);
+    }
+
+    /* The divider follows the fold — a left border on a stacked column draws a
+       line down the side of nothing. */
+    .plan + .plan {
+      padding-left: 0;
+      margin-left: 0;
+      border-left: none;
+      padding-top: var(--space-10);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .attention,
+    .charts {
+      grid-template-columns: 1fr;
+    }
+
+    .att + .att {
+      border-left: none;
+      border-top: 1px solid var(--color-border);
+    }
+
+    /* Matching the base rule's selector exactly, not a shorter one: a media
+       query adds no specificity, so `.chart + .chart` simply lost to it. */
+    .chart:not(.chart-wide) + .chart {
+      border-left: none;
+    }
+
+    /* The cost column has nowhere to sit beside three lines of body text at
+       this width; it drops under the title instead of squeezing it. */
+    .tier {
+      grid-template-columns: auto 1fr;
+    }
+
+    .tier-cost {
+      grid-column: 2;
+    }
+
+    .bars li {
+      grid-template-columns: 78px 1fr 22px;
+    }
+  }
+
+  @media (max-width: 860px) {
+    /*
+     * A phone has none of the horizontal room this composition needs, and a
+     * 0.4 scale would make 10px type unreadable. Straight on and stacked
+     * instead — still layered, with the shadow left carrying the depth.
+     *
+     * The blur and the float go too: both are depth cues for a scene that no
+     * longer has depth, and a blurred panel on a phone just looks broken.
+     */
+    .stage {
+      width: 100%;
+      margin-left: 0;
+      margin-bottom: 0;
+      height: auto;
+      perspective: none;
+      overflow: visible;
+      margin-top: var(--space-12);
+    }
+
+    .glow {
+      display: none;
+    }
+
+    .stack {
+      position: static;
+      width: 100%;
+      height: auto;
+      margin-left: 0;
+      transform: none;
+      scale: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .layer {
+      position: static;
+      width: 100%;
+      transform: none;
+      opacity: 1;
+      filter: none;
+      animation: none;
+    }
+
+    /* Nothing to run the perimeter of, once the panel is just a card in a
+       column. */
+    .comet,
+    .layer-chip .ping {
+      display: none;
+    }
+
+    .layer-chip {
+      flex-direction: row;
+      align-items: baseline;
+      gap: var(--space-3);
+    }
+
+    /*
+     * The list panel's toolbar is a desktop toolbar: three filter tabs and a
+     * 200px search field, which do not fit a phone-width card and were pushing
+     * the document 90px wider than the viewport. The filters still read as
+     * filters without the search box beside them.
+     */
+    .bar {
+      flex-wrap: wrap;
+    }
+
+    .search,
+    .meta {
+      display: none;
+    }
+
+    .bar-count {
+      margin-left: auto;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .nav {
+      padding: 0 var(--space-4);
+    }
+
+    /* Two entry points to the same page in a 56px bar is one too many. */
+    .nav-actions .nav-link:first-child {
+      display: none;
+    }
+
+    .hero {
+      text-align: left;
+      align-items: flex-start;
+    }
+
+    .cta-row {
+      justify-content: flex-start;
+    }
+
+    .headline,
+    .subheading {
+      max-width: none;
+    }
+
+    .cta-row .btn {
+      flex: 1;
+    }
+  }
+
+  /* ---------- narrow: the new sections ---------- */
+
+  @media (max-width: 900px) {
+    /*
+     * The thread stacks.
+     *
+     * The curves are the diagram, and there is nowhere to draw them once the
+     * five columns fold into one — a gutter 300px tall and 40px wide is not a
+     * thread, it is a squiggle. The three columns still read in order (what you
+     * wrote, what was written, what they asked for) and the coloured edges keep
+     * the teal/ochre pairing, which is the part that has to survive.
+     */
+    .thread-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+    }
+
+    .thread-gutter {
+      display: none;
+    }
+
+    .thread-rows {
+      gap: var(--space-2);
+    }
+
+    .thread-row {
+      height: auto;
+      min-height: 64px;
+      padding: var(--space-3);
+    }
+
+    .thread-h {
+      white-space: normal;
+    }
+
+    .try-head {
+      grid-template-columns: 1fr;
+      gap: var(--space-5);
+    }
+
+    .footer-top,
+    .footer-base {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .footer-base {
+      gap: var(--space-2);
+    }
+  }
+
+  @media (max-width: 560px) {
+    /*
+     * Six fanned cards at 44px wide are six grey slivers. Two up, straightened,
+     * and the fan goes with them — a rotation that small on a card that narrow
+     * reads as a rendering fault rather than as a stack.
+     */
+    .template-strip {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-5);
+    }
+
+    .act-step {
+      grid-template-columns: 22px minmax(0, 1fr);
+      padding-left: var(--space-4);
+    }
+  }
+
+  /*
+   * Print.
+   *
+   * Nothing scrolls on paper, so the beat variables are never written and
+   * every value derived from them resolves to zero. The whole motion layer has
+   * to be undone, not just the containers it moves: the panels, the capture
+   * fields, the composed document lines, the staggered list children and the
+   * thread curves are each faded or clipped by a separate rule.
+   *
+   * These carry !important, which is deliberate rather than lazy. Astro scopes
+   * styles by appending a [data-astro-cid-*] attribute to every compound
+   * selector, so a rule's real specificity is not what it looks like in this
+   * file — `:global(.motion) .act-ext` scores three where a plain `.act-panel`
+   * scores two, and the earlier version of this block lost every contest it
+   * entered while appearing to win them. Matching each motion rule's selector
+   * shape would work until the next rule is added and silently outscores its
+   * counterpart here. Print is the one place where the intent really is
+   * "override the lot, whatever it turned out to be", so it says that.
+   */
+  @media print {
+    :global(.motion) .act-rail,
+    :global(.motion) .act-stage,
+    :global(.motion) .act-frame,
+    :global(.motion) .act-scene,
+    :global(.motion) .act-panel {
+      position: static !important;
+      height: auto !important;
+      width: auto !important;
+      overflow: visible !important;
+    }
+
+    /* The frame's 6% edge fade is a horizon for a panning camera. On paper it
+       just dissolves the first and last centimetre of the content. */
+    :global(.motion) .act-frame {
+      mask-image: none !important;
+    }
+
+    /* Everything inside the act, rather than the five containers: the fades
+       that hide content are on the descendants. */
+    :global(.motion) .act,
+    :global(.motion) .act *,
+    :global(.motion) .will-reveal .stagger > * {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    :global(.motion) .act-row-new {
+      height: auto !important;
+      padding-top: 9px !important;
+      padding-bottom: 9px !important;
+      border-bottom-width: 1px !important;
+      overflow: visible !important;
+    }
+
+    :global(.motion) .act-step-c {
+      max-height: none !important;
+      margin-top: var(--space-2) !important;
+      overflow: visible !important;
+    }
+
+    /* Beat-keyed marks. Without these the document prints with its citations
+       unmarked and the posting with the matched requirement unhighlighted —
+       which is the one thing those two panels are on the page to show. */
+    :global(.motion) .act-paper .cite-cv {
+      background-color: var(--color-cite-cv-fill) !important;
+      box-shadow: inset 0 -2px 0 var(--color-cite-cv) !important;
+    }
+
+    :global(.motion) .act-paper .cite-jd {
+      background-color: var(--color-cite-jd-fill) !important;
+      box-shadow: inset 0 -2px 0 var(--color-cite-jd) !important;
+    }
+
+    :global(.motion) .act-jd .jd-hit {
+      background-color: var(--color-cite-jd-fill) !important;
+      box-shadow: inset 2px 0 0 var(--color-cite-jd) !important;
+    }
+
+    /* The curves are drawn by transitioning the dash offset on reveal, so on
+       paper the thread diagram prints as three columns joined by nothing. */
+    :global(.motion) .grounding .wire {
+      stroke-dashoffset: 0 !important;
+    }
   }
 </style>
