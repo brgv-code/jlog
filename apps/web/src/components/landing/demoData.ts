@@ -30,7 +30,7 @@ const ROWS: [string, string, string | null, ApplicationStatus, string | null, nu
   ['Stripe', 'Staff Frontend Engineer', 'Remote — EU', 'interviewing', 'linkedin', 3],
   ['Vercel', 'Developer Experience Engineer', 'Berlin, DE', 'offer', 'greenhouse', 12],
   ['Anthropic', 'Product Engineer', 'Remote — EU', 'interviewing', 'greenhouse', 5],
-  ['Cloudflare', 'Systems Engineer, Workers', 'Lisbon, PT', 'applied', 'workday', 9],
+  ['Cloudflare', 'Systems Engineer, Workers', 'Lisbon, PT', 'applied', 'manual', 9],
   ['Raycast', 'Frontend Engineer', 'London, UK', 'saved', null, 1],
   ['Supabase', 'Full-stack Engineer', 'Remote', 'rejected', 'lever', 21],
   ['Resend', 'Founding Engineer', 'Remote', 'withdrawn', 'wellfound', 30],

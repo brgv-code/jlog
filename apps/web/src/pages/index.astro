@@ -39,6 +39,63 @@ const GITHUB_URL = 'https://github.com/brgv-code/jlog';
  */
 const STORE_URL = '';
 
+/*
+ * The questions people ask before signing up. One list feeds both the visible
+ * section and the FAQPage structured data, so the two cannot disagree.
+ */
+const faqs = [
+  {
+    q: 'Does jlog apply to jobs for me?',
+    a: 'No. It records applications you make, and on Greenhouse, Lever and Ashby it fills empty fields from your profile. It never presses submit: you read the form and send it yourself.',
+  },
+  {
+    q: 'Is the free plan really free?',
+    a: 'Yes. Capture, tracking, the dashboard, form filling and CV import are free with no time limit and no card. Pro, at €9 a month, adds tailored CVs, cover letters and drafted answers.',
+  },
+  {
+    q: 'Which job boards does it work with?',
+    a: 'Applications are captured automatically on LinkedIn, Wellfound, Ashby, Greenhouse, Lever and Y Combinator’s job board. On any other page, one click reads the posting, and anything else can be added by hand.',
+  },
+  {
+    q: 'Can the AI make up experience on my CV?',
+    a: 'No. Every line is a sentence from the CV you imported or a wording you used in an earlier application. The model only chooses and orders them, and each line links back to where it came from.',
+  },
+  {
+    q: 'Is my data sent to your server?',
+    a: 'On the hosted version, yes: applications, your CV and the postings you extract are stored by jlog, and postings and CV text go to the AI provider you configured. Nothing is sold or shared with anyone else. Self-host it and nothing leaves your own Cloudflare account.',
+  },
+  {
+    q: 'Why do I need my own AI key?',
+    a: 'So you pay the provider directly, at cost, and jlog never marks it up. A whole job search usually costs under €2 in model usage. With Ollama, nothing leaves your machine.',
+  },
+];
+
+/* Structured data: what the product is and what it costs, plus the FAQ. */
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'jlog',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web, Chrome',
+    description:
+      'Open-source job application tracker with a Chrome extension that captures applications and builds tailored CVs from your real experience.',
+    offers: [
+      { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'EUR' },
+      { '@type': 'Offer', name: 'Pro', price: '9', priceCurrency: 'EUR' },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  },
+];
+
 const steps = [
   {
     id: 'capture',
@@ -144,7 +201,7 @@ const templates: { id: keyof typeof thumbs; label: string; note: string }[] = [
   { id: 'casual', label: 'Casual', note: 'larger name, looser leading' },
   { id: 'oldstyle', label: 'Oldstyle', note: 'serif, centred headings' },
   { id: 'fancy', label: 'Fancy', note: 'filled header block' },
-  { id: 'plain', label: 'Plain', note: 'single column, ATS-safe' },
+  { id: 'plain', label: 'Plain', note: 'single column, safest for ATS screening' },
 ];
 
 for (const template of templates) {
@@ -240,10 +297,10 @@ const threadLines = [
   {
     fact: 0,
     need: 1,
-    text: 'Owned the design system 40 engineers across 6 product teams built on.',
+    text: 'Owned the design system — 40 engineers, 6 product teams',
   },
-  { fact: 1, need: 2, text: 'Cut median dashboard load from 3.2s to 900ms by code-splitting.' },
-  { fact: 2, need: 0, text: 'Specified interaction and empty states with designers before build.' },
+  { fact: 1, need: 2, text: 'Cut dashboard load 3.2s → 900ms by code-splitting' },
+  { fact: 2, need: 0, text: 'Specified interaction and empty states with designers' },
 ];
 
 /**
@@ -263,8 +320,8 @@ const threadPath = (from: number, to: number, width: number) => {
 ---
 
 <Layout
-  title="jlog — track every application, and write a CV for each one"
-  description="An open-source job tracker that captures applications from the board you're already on, then writes a CV for each posting from your real history — every line traceable to something you wrote."
+  title="jlog — Job Application Tracker & Tailored CV Builder"
+  description="Free, open-source job application tracker. Captures applications from LinkedIn, Greenhouse and Lever, then builds a tailored CV from your real experience."
 >
   <div class="page">
     <!--
@@ -321,8 +378,8 @@ const threadPath = (from: number, to: number, width: number) => {
           </span>
         </h1>
         <p class="subheading">
-          jlog logs the application from the job board you were already on, then writes a CV for
-          that posting out of your real history — every line traceable back to something you
+          jlog logs the application from the job board you were already on, then builds a CV
+          (résumé) for that posting out of your real history. Every line is something you
           actually wrote.
         </p>
         <div class="cta-row">
@@ -375,6 +432,7 @@ const threadPath = (from: number, to: number, width: number) => {
                 <span class="bar-title">Applications</span>
                 <span class="bar-tools">
                   <span class="tab on">All</span>
+                  <span class="tab">Saved</span>
                   <span class="tab">Applied</span>
                   <span class="tab">Interviewing</span>
                   <span class="search">Search company or role…</span>
@@ -424,7 +482,7 @@ const threadPath = (from: number, to: number, width: number) => {
                     <span class="co">Cloudflare</span>
                     <span class="ro">Systems Engineer, Workers</span>
                   </span>
-                  <span class="meta">Lisbon, PT · Workday</span>
+                  <span class="meta">Lisbon, PT · Manual</span>
                   <span class="pill applied">Applied</span>
                 </div>
                 <div class="row">
@@ -513,7 +571,7 @@ const threadPath = (from: number, to: number, width: number) => {
             <div class="layer layer-chip">
               <span class="ping"></span>
               <span class="chip-main">Compiled to PDF</span>
-              <span class="chip-sub">tectonic · 1.8s · classic</span>
+              <span class="chip-sub">typeset · classic design</span>
             </div>
           </div>
         </div>
@@ -522,9 +580,9 @@ const threadPath = (from: number, to: number, width: number) => {
       <section class="proof reveal">
         <dl class="proof-grid stagger">
           <div><dt data-count="6">6</dt><dd>job boards captured automatically</dd></div>
-          <div><dt data-count="6">6</dt><dd>CV designs, compiled from LaTeX</dd></div>
+          <div><dt data-count="6">6</dt><dd>CV designs, real PDFs typeset properly</dd></div>
           <div><dt data-count="4">4</dt><dd>model providers, including local Ollama</dd></div>
-          <div><dt>MIT</dt><dd>runs on Cloudflare's free tier</dd></div>
+          <div><dt>€0</dt><dd>to track, for as long as you search</dd></div>
         </dl>
         <!--
           Three copies, and the track travels exactly one copy before it loops,
@@ -549,6 +607,7 @@ const threadPath = (from: number, to: number, width: number) => {
       </section>
 
       <section class="steps reveal">
+        <h2 class="sr-only">How jlog works: capture, track, tailor</h2>
         {
           steps.map((step) => (
             <article class="step">
@@ -578,7 +637,7 @@ const threadPath = (from: number, to: number, width: number) => {
                   </g>
                 )}
               </svg>
-              <h2 class="step-title">{step.title}</h2>
+              <h3 class="step-title">{step.title}</h3>
               <p class="step-body">{step.body}</p>
             </article>
           ))
@@ -779,7 +838,7 @@ const threadPath = (from: number, to: number, width: number) => {
                 <div class="act-panel act-chip">
                   <span class="ping"></span>
                   <span class="chip-main">Compiled to PDF</span>
-                  <span class="chip-sub">tectonic · 1.8s · classic</span>
+                  <span class="chip-sub">typeset · classic design</span>
                 </div>
               </div>
             </div>
@@ -797,7 +856,7 @@ const threadPath = (from: number, to: number, width: number) => {
       <section class="capture reveal">
         <div class="capture-copy">
           <p class="eyebrow">Capture</p>
-          <h2 class="section-title">Three ways in. You will only ever use the first.</h2>
+          <h2 class="section-title">Track job applications automatically, from the board you apply on</h2>
           <p class="section-body">
             Six boards have a detector that watches the page for the apply you just made — the Easy
             Apply modal closing, a submit button, a thank-you screen — and writes the row itself.
@@ -815,8 +874,8 @@ const threadPath = (from: number, to: number, width: number) => {
             <div class="tier-body">
               <p class="tier-t">Detected</p>
               <p class="tier-b">
-                LinkedIn, Wellfound, Ashby, Greenhouse, Lever and YC. A content script per site,
-                watching for the apply event rather than scraping a listing.
+                LinkedIn, Wellfound, Ashby, Greenhouse, Lever and YC. jlog notices the moment you
+                apply, rather than scraping a listing.
               </p>
             </div>
             <span class="tier-cost">no click</span>
@@ -857,7 +916,7 @@ const threadPath = (from: number, to: number, width: number) => {
       <section class="apply reveal">
         <div class="apply-copy">
           <p class="eyebrow">Apply</p>
-          <h2 class="section-title">The form, filled from what you already wrote down.</h2>
+          <h2 class="section-title">Autofill Greenhouse, Lever and Ashby applications, without auto-applying</h2>
           <p class="section-body">
             On Greenhouse, Lever and Ashby, including the forms companies embed in their own careers
             pages, one button fills the fields jlog recognises from your profile. It only fills what
@@ -1029,67 +1088,6 @@ const threadPath = (from: number, to: number, width: number) => {
       </section>
 
       <!--
-        One application, up close.
-        The before/after is the section. Everything else here is a claim you
-        have to take on trust; this one can be checked by reading two panels,
-        and it happens to be the least glamorous, most-used thing the app does.
-      -->
-      <section class="detail reveal">
-        <div class="detail-copy">
-          <p class="eyebrow">One application</p>
-          <h2 class="section-title">The posting, made readable again</h2>
-          <p class="section-body">
-            Postings arrive as plain text — whatever markup made them readable on the job board is
-            gone, so headings, bullets and paragraphs all land as undifferentiated lines. jlog puts
-            the structure back by inference before anything renders: typographic bullets become list
-            items, short unpunctuated lines that introduce a list become headings, and lines
-            hard-wrapped mid-sentence are rejoined into paragraphs.
-          </p>
-          <p class="section-body">
-            It is a heuristic and it will sometimes be wrong, so there is a toggle back to exactly
-            what was captured. A formatter you cannot see through is worse than no formatter.
-          </p>
-          <ul class="detail-rail stagger">
-            <li><span>Notes</span>Markdown, rendered, and never inferred over — you wrote that on purpose</li>
-            <li><span>Activity</span>Every status change, timestamped, in one column</li>
-            <li><span>Follow-up</span>Drafted against the posting, and logged the moment you send it</li>
-          </ul>
-        </div>
-
-        <div class="ba" aria-hidden="true">
-          <figure class="ba-pane">
-            <figcaption><span class="ba-tag">As captured</span>plain text, hard-wrapped</figcaption>
-            <pre class="ba-raw">About the role
-We are looking for a senior engineer to join the
-apps team and take ownership of the surfaces our
-customers live in.
-What you'll do
-• Ship product surfaces end to end, from spec to
-release.
-• Own our design system and component library.
-• Keep the app fast — performance is a feature here.</pre>
-          </figure>
-
-          <figure class="ba-pane">
-            <figcaption><span class="ba-tag ba-tag-on">As rendered</span>structure inferred</figcaption>
-            <div class="ba-out">
-              <p class="ba-h">About the role</p>
-              <p class="ba-p">
-                We are looking for a senior engineer to join the apps team and take ownership of the
-                surfaces our customers live in.
-              </p>
-              <p class="ba-h">What you'll do</p>
-              <ul class="ba-ul">
-                <li>Ship product surfaces end to end, from spec to release.</li>
-                <li>Own our design system and component library.</li>
-                <li>Keep the app fast — performance is a feature here.</li>
-              </ul>
-            </div>
-          </figure>
-        </div>
-      </section>
-
-      <!--
         Import.
         The on-ramp to every generated document, and the step that decides
         whether any of the grounding claims below are worth anything: facts are
@@ -1138,11 +1136,12 @@ release.
       <section class="grounding reveal section-roomy">
         <div class="grounding-copy">
           <p class="eyebrow">Grounding</p>
-          <h2 class="section-title section-title-xl">Nothing it writes is unattributable</h2>
+          <h2 class="section-title section-title-xl">A tailored CV that never invents experience</h2>
           <p class="section-body">
-            Generation runs against a corpus of facts mined from your own CVs, not against a CV as
-            a block of text. The model picks facts by id and never writes the line, so every line
-            keeps a pointer back to the fact it came from.
+            Every line on a tailored CV is a sentence from the CV you imported, or a wording you
+            already sent in an earlier application. The model chooses which of those fit the
+            posting and in what order. It does not write new sentences, so nothing you never
+            claimed can reach the page.
           </p>
           <p class="section-body">
             The requirement a line answers is quoted from the posting and looked up in it; a quote
@@ -1153,7 +1152,7 @@ release.
         <ul class="grounding-facts stagger">
           <li>
             <span class="fact-k">Traced to</span>
-            <span class="fact-v">the sentence in your CV it was derived from</span>
+            <span class="fact-v">the sentence in your CV it came from, highlighted in place</span>
           </li>
           <li>
             <span class="fact-k">Quoted from</span>
@@ -1200,7 +1199,7 @@ release.
             </svg>
 
             <div class="thread-col thread-col-out">
-              <p class="thread-h">Written for this posting</p>
+              <p class="thread-h">Chosen for this posting</p>
               <div class="thread-rows">
                 {threadLines.map((row) => <p class="thread-row thread-row-out">{row.text}</p>)}
               </div>
@@ -1223,9 +1222,9 @@ release.
           </div>
 
           <figcaption>
-            A line with nothing on its left cannot be written: the model chooses stored facts by
-            id and has no field to write prose in. That is the anti-hallucination policy, and it is
-            a data structure rather than a prompt.
+            Every line in the middle column is a line from the left, word for word, chosen for this
+            posting. A line with nothing on its left cannot appear at all: the model picks stored
+            facts and has nowhere to write new ones.
           </figcaption>
         </figure>
       </section>
@@ -1239,11 +1238,13 @@ release.
       -->
       <section class="templates reveal">
         <p class="eyebrow">Templates</p>
-        <h2 class="section-title">Six designs, not six countries</h2>
+        <h2 class="section-title">Six CV designs. Pick a look, not a format.</h2>
         <p class="section-body section-body-wide">
           A template is a design. Where conventions differ — whether a photo belongs on the page,
           how long it runs — that is a property of the design you picked, applied for you, not a
-          country you have to choose first. Open any of them.
+          country you have to choose first. All six are real text PDFs that applicant tracking
+          systems can read; Plain, a single column, is the safest pick when a company screens
+          hard. Open any of them.
         </p>
         <ul class="template-strip stagger">
           {
@@ -1282,6 +1283,13 @@ release.
             MIT licensed, and it runs on Cloudflare's free tier. Self-host the whole thing on your
             own account and your application history — every posting, every note, every rejection —
             never leaves it.
+          </p>
+          <p class="section-body">
+            On the hosted version, the extension records only the company, role and link on the six
+            boards, fills forms without sending them anywhere, and reads a page's text only when you
+            click Extract or Draft. That text and your CV go to jlog and on to the AI provider you
+            chose, nobody else, and you can delete all of it in settings.
+            <a href="/privacy">The privacy policy</a> has the detail.
           </p>
           <div class="oss-actions">
             {
@@ -1354,18 +1362,37 @@ release.
           </article>
 
           <article class="plan">
-            <p class="plan-k plan-k-pro">Pro</p>
+            <p class="plan-k plan-k-pro">Pro · €9 a month</p>
             <p class="plan-lead">Everything above, plus documents.</p>
             <ul class="plan-list stagger">
-              <li>A CV written for the posting in front of you</li>
+              <li>A CV built for the posting in front of you</li>
               <li>A cover letter built from the same stored facts</li>
               <li>Drafted answers to open questions, with the facts they used</li>
               <li>Six LaTeX designs, compiled to real PDF</li>
               <li>Every line traceable to the sentence it came from</li>
               <li>Unmatched lines flagged rather than invented</li>
             </ul>
-            <p class="plan-note">Billed through Stripe. Cancel any time.</p>
+            <p class="plan-note">
+              Pro uses your own AI provider key, so model usage is billed by your provider at cost,
+              typically under €2 for a whole job search. jlog never marks it up. Billed through
+              Stripe, cancel any time.
+            </p>
           </article>
+        </div>
+      </section>
+
+      <section class="faq reveal">
+        <p class="eyebrow">Questions</p>
+        <h2 class="section-title">Job application tracker FAQ</h2>
+        <div class="faq-list">
+          {
+            faqs.map((f) => (
+              <details class="faq-item">
+                <summary>{f.q}</summary>
+                <p>{f.a}</p>
+              </details>
+            ))
+          }
         </div>
       </section>
 
@@ -1400,6 +1427,8 @@ release.
         <p class="closer-note">Free to track, for as long as you use it. No card to start.</p>
       </section>
     </main>
+
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 
     <!--
       The footer carried the whole ending in one 12px line. It is the last thing
@@ -1823,14 +1852,63 @@ release.
   .apply,
   .try,
   .home,
-  .detail,
   .import,
   .grounding,
   .templates,
   .oss,
   .plans,
+  .faq,
   .closer {
     border-top: 1px solid var(--color-border);
+  }
+
+  .section-body a {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ---------- faq ---------- */
+
+  .faq-list {
+    margin-top: var(--space-8);
+    max-width: 760px;
+  }
+
+  .faq-item {
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-5) 0;
+  }
+
+  .faq-item summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: var(--text-base);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-item summary::after {
+    content: '+';
+    font-family: var(--font-mono);
+    color: var(--color-text-tertiary);
+  }
+
+  .faq-item[open] summary::after {
+    content: '−';
+  }
+
+  .faq-item p {
+    margin-top: var(--space-3);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-text-secondary);
   }
 
   /*
@@ -1840,7 +1918,6 @@ release.
    */
   .capture,
   .apply,
-  .detail,
   .oss {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1858,8 +1935,20 @@ release.
     font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--color-text-tertiary);
+    color: var(--color-text-secondary);
     margin-bottom: var(--space-4);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .section-title {
@@ -3640,25 +3729,8 @@ release.
 
   /* ---------- one application ---------- */
 
-  .detail-rail {
-    list-style: none;
-    margin-top: var(--space-8);
-  }
 
-  .detail-rail li {
-    display: grid;
-    grid-template-columns: 84px 1fr;
-    gap: var(--space-4);
-    padding: var(--space-3) 0;
-    border-top: 1px solid var(--color-border);
-    font-size: var(--text-sm);
-    line-height: 1.5;
-    color: var(--color-text-secondary);
-  }
 
-  .detail-rail span {
-    color: var(--color-text-tertiary);
-  }
 
   .ba {
     display: flex;
@@ -4918,8 +4990,7 @@ release.
        prose first, the thing it describes under it. */
     .capture,
     .apply,
-    .detail,
-    .oss,
+      .oss,
     .plan-split {
       grid-template-columns: 1fr;
       gap: var(--space-10);
