@@ -31,6 +31,14 @@ import Layout from '../layouts/Layout.astro';
 
 const GITHUB_URL = 'https://github.com/brgv-code/jlog';
 
+/*
+ * The Chrome Web Store listing. Empty until the extension is published: the
+ * store assigns the URL on first upload, and a button that 404s for a reviewer
+ * or a visitor is worse than none. While it is empty the page says how to
+ * build the extension from source; set it and every install button appears.
+ */
+const STORE_URL = '';
+
 const steps = [
   {
     id: 'capture',
@@ -839,6 +847,66 @@ const threadPath = (from: number, to: number, width: number) => {
       </section>
 
       <!--
+        Apply.
+
+        Capture is what happens after you apply; this is the form itself. The
+        "never submits" line is in the heading's paragraph, not in small print:
+        an extension that fills forms is exactly the one people should ask that
+        of, and the answer is a design decision rather than a setting.
+      -->
+      <section class="apply reveal">
+        <div class="apply-copy">
+          <p class="eyebrow">Apply</p>
+          <h2 class="section-title">The form, filled from what you already wrote down.</h2>
+          <p class="section-body">
+            On Greenhouse, Lever and Ashby, including the forms companies embed in their own careers
+            pages, one button fills the fields jlog recognises from your profile. It only fills what
+            is empty, and it never submits: you read the form and press the button yourself.
+          </p>
+          <p class="section-body">
+            Visa, salary and equal opportunity questions are never guessed. They are answered from
+            what you saved once in settings, or left for you.
+          </p>
+        </div>
+        <ol class="tiers stagger">
+          <li class="tier">
+            <span class="tier-n">01</span>
+            <div class="tier-body">
+              <p class="tier-t">Filled from your profile</p>
+              <p class="tier-b">
+                Name, email, location and links from the CV you imported, and the phone number you
+                saved. Anything the browser or you already typed stays as it is.
+              </p>
+            </div>
+            <span class="tier-cost">one click</span>
+          </li>
+          <li class="tier">
+            <span class="tier-n">02</span>
+            <div class="tier-body">
+              <p class="tier-t">Answered only from what you saved</p>
+              <p class="tier-b">
+                Work authorisation, sponsorship, notice period, salary. Filled when the question
+                names one country you listed, left empty when it does not.
+              </p>
+            </div>
+            <span class="tier-cost">saved once</span>
+          </li>
+          <li class="tier">
+            <span class="tier-n">03</span>
+            <div class="tier-body">
+              <p class="tier-t">Drafted from your facts</p>
+              <p class="tier-b">
+                "Why do you want to work here?" gets a draft built from your stored experience, with
+                the facts it used listed underneath. If your profile does not cover the question, it
+                says so instead of writing one.
+              </p>
+            </div>
+            <span class="tier-cost">pro</span>
+          </li>
+        </ol>
+      </section>
+
+      <!--
         client:visible rather than client:load. This is below the fold on most
         screens, and a landing page that ships React before its own headline has
         painted is arguing against its first section.
@@ -1073,12 +1141,13 @@ release.
           <h2 class="section-title section-title-xl">Nothing it writes is unattributable</h2>
           <p class="section-body">
             Generation runs against a corpus of facts mined from your own CVs, not against a CV as
-            a block of text. Every line keeps a pointer back to the fact it came from and the
-            requirement it answers.
+            a block of text. The model picks facts by id and never writes the line, so every line
+            keeps a pointer back to the fact it came from.
           </p>
           <p class="section-body">
-            When a line matches nothing in the posting, it says so rather than inventing the link.
-            A CV that quietly embellishes is worse than no CV — you find out in the interview.
+            The requirement a line answers is quoted from the posting and looked up in it; a quote
+            that is not there is dropped rather than shown. A CV that quietly embellishes is worse
+            than no CV — you find out in the interview.
           </p>
         </div>
         <ul class="grounding-facts stagger">
@@ -1087,8 +1156,8 @@ release.
             <span class="fact-v">the sentence in your CV it was derived from</span>
           </li>
           <li>
-            <span class="fact-k">And to</span>
-            <span class="fact-v">the requirement in the posting it answers</span>
+            <span class="fact-k">Quoted from</span>
+            <span class="fact-v">the posting, and checked to be in it</span>
           </li>
           <li>
             <span class="fact-k">Output</span>
@@ -1154,8 +1223,9 @@ release.
           </div>
 
           <figcaption>
-            A line with nothing on its right is not written. That is the whole of the
-            anti-hallucination policy, and it is a data structure rather than a prompt.
+            A line with nothing on its left cannot be written: the model chooses stored facts by
+            id and has no field to write prose in. That is the anti-hallucination policy, and it is
+            a data structure rather than a prompt.
           </figcaption>
         </figure>
       </section>
@@ -1214,12 +1284,23 @@ release.
             never leaves it.
           </p>
           <div class="oss-actions">
+            {
+              STORE_URL && (
+                <a href={STORE_URL} class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+                  Add to Chrome
+                </a>
+              )
+            }
             <a href={GITHUB_URL} class="btn btn-ghost" target="_blank" rel="noopener noreferrer">
               Read the source
             </a>
-            <span class="oss-note">
-              The extension is built from source — there is no Chrome Web Store listing yet.
-            </span>
+            {
+              !STORE_URL && (
+                <span class="oss-note">
+                  The extension is built from source until its Chrome Web Store listing is live.
+                </span>
+              )
+            }
           </div>
         </div>
 
@@ -1263,6 +1344,7 @@ release.
             <p class="plan-lead">Everything that runs a search.</p>
             <ul class="plan-list stagger">
               <li>Automatic capture on six job boards</li>
+              <li>Application forms filled from your profile, never submitted</li>
               <li>Extraction on any other page, with your own model key</li>
               <li>Unlimited applications, statuses, notes and follow-ups</li>
               <li>Home, the pipeline, and every chart behind it</li>
@@ -1277,6 +1359,7 @@ release.
             <ul class="plan-list stagger">
               <li>A CV written for the posting in front of you</li>
               <li>A cover letter built from the same stored facts</li>
+              <li>Drafted answers to open questions, with the facts they used</li>
               <li>Six LaTeX designs, compiled to real PDF</li>
               <li>Every line traceable to the sentence it came from</li>
               <li>Unmatched lines flagged rather than invented</li>
@@ -1303,6 +1386,13 @@ release.
         </h2>
         <div class="cta-row">
           <a href="/login" class="btn btn-primary btn-lg">Get started free</a>
+          {
+            STORE_URL && (
+              <a href={STORE_URL} class="btn btn-ghost btn-lg" target="_blank" rel="noopener noreferrer">
+                Add to Chrome
+              </a>
+            )
+          }
           <a href={GITHUB_URL} class="btn btn-ghost btn-lg" target="_blank" rel="noopener noreferrer">
             View on GitHub
           </a>
@@ -1730,6 +1820,7 @@ release.
   .proof,
   .steps,
   .capture,
+  .apply,
   .try,
   .home,
   .detail,
@@ -1748,6 +1839,7 @@ release.
    * cannot drift apart a column at a time.
    */
   .capture,
+  .apply,
   .detail,
   .oss {
     display: grid;
@@ -4825,6 +4917,7 @@ release.
     /* Every two-column section folds on the same rule, in the same order:
        prose first, the thing it describes under it. */
     .capture,
+    .apply,
     .detail,
     .oss,
     .plan-split {
