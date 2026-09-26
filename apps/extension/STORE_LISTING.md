@@ -12,13 +12,17 @@ done from a repo.
 
 ## Single purpose
 
-> jlog records the jobs you apply to. It reads the job posting on the page you
-> are viewing and saves the company, role and location to your own jlog account,
-> so that a job search can be tracked without copying details by hand.
+> jlog helps you apply to jobs: it records the jobs you apply to in your own jlog
+> account, and fills in application forms from the profile you saved there. It
+> never submits a form for you.
 
-Chrome asks for one sentence and means it. An extension that does two unrelated
+Chrome asks for one purpose and means it. An extension that does two unrelated
 things gets rejected, so this deliberately does not mention the dashboard, the
-CV tooling, or anything else jlog does on the web.
+CV tooling, or anything else jlog does on the web. Recording applications and
+filling them in are one purpose, applying to jobs, and the statement says so in
+those words rather than listing two features. Keep "never submits": an
+extension that fills forms is exactly what a reviewer checks for acting on the
+user's behalf, and it is true (`autofill.test.ts` checks it).
 
 **Two claims not to make**, both of which an earlier draft of this file made and
 neither of which is true of the code:
@@ -36,10 +40,10 @@ exactly what the review process is looking for.
 
 ## Short description (132 characters max)
 
-> Track job applications automatically from LinkedIn, Wellfound, Ashby,
-> Greenhouse, Lever, and more.
+> Track job applications from LinkedIn, Greenhouse, Lever and more, and fill in
+> application forms from your profile.
 
-Currently 98 characters. This is the string in `manifest.config.ts`; if you
+Currently 114 characters. This is the string in `manifest.config.ts`; if you
 change one, change both or the listing and the extension disagree.
 
 ## Detailed description
@@ -56,6 +60,19 @@ change one, change both or the listing and the extension disagree.
 > On any other careers page, click the jlog icon and "Extract with AI" reads the
 > posting and fills in the company, role and location, which you confirm before
 > anything is saved.
+>
+> On Greenhouse, Lever and Ashby application forms, including ones embedded in a
+> company's own careers site, a "Fill with jlog" button fills your name, email,
+> phone, links and location from your jlog profile. Visa, salary and equal
+> opportunity questions are filled only from answers you saved yourself, and
+> left empty otherwise. jlog only fills empty fields, and it never submits: you
+> read the form and press submit.
+>
+> With jlog Pro, open questions such as "Why do you want to work here?" get a
+> "Draft" button. It writes an answer from the experience in your profile and
+> lists the facts it used, so you can check it before you send it. If your
+> profile does not cover the question, it says so instead of making something
+> up.
 >
 > Everything lands in your jlog dashboard, where you can track status from saved
 > through applied, interviewing, and offer — with notes, the original posting,
@@ -115,13 +132,30 @@ does *for the user*, not what the code does with it.
 > not read the job description on these sites, and it reads nothing at all on
 > any other site unless you click the jlog icon.
 
-**Worth checking before you submit.** These six may be unnecessary. Content
-scripts declare their own `matches`, which is enough to inject on those sites,
-and `activeTab` covers the popup-triggered extraction. Nothing in the extension
-fetches those domains directly — the only `fetch` calls go to jlog's own API.
-If they can be dropped, the install warning shrinks from "read your data on six
-sites" to something much narrower, and review gets simpler. Test with a local
-build before trusting it.
+On Greenhouse, Lever and Ashby, the same permission lets jlog show its "Fill
+with jlog" button on application forms, and a "Draft" button on open questions.
+Paste this as a second paragraph:
+
+> On Greenhouse, Lever and Ashby application forms, jlog reads the labels of the
+> form's fields so it can fill the ones it recognises from your jlog profile. It
+> only fills empty fields and never submits the form. The form's contents are
+> not sent anywhere; if you click "Draft" on a question, that question and the
+> job posting on the page are sent to jlog to write the answer.
+
+**Decided: keep them.** An earlier note here suggested dropping these six in
+favour of the content scripts' own `matches`. That would not shrink anything:
+Chrome builds the install warning from content script match patterns as well
+as `host_permissions`, so the user sees "read and change your data on" the same
+six sites either way. Keeping both lists identical is the honest state, and one
+less thing for a reviewer to reconcile.
+
+### Content scripts in all frames
+
+The autofill script runs with `all_frames: true`. If the form asks why:
+
+> Many companies embed their Greenhouse, Lever or Ashby application form in
+> their own careers page, inside a frame. The fill button runs inside that frame
+> so it can reach the form. It still runs only on those three sites' pages.
 
 ### Remote code
 
@@ -139,7 +173,7 @@ with it.
 
 | Question | Answer |
 |---|---|
-| Personally identifiable information | **Yes** — name and email, via your jlog account |
+| Personally identifiable information | **Yes** — name and email, via your jlog account; and, if you save them for autofill, phone number, salary expectation, the countries you can work in, and your preference to decline equal opportunity questions |
 | Health information | No |
 | Financial and payment information | No |
 | Authentication information | **Yes** — the extension key that links this browser to your account |
@@ -147,7 +181,11 @@ with it.
 | Location | No |
 | Web history | **Yes** — the URL of a job posting you save is stored with the application |
 | User activity | No |
-| Website content | **Yes** — on the six supported boards, the company and role from the posting; on any other site, the text of a posting you explicitly choose to extract |
+| Website content | **Yes** — on the six supported boards, the company and role from the posting; on any other site, the text of a posting you explicitly choose to extract; on Greenhouse, Lever and Ashby, when you click "Draft", the question and the text of the posting on that page |
+
+The autofill button itself sends nothing about the form: it asks jlog for your
+profile and fills fields in the page. Only "Draft" sends page content, and only
+when clicked.
 
 Then tick all three certifications: data is not sold, not used for anything
 unrelated to the single purpose above, and not used for creditworthiness or
@@ -184,7 +222,7 @@ Things that need you:
 - [ ] **Decide on the version.** The manifest says `0.1.0`. A first public
       release is usually `1.0.0`, and the store will not let you go backwards
       once published.
-- [ ] **Decide on the host permissions** — see the note above.
+- [x] **Decide on the host permissions**: keep them, see the note above.
 - [ ] Optional: a 440×280 promotional tile, which the store uses if it ever
       features the extension.
 
