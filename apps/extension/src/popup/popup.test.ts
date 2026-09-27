@@ -200,6 +200,19 @@ describe('popup first screen', () => {
     expect(document.getElementById('status')?.textContent).toContain('no expiry');
   });
 
+  it('names the account the key is linked to, since that decides whose jobs are listed', async () => {
+    stubs.storage.jlog_token = 'good-key';
+    stubs.connection = {
+      ...active(null),
+      account: { email: 'ada@example.com', name: 'Ada Lovelace' },
+    };
+    stubs.storage.jlog_connection = stubs.connection;
+    await openPopup();
+    const status = document.getElementById('status');
+    expect(status?.textContent).toContain('ada@example.com');
+    expect(status?.title).toBe('Linked to ada@example.com');
+  });
+
   it('nudges about renewal while a key is nearly out, without blocking anything', async () => {
     const soon = Date.now() + 2 * 24 * 60 * 60 * 1000;
     stubs.storage.jlog_token = 'good-key';
