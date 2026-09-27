@@ -165,16 +165,18 @@ popover (`compact`) and Settings → Appearance.
 
 Marketing pages have their own system, `src/styles/site.css`, applied through
 `SiteLayout.astro` (`<body class="site">`), so the signed-in app is not
-repainted by it. The direction is calm and premium: a light, faintly warm
-neutral page, near-black ink, one soft blue accent used sparingly, Newsreader
-for headlines, Geist and Geist Mono for everything else. Most of the look is
-spacing, a hairline border and a very soft shadow; the product's own objects
-(the app, a CV, a form) carry the visual weight.
+repainted by it. The register is Vercel, Linear and Attio: crisp and
+monochrome. Pure white, near-black, a grey ramp, hairline rules and a visible
+page grid (`.rail` columns and `.row` sections, with "+" marks where lines
+cross). Headlines are Geist in two tones, the claim in ink and the rest in
+grey (`.dim`); mono is for labels. Colour appears only inside the product
+(application statuses) and in traces (`--signal`).
 
-- Primitives: `.display` `.h2` `.h3` `.lead` `.body` `.meta` (type),
-  `.chapter` (section spacing), `.btn-ink` `.btn-line` `.tag` `.card` `.sheet`
-  `.frame`, and `.chip-*` (a pastel icon ground, one colour per feature).
-- The homepage stays short; each feature page carries its own depth.
-  `/features/tailored-cv` is the first.
+- Primitives: `.display` `.h2` `.h3` `.lead` `.body` `.meta` (type), `.rail`
+  `.row` `.kicker` (structure), `.btn-ink` `.btn-line` `.tag` `.card` `.sheet`
+  `.frame` `.pill-*` (UI).
+- Motion shows how the product works, never decorates: the homepage's exploded
+  3D stack separates on scroll with arrows to each layer; the tailored-CV board
+  draws wires between a line, its fact and its requirement.
 - Every claim a page makes has to be what the code does. The tailored-CV page
   says posting links are quotes checked to exist, and no more, until BRG-228.

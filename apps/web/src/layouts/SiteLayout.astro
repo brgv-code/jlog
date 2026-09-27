@@ -39,7 +39,14 @@ const path = Astro.url.pathname.replace(/\/$/, '');
   <a class="skip" href="#content">Skip to content</a>
   <header class="nav">
     <div class="wrap nav-row">
-      <a href="/" class="mark" aria-label="jlog home">jlog</a>
+      <a href="/" class="mark" aria-label="jlog home">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="currentColor"></rect>
+          <circle cx="20" cy="6.5" r="2.2" fill="#fff"></circle>
+          <path d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none"></path>
+        </svg>
+        <span>jlog</span>
+      </a>
 
       <nav class="nav-links" aria-label="Main">
         <details class="menu" data-menu>
@@ -155,7 +162,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
     left: 1rem;
     top: 1rem;
     z-index: 100;
-    background: var(--sheet);
+    background: var(--bg);
     padding: 0.5rem 0.75rem;
   }
 
@@ -163,9 +170,9 @@ const path = Astro.url.pathname.replace(/\/$/, '');
     position: sticky;
     top: 0;
     z-index: 50;
-    background: color-mix(in srgb, var(--paper) 85%, transparent);
+    background: rgb(255 255 255 / 0.8);
     backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--line);
   }
 
   .nav-row {
@@ -176,13 +183,19 @@ const path = Astro.url.pathname.replace(/\/$/, '');
   }
 
   .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     color: var(--ink);
     text-decoration: none;
-    font-family: var(--display);
     font-weight: 600;
-    font-size: 1.5rem;
+    font-size: 1.0625rem;
     letter-spacing: -0.03em;
-    line-height: 1;
+  }
+
+  .mark svg {
+    width: 22px;
+    height: 22px;
   }
 
   .nav-btn {
@@ -225,7 +238,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
     content: '▾';
     margin-left: 0.3rem;
     font-size: 0.7em;
-    color: var(--muted);
+    color: var(--grey);
   }
 
   .menu-panel {
@@ -235,8 +248,8 @@ const path = Astro.url.pathname.replace(/\/$/, '');
     width: 280px;
     list-style: none;
     padding: 0.5rem;
-    background: var(--sheet);
-    border: 1px solid var(--rule);
+    background: var(--bg);
+    border: 1px solid var(--line);
     border-radius: 10px;
     box-shadow: 0 16px 40px -24px rgb(23 21 15 / 0.4);
   }
@@ -251,7 +264,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
 
   .menu-panel a:hover,
   .menu-panel a[aria-current='page'] {
-    background: var(--paper);
+    background: var(--bg-2);
   }
 
   .menu-label {
@@ -262,7 +275,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
   .menu-note {
     font-family: var(--mono);
     font-size: 0.6875rem;
-    color: var(--muted);
+    color: var(--grey);
   }
 
   .nav-cta {
@@ -279,7 +292,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
   }
 
   .foot {
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--line);
     padding: 3rem 0;
   }
 
@@ -297,9 +310,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
   }
 
   .foot-brand {
-    font-family: var(--display);
     font-weight: 600;
-    font-size: 1.25rem;
     color: var(--ink);
     margin-right: 0.75rem;
     letter-spacing: -0.03em;

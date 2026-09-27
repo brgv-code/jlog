@@ -1,11 +1,15 @@
 ---
 /*
- * The homepage: short on purpose. One product shot, six features, the
- * tailored-CV story in one band, pricing, open source, the FAQ. Depth lives
- * on the feature pages (styles/site.css, layouts/SiteLayout.astro).
+ * The homepage.
  *
- * Every claim is what the product does; the FAQ and the structured data are
- * built from one list so they cannot disagree.
+ * One idea above the fold: an application is four things (the posting, the
+ * form, the record, the CV), and jlog is the layer that ties them. They are
+ * drawn as an exploded stack of real UI in 3D that separates as you scroll,
+ * each layer labelled by an arrow. Below it the page is a ruled grid: boards,
+ * the six features, the tailored-CV trace, pricing, open source, FAQ.
+ *
+ * Every claim is what the product does. Companies and people are invented.
+ * The FAQ and the structured data are built from one list.
  */
 import SiteLayout from '../layouts/SiteLayout.astro';
 
@@ -17,105 +21,54 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 const STORE_URL = '';
 const GITHUB_URL = 'https://github.com/brgv-code/jlog';
 
-/* The app, as it looks with a search under way. Invented companies. */
-const rows = [
-  {
-    co: 'Fabrikam',
-    role: 'Senior Frontend Engineer',
-    meta: 'Applied · 2 days ago · Greenhouse',
-    status: 'applied',
-    tile: 'F',
-    hue: 222,
-  },
-  {
-    co: 'Northwind',
-    role: 'Product Engineer',
-    meta: 'Interview · Thursday · Lever',
-    status: 'interviewing',
-    tile: 'N',
-    hue: 18,
-  },
-  {
-    co: 'Contoso',
-    role: 'Staff Engineer, Platform',
-    meta: 'Offer · today · Ashby',
-    status: 'offer',
-    tile: 'C',
-    hue: 150,
-  },
-  {
-    co: 'Ledgerline',
-    role: 'Full-stack Engineer',
-    meta: 'Applied · 1 week ago · LinkedIn',
-    status: 'applied',
-    tile: 'L',
-    hue: 262,
-  },
-  {
-    co: 'Brightwave',
-    role: 'Frontend Engineer',
-    meta: 'Saved · 1 week ago',
-    status: 'saved',
-    tile: 'B',
-    hue: 42,
-  },
+const BOARDS = ['LinkedIn', 'Greenhouse', 'Lever', 'Ashby', 'Wellfound', 'YC Jobs'];
+
+/* The four layers, bottom to top, and what each arrow says about it. */
+const notes = [
+  { n: '01', side: 'left', title: 'Captured', body: 'from the board you applied on' },
+  { n: '02', side: 'right', title: 'Filled', body: 'from your profile, never submitted' },
+  { n: '03', side: 'left', title: 'Tracked', body: 'from saved to offer, in one list' },
+  { n: '04', side: 'right', title: 'Tailored', body: 'a CV built from your own lines' },
 ];
 
-const statusLabel: Record<string, string> = {
-  saved: 'Saved',
-  applied: 'Applied',
-  interviewing: 'Interviewing',
-  offer: 'Offer',
-};
-
-/*
- * The six things jlog does. Only Tailored CV has its own page so far; the
- * rest are anchors the nav's Product menu points at.
- */
 const features = [
   {
+    n: '01',
     id: 'capture',
-    chip: 'blue',
     title: 'Capture',
     body: 'Apply on LinkedIn, Greenhouse, Lever, Ashby, Wellfound or YC and the row writes itself. Anywhere else, one click reads the page.',
-    icon: 'M4 13h4l2 3h4l2-3h4M4 13l2.5-7h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5Z',
   },
   {
+    n: '02',
     id: 'autofill',
-    chip: 'green',
     title: 'Autofill',
     body: 'Fills the empty fields of an application from your profile. Never guesses visa or salary answers, and never presses submit.',
-    icon: 'M5 4h14v16H5zM8 8h8M8 12h5M8 16l2 2 4-4',
   },
   {
+    n: '03',
     id: 'tailored-cv',
-    chip: 'violet',
     title: 'Tailored CV',
     body: 'A CV for each posting, built from sentences you already wrote. Every line links back to where it came from.',
-    icon: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5',
     href: '/features/tailored-cv',
   },
   {
+    n: '04',
     id: 'answers',
-    chip: 'pink',
     title: 'Drafted answers',
     body: '“Why do you want to work here?” gets a draft from your real experience, with the facts it used listed underneath.',
-    icon: 'M5 5h14v10H9l-4 4zM9 9h6M9 12h3',
     pro: true,
   },
   {
+    n: '05',
     id: 'tracking',
-    chip: 'teal',
     title: 'Tracking',
     body: 'Saved to offer in one list, with notes, follow-ups and the original posting kept next to each application.',
-    icon: 'M4 6h16M4 12h16M4 18h10M18 16l2 2-2 2',
   },
   {
-    id: 'insights',
-    chip: 'amber',
+    n: '06',
+    id: 'home',
     title: 'Home',
     body: 'Opens on what needs you: applications gone quiet, replies you are waiting on, conversations in progress.',
-    icon: 'M4 19V9M10 19V5M16 19v-7M22 19H2',
   },
 ];
 
@@ -177,11 +130,16 @@ const jsonLd = [
   title="jlog — Job Application Tracker & Tailored CV Builder"
   description="Free, open-source job application tracker. Captures applications from LinkedIn, Greenhouse and Lever, then builds a tailored CV from your real experience."
 >
-  <!-- ─────────────── Hero ─────────────── -->
-  <section class="hero wrap">
-    <div class="hero-copy reveal">
-      <h1 class="display">Job applications, <em>without the busywork.</em></h1>
-      <p class="lead">
+  <div class="rail">
+    <!-- ─────────────── Hero ─────────────── -->
+    <section class="row hero">
+      <a class="announce" href="#autofill">
+        <span class="tag">New</span> Autofill on Greenhouse, Lever and Ashby <span aria-hidden="true">→</span>
+      </a>
+      <h1 class="display hero-title">
+        Job applications,<br /><span class="dim">without the busywork.</span>
+      </h1>
+      <p class="lead hero-lead">
         jlog records every application you make, fills in the forms, and builds a tailored CV
         (résumé) from your real experience.
       </p>
@@ -189,134 +147,181 @@ const jsonLd = [
         <a href="/login" class="btn btn-ink">Get started for free</a>
         <a href="#features" class="btn btn-line">See how it works</a>
       </div>
-    </div>
-    <div class="hero-aside" aria-hidden="true">
-      <svg class="hero-curve" viewBox="0 0 220 180" fill="none">
-        <path d="M4 176 C 60 170, 70 60, 150 44 S 210 20, 216 4" />
-        <circle cx="150" cy="44" r="3.5" />
-      </svg>
-      <p class="meta hero-note">From saved to offer.<br />All in one place.</p>
-    </div>
-  </section>
 
-  <!-- ─────────────── The app ─────────────── -->
-  <section class="wrap shot-wrap reveal">
-    <figure class="frame app" aria-label="The jlog app: a list of applications and their status">
-      <div class="app-side">
-        <p class="app-mark">jlog</p>
-        <ul>
-          <li>Home</li>
-          <li class="on">Applications</li>
-          <li>CV</li>
-          <li>Settings</li>
-        </ul>
-      </div>
-      <div class="app-main">
-        <div class="app-head">
-          <p class="app-title">Applications</p>
-          <p class="meta">72 in total · 9 need you</p>
-        </div>
-        <div class="app-tabs">
-          <span class="on">All</span><span>Saved</span><span>Applied</span><span>Interviewing</span>
-        </div>
-        <ul class="app-rows">
+      <!--
+        The exploded stack. Four layers of real UI, bottom to top: the posting,
+        the form, the record, the CV. They start almost flat and separate as the
+        page scrolls; each carries an anchor the arrows are drawn to.
+      -->
+      <div class="stage" data-stage aria-label="How one application moves through jlog: captured, filled, tracked, tailored">
+        <svg class="arrows" data-arrows aria-hidden="true">
+          <defs>
+            <marker id="tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M1 1 L8 5 L1 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </marker>
+          </defs>
+        </svg>
+
+        <ol class="notes notes-left">
           {
-            rows.map((r) => (
-              <li>
-                <span class="tile" style={`--h:${r.hue}`}>{r.tile}</span>
-                <span class="row-main">
-                  <span class="row-title">
-                    {r.role} <span class="row-co">· {r.co}</span>
-                  </span>
-                  <span class="row-meta">{r.meta}</span>
-                </span>
-                <span class={`pill pill-${r.status}`}>{statusLabel[r.status]}</span>
+            [notes[2], notes[0]].map((note) => note && (
+              <li class="note" data-note={note.n}>
+                <span class="kicker-n">{note.n}</span>
+                <span class="note-t">{note.title}</span>
+                <span class="note-b">{note.body}</span>
               </li>
             ))
           }
-        </ul>
-      </div>
-    </figure>
-  </section>
+        </ol>
 
-  <!-- ─────────────── Features ─────────────── -->
-  <section class="wrap chapter" id="features">
-    <h2 class="h2 reveal">Everything between the posting and the offer.</h2>
+        <div class="scene" aria-hidden="true">
+          <div class="stack" data-stack>
+            <!-- 01 · the posting -->
+            <div class="layer frame l-post" style="--i:0">
+              <p class="frame-bar">boards.greenhouse.io/fabrikam</p>
+              <div class="l-body">
+                <p class="l-co">Fabrikam</p>
+                <p class="l-title">Senior Frontend Engineer, Payments</p>
+                <p class="l-sub">Berlin or remote (EU) · Full time</p>
+                <span class="bar"></span><span class="bar"></span><span class="bar bar-s"></span>
+                <span class="l-apply">Apply for this job</span>
+              </div>
+              <span class="anchor anchor-l" data-anchor="01"></span>
+            </div>
+
+            <!-- 02 · the form, filled -->
+            <div class="layer frame l-form" style="--i:1">
+              <p class="frame-bar">Fabrikam · application</p>
+              <div class="l-body">
+                <div class="field"><span>First name</span><b>Ada</b><i>✓</i></div>
+                <div class="field"><span>Email</span><b>ada.lovelace@example.com</b><i>✓</i></div>
+                <div class="field"><span>Phone</span><b>+1 202 555 0142</b><i>✓</i></div>
+                <div class="field"><span>Authorised to work in Germany?</span><b>Yes</b><i>✓</i></div>
+                <p class="l-foot"><span class="tag">Fill with jlog</span> 9 fields filled · submit is yours</p>
+              </div>
+              <span class="anchor anchor-r" data-anchor="02"></span>
+            </div>
+
+            <!-- 03 · the record -->
+            <div class="layer frame l-list" style="--i:2">
+              <p class="frame-bar">jlog · Applications</p>
+              <ul class="l-rows">
+                <li class="new"><span class="t">F</span><span>Senior Frontend Engineer · Fabrikam</span><span class="pill pill-applied">Applied</span></li>
+                <li><span class="t">N</span><span>Product Engineer · Northwind</span><span class="pill pill-interviewing">Interview</span></li>
+                <li><span class="t">C</span><span>Staff Engineer · Contoso</span><span class="pill pill-offer">Offer</span></li>
+                <li><span class="t">B</span><span>Frontend Engineer · Brightwave</span><span class="pill pill-saved">Saved</span></li>
+              </ul>
+              <span class="anchor anchor-l" data-anchor="03"></span>
+            </div>
+
+            <!-- 04 · the tailored CV -->
+            <div class="layer sheet l-cv" style="--i:3">
+              <p class="cv-name">Ada Lovelace</p>
+              <p class="cv-sub">Senior Frontend Engineer · for Fabrikam</p>
+              <div class="cv-line"><span>Led the move of the checkout from jQuery to React without a feature freeze.</span><span class="tag tag-signal">line 7</span></div>
+              <div class="cv-line"><span>Cut p95 page load from 3.1s to 1.2s with code-splitting.</span><span class="tag tag-signal">line 8</span></div>
+              <div class="cv-line"><span>Owned the component library five product teams build on.</span><span class="tag">earlier</span></div>
+              <span class="anchor anchor-r" data-anchor="04"></span>
+            </div>
+          </div>
+        </div>
+
+        <ol class="notes notes-right">
+          {
+            [notes[3], notes[1]].map((note) => note && (
+              <li class="note" data-note={note.n}>
+                <span class="kicker-n">{note.n}</span>
+                <span class="note-t">{note.title}</span>
+                <span class="note-b">{note.body}</span>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+    </section>
+
+    <!-- ─────────────── Boards ─────────────── -->
+    <section class="row row-tight boards">
+      <p class="meta">Captures applications on</p>
+      <ul>{BOARDS.map((b) => <li>{b}</li>)}</ul>
+    </section>
+
+    <!-- ─────────────── Features ─────────────── -->
+    <section class="row" id="features">
+      <div class="kicker"><span class="kicker-n">∗</span><span class="meta">Product</span></div>
+      <h2 class="h2">Everything between the posting<br /><span class="dim">and the offer.</span></h2>
+    </section>
     <ul class="features">
       {
         features.map((f) => (
-          <li class="card feature reveal" id={f.id}>
-            <span class={`chip chip-${f.chip}`}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d={f.icon} />
-              </svg>
-            </span>
+          <li class="feature" id={f.id}>
+            <span class="meta feature-n">{f.n}</span>
             <h3 class="h3">
               {f.title}
               {f.pro && <span class="tag">Pro</span>}
             </h3>
             <p class="feature-body">{f.body}</p>
-            {f.href && (
+            {f.href ? (
               <a class="feature-link" href={f.href}>
-                Explore {f.title.toLowerCase()} →
+                Explore <span aria-hidden="true">→</span>
               </a>
-            )}
+            ) : null}
           </li>
         ))
       }
     </ul>
-  </section>
 
-  <!-- ─────────────── Tailored CV ─────────────── -->
-  <section class="wrap">
-    <div class="band band-cv reveal">
-      <div class="band-copy">
-        <h2 class="h2">A tailored CV that never invents experience.</h2>
+    <!-- ─────────────── Tailored CV ─────────────── -->
+    <section class="row trace-row">
+      <div class="trace-copy">
+        <div class="kicker"><span class="kicker-n">03</span><span class="meta">Tailored CV</span></div>
+        <h2 class="h2">A CV that never<br /><span class="dim">invents experience.</span></h2>
         <p class="body">
-          Your experience, selected for the job. Every line is a sentence you already wrote,
-          and every line has a source you can open.
+          Every line on a tailored CV is a sentence from the CV you imported, or a wording you
+          already sent. The model chooses and orders them. It does not write new ones.
         </p>
-        <a class="btn btn-ink" href="/features/tailored-cv">Explore tailored CV →</a>
+        <a class="btn btn-line" href="/features/tailored-cv">How it works <span aria-hidden="true">→</span></a>
       </div>
-      <div class="band-visual" aria-hidden="true">
-        <div class="sheet mini-cv">
-          <p class="mini-name">Ada Lovelace</p>
-          <p class="mini-role">Senior Frontend Engineer</p>
-          <p class="mini-h">Experience</p>
-          <span class="bar"></span>
-          <p class="mini-hit">Cut p95 page load from 3.1s to 1.2s with code-splitting.</p>
-          <span class="bar"></span>
-          <span class="bar bar-short"></span>
+      <div class="trace" data-trace aria-hidden="true">
+        <svg class="trace-wires" data-trace-wires></svg>
+        <div class="trace-col">
+          <p class="meta">Your CV</p>
+          <p class="trace-item" data-t="a">07 · Led the move of the checkout from jQuery to React.</p>
+          <p class="trace-item" data-t="b">08 · Cut p95 page load from 3.1s to 1.2s.</p>
+          <p class="trace-item muted">10 · Mentored three junior engineers.</p>
         </div>
-        <span class="tag tag-accent mini-src">your CV · line 8</span>
-        <svg class="mini-wire" viewBox="0 0 80 40" fill="none" preserveAspectRatio="none">
-          <path d="M0 30 C 30 30, 50 20, 80 20" />
-        </svg>
+        <div class="trace-col">
+          <p class="meta">For Fabrikam</p>
+          <p class="trace-item out" data-t="a2">Led the move of the checkout from jQuery to React.</p>
+          <p class="trace-item out" data-t="b2">Cut p95 page load from 3.1s to 1.2s.</p>
+          <p class="trace-item gap">Not asked for: left out.</p>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ─────────────── Pricing ─────────────── -->
-  <section class="wrap chapter" id="pricing">
-    <h2 class="h2 reveal">Tracking is free, and stays free.</h2>
+    <!-- ─────────────── Pricing ─────────────── -->
+    <section class="row" id="pricing">
+      <div class="kicker"><span class="kicker-n">€</span><span class="meta">Pricing</span></div>
+      <h2 class="h2">Tracking is free,<br /><span class="dim">and stays free.</span></h2>
+    </section>
     <div class="plans">
-      <article class="card plan reveal">
-        <p class="plan-name">Free</p>
+      <article class="plan">
+        <p class="meta">Free</p>
         <p class="plan-price">€0</p>
         <p class="plan-lead">Everything that runs a search.</p>
         <ul>
           <li>Automatic capture on six job boards</li>
           <li>Application forms filled, never submitted</li>
           <li>Unlimited applications, notes and follow-ups</li>
-          <li>Home and every chart behind it</li>
+          <li>Home, and every chart behind it</li>
           <li>CV import, and the facts it reads out</li>
           <li>Self-host it on your own Cloudflare account</li>
         </ul>
         <a class="btn btn-line" href="/login">Start for free</a>
       </article>
-      <article class="card plan plan-pro reveal">
-        <p class="plan-name">Pro</p>
-        <p class="plan-price">€9 <span>a month</span></p>
+      <article class="plan">
+        <p class="meta">Pro</p>
+        <p class="plan-price">€9<span> / month</span></p>
         <p class="plan-lead">Everything in Free, plus documents.</p>
         <ul>
           <li>A tailored CV for each posting</li>
@@ -328,24 +333,23 @@ const jsonLd = [
         <a class="btn btn-ink" href="/login">Start with Pro</a>
         <p class="plan-note">
           Uses your own AI provider key, billed by your provider at cost: typically under €2 for
-          a whole job search. jlog never marks it up. Cancel any time.
+          a whole job search. jlog never marks it up.
         </p>
       </article>
     </div>
-  </section>
 
-  <!-- ─────────────── Open source ─────────────── -->
-  <section class="wrap">
-    <div class="band band-oss reveal">
-      <div class="band-copy">
-        <h2 class="h2">Open source. Self-hostable. Your own model.</h2>
+    <!-- ─────────────── Open source ─────────────── -->
+    <section class="row oss">
+      <div>
+        <div class="kicker"><span class="kicker-n">MIT</span><span class="meta">Open source</span></div>
+        <h2 class="h2">Self-host it.<br /><span class="dim">Bring your own model.</span></h2>
         <p class="body">
-          MIT licensed, and it runs on Cloudflare's free tier. On the hosted version the
-          extension records only the company, role and link on the six boards, fills forms
-          without sending them anywhere, and reads a page only when you click Extract or Draft.
+          It runs on Cloudflare's free tier. On the hosted version the extension records only the
+          company, role and link on the six boards, fills forms without sending them anywhere,
+          and reads a page only when you click Extract or Draft.
           <a href="/privacy">What is stored</a>, in plain words.
         </p>
-        <div class="cta">
+        <div class="cta cta-left">
           {
             STORE_URL && (
               <a href={STORE_URL} class="btn btn-ink" target="_blank" rel="noopener noreferrer">
@@ -357,287 +361,508 @@ const jsonLd = [
             Read the source
           </a>
         </div>
-        {!STORE_URL && <p class="meta oss-note">The Chrome extension is built from source until its store listing is live.</p>}
+        {!STORE_URL && <p class="meta oss-note">Extension built from source until its store listing is live</p>}
       </div>
-      <svg class="contours" viewBox="0 0 400 260" fill="none" aria-hidden="true">
+      <pre class="term" aria-label="Clone the repository"><span class="meta">~</span> git clone {GITHUB_URL}
+<span class="meta">~</span> cd jlog && pnpm install
+<span class="c"># then follow the README to deploy</span></pre>
+    </section>
+
+    <!-- ─────────────── FAQ ─────────────── -->
+    <section class="row faq" id="faq">
+      <div>
+        <div class="kicker"><span class="kicker-n">?</span><span class="meta">FAQ</span></div>
+        <h2 class="h2">Questions,<br /><span class="dim">answered.</span></h2>
+      </div>
+      <div class="faq-list">
         {
-          [0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <path
-              d={`M${-20 + i * 6} ${260 - i * 4} C ${80 + i * 10} ${200 - i * 22}, ${170 + i * 6} ${150 - i * 14}, ${420} ${40 + i * 18}`}
-            />
+          faqs.map((f) => (
+            <details class="faq-item">
+              <summary>{f.q}</summary>
+              <p>{f.a}</p>
+            </details>
           ))
         }
-      </svg>
-    </div>
-  </section>
+      </div>
+    </section>
 
-  <!-- ─────────────── FAQ ─────────────── -->
-  <section class="wrap chapter faq" id="faq">
-    <h2 class="h2 reveal">Questions, answered.</h2>
-    <div class="faq-list reveal">
-      {
-        faqs.map((f) => (
-          <details class="faq-item">
-            <summary>{f.q}</summary>
-            <p>{f.a}</p>
-          </details>
-        ))
-      }
-    </div>
-  </section>
-
-  <!-- ─────────────── Closer ─────────────── -->
-  <section class="wrap closer reveal">
-    <h2 class="display closer-title">Start with the applications you have open <em>now</em>.</h2>
-    <a href="/login" class="btn btn-ink">Get started for free</a>
-    <p class="meta">No card to start. Tracking stays free.</p>
-  </section>
+    <!-- ─────────────── Closer ─────────────── -->
+    <section class="row closer">
+      <h2 class="display closer-title">Start with the applications<br /><span class="dim">you have open now.</span></h2>
+      <div class="cta">
+        <a href="/login" class="btn btn-ink">Get started for free</a>
+        <a href="/features/tailored-cv" class="btn btn-line">See the tailored CV</a>
+      </div>
+    </section>
+  </div>
 
   <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 </SiteLayout>
+
+<script>
+  /*
+   * The stack separates as the hero scrolls through the viewport, and the
+   * arrows are redrawn to follow each layer's anchor. Reduced motion gets the
+   * stack already open and still.
+   */
+  const stage = document.querySelector<HTMLElement>('[data-stage]');
+  const stack = document.querySelector<HTMLElement>('[data-stack]');
+  const svg = document.querySelector<SVGSVGElement>('[data-arrows]');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  function drawArrows() {
+    if (!stage || !svg) return;
+    const box = stage.getBoundingClientRect();
+    svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    for (const old of svg.querySelectorAll('path.arrow')) old.remove();
+    if (window.innerWidth < 1000) return;
+    for (const note of stage.querySelectorAll<HTMLElement>('[data-note]')) {
+      const id = note.dataset.note;
+      const anchor = stage.querySelector<HTMLElement>(`[data-anchor="${id}"]`);
+      if (!anchor) continue;
+      const n = note.getBoundingClientRect();
+      const a = anchor.getBoundingClientRect();
+      const left = note.closest('.notes-left') !== null;
+      const x1 = (left ? n.right + 10 : n.left - 10) - box.left;
+      const y1 = n.top + 12 - box.top;
+      const x2 = a.left + a.width / 2 - box.left;
+      const y2 = a.top + a.height / 2 - box.top;
+      const bend = (x2 - x1) * 0.55;
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('class', 'arrow');
+      path.setAttribute('d', `M${x1},${y1} C${x1 + bend},${y1 - 24} ${x2 - bend * 0.2},${y2 - 60} ${x2},${y2}`);
+      path.setAttribute('marker-end', 'url(#tip)');
+      svg.appendChild(path);
+    }
+  }
+
+  function update() {
+    if (!stage || !stack) return;
+    const r = stage.getBoundingClientRect();
+    const vh = window.innerHeight;
+    // 0 when the stage's top reaches the bottom of the screen, 1 at the middle.
+    const p = reduce ? 1 : Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.9)));
+    const eased = 1 - (1 - p) ** 3;
+    stack.style.setProperty('--gap', `${28 + eased * 78}px`);
+    drawArrows();
+  }
+
+  let raf = 0;
+  const schedule = () => {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(update);
+  };
+  window.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+  document.fonts?.ready.then(schedule);
+  update();
+
+  /* The tailored-CV trace: two wires from a CV line to where it lands. */
+  const trace = document.querySelector<HTMLElement>('[data-trace]');
+  const wires = document.querySelector<SVGSVGElement>('[data-trace-wires]');
+  function drawTrace() {
+    if (!trace || !wires) return;
+    const box = trace.getBoundingClientRect();
+    wires.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    wires.replaceChildren();
+    for (const [from, to] of [
+      ['a', 'a2'],
+      ['b', 'b2'],
+    ]) {
+      const f = trace.querySelector(`[data-t="${from}"]`)?.getBoundingClientRect();
+      const t = trace.querySelector(`[data-t="${to}"]`)?.getBoundingClientRect();
+      if (!f || !t) continue;
+      const x1 = f.right - box.left;
+      const y1 = f.top + f.height / 2 - box.top;
+      const x2 = t.left - box.left;
+      const y2 = t.top + t.height / 2 - box.top;
+      const m = (x1 + x2) / 2;
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', `M${x1},${y1} C${m},${y1} ${m},${y2} ${x2},${y2}`);
+      wires.appendChild(path);
+    }
+  }
+  window.addEventListener('resize', drawTrace);
+  document.fonts?.ready.then(drawTrace);
+  drawTrace();
+</script>
 
 <style>
   /* ---------- Hero ---------- */
 
   .hero {
-    position: relative;
-    padding-top: clamp(4rem, 10vw, 8rem);
-    padding-bottom: clamp(2.5rem, 5vw, 4rem);
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    padding-top: clamp(4rem, 9vw, 7rem);
+    padding-bottom: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 1px 1px, var(--line-2) 1px, transparent 1.5px) 0 0 / 22px 22px;
   }
 
-  .hero-copy {
-    max-width: 44rem;
+  .hero::before,
+  .hero::after {
+    display: none;
   }
 
-  .hero .lead {
+  .announce {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem 0.25rem 0.3rem;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    background: var(--bg);
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+    text-decoration: none;
+    margin-bottom: 1.75rem;
+  }
+
+  .announce:hover {
+    border-color: var(--grey-2);
+  }
+
+  .hero-title {
+    max-width: 20ch;
+  }
+
+  .hero-lead {
     margin-top: 1.5rem;
   }
 
   .cta {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.625rem;
+    justify-content: center;
+    gap: 0.5rem;
     margin-top: 2rem;
   }
 
-  .hero-aside {
-    position: absolute;
-    right: var(--gutter);
-    top: clamp(4rem, 9vw, 7rem);
-    width: 220px;
+  .cta-left {
+    justify-content: flex-start;
   }
 
-  .hero-curve {
+  /* ---------- The stack ---------- */
+
+  .stage {
+    position: relative;
     width: 100%;
-    height: auto;
-  }
-
-  .hero-curve path {
-    stroke: var(--rule-strong);
-    stroke-width: 1;
-  }
-
-  .hero-curve circle {
-    fill: var(--ink);
-  }
-
-  .hero-aside {
-    display: flex;
-    flex-direction: column-reverse;
-    gap: 0.5rem;
-  }
-
-  .hero-note {
-    line-height: 1.5;
-    white-space: nowrap;
-    align-self: flex-end;
-  }
-
-  /* ---------- The app ---------- */
-
-  .shot-wrap {
-    padding-bottom: clamp(3rem, 6vw, 5rem);
-  }
-
-  .app {
     display: grid;
-    grid-template-columns: 180px 1fr;
-    min-height: 360px;
-  }
-
-  .app-side {
-    border-right: 1px solid var(--rule);
-    background: #fbfaf8;
-    padding: 1.25rem 0.75rem;
-  }
-
-  .app-mark {
-    font-family: var(--display);
-    font-weight: 600;
-    font-size: 1.25rem;
-    letter-spacing: -0.03em;
-    padding: 0 0.5rem 1rem;
-  }
-
-  .app-side ul {
-    list-style: none;
-    display: grid;
-    gap: 0.125rem;
-    font-size: 0.8125rem;
-    color: var(--ink-2);
-  }
-
-  .app-side li {
-    padding: 0.4rem 0.625rem;
-    border-radius: 7px;
-  }
-
-  .app-side li.on {
-    background: var(--paper-deep);
-    color: var(--ink);
-    font-weight: 550;
-  }
-
-  .app-main {
-    padding: 1.25rem 1.5rem 1.5rem;
-  }
-
-  .app-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .app-title {
-    font-weight: 600;
-    font-size: 1.0625rem;
-  }
-
-  .app-tabs {
-    display: flex;
-    gap: 0.25rem;
-    margin: 0.875rem 0 0.5rem;
-    font-size: 0.75rem;
-    color: var(--muted);
-  }
-
-  .app-tabs span {
-    padding: 0.25rem 0.625rem;
-    border-radius: 999px;
-  }
-
-  .app-tabs .on {
-    background: var(--paper-deep);
-    color: var(--ink);
-  }
-
-  .app-rows {
-    list-style: none;
-  }
-
-  .app-rows li {
-    display: grid;
-    grid-template-columns: 2rem 1fr auto;
-    gap: 0.875rem;
+    grid-template-columns: minmax(0, 1fr) 620px minmax(0, 1fr);
     align-items: center;
-    padding: 0.75rem 0.25rem;
-    border-bottom: 1px solid var(--rule);
+    margin-top: 4.5rem;
+    color: var(--ink);
   }
 
-  .app-rows li:last-child {
+  .arrows {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 3;
+    color: var(--ink);
+  }
+
+  .arrows :global(.arrow) {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.25;
+  }
+
+  .notes {
+    list-style: none;
+    display: grid;
+    gap: 9rem;
+    text-align: left;
+    position: relative;
+    z-index: 4;
+  }
+
+  .notes-left {
+    justify-items: end;
+    padding-right: 1rem;
+  }
+
+  .notes-right {
+    padding-left: 1rem;
+    padding-top: 2rem;
+  }
+
+  .note {
+    display: grid;
+    grid-template-columns: auto;
+    gap: 0.25rem;
+    max-width: 13rem;
+    background: var(--bg);
+    padding: 0.625rem 0.75rem;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+
+  .note .kicker-n {
+    justify-self: start;
+  }
+
+  .note-t {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    letter-spacing: -0.01em;
+  }
+
+  .note-b {
+    font-size: 0.8125rem;
+    color: var(--grey);
+    line-height: 1.4;
+  }
+
+  .scene {
+    position: relative;
+    height: 560px;
+    perspective: 2400px;
+  }
+
+  .stack {
+    --gap: 28px;
+    position: absolute;
+    left: 50%;
+    top: 54%;
+    width: 440px;
+    height: 280px;
+    margin: -140px 0 0 -220px;
+    transform-style: preserve-3d;
+    transform: rotateX(56deg) rotateZ(-38deg);
+  }
+
+  .layer {
+    position: absolute;
+    inset: 0;
+    transform: translateZ(calc(var(--i) * var(--gap)));
+    transition: transform 80ms linear;
+    text-align: left;
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.08),
+      -18px 26px 40px -18px rgb(0 0 0 / 0.25);
+  }
+
+  .anchor {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+
+  .anchor-l {
+    left: 14px;
+    top: 50%;
+  }
+
+  .anchor-r {
+    right: 14px;
+    top: 30%;
+  }
+
+  .l-body {
+    padding: 0.875rem 1rem;
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .l-co {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    color: var(--grey);
+    text-transform: uppercase;
+  }
+
+  .l-title {
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .l-sub {
+    font-size: 0.75rem;
+    color: var(--grey);
+  }
+
+  .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-3);
+  }
+
+  .bar-s {
+    width: 60%;
+  }
+
+  .l-apply {
+    justify-self: start;
+    margin-top: 0.4rem;
+    font-size: 0.6875rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    background: var(--ink);
+    color: #fff;
+  }
+
+  .field {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.5rem;
+    align-items: center;
+    font-size: 0.6875rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+
+  .field span {
+    color: var(--grey);
+  }
+
+  .field b {
+    font-weight: 500;
+  }
+
+  .field i {
+    font-style: normal;
+    color: var(--st-offer);
+  }
+
+  .l-foot {
+    font-size: 0.6875rem;
+    color: var(--grey);
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.2rem;
+  }
+
+  .l-rows {
+    list-style: none;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .l-rows li {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+    padding: 0.55rem 0.25rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.75rem;
+  }
+
+  .l-rows li:last-child {
     border-bottom: none;
   }
 
-  .tile {
+  .l-rows .t {
     display: grid;
     place-items: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.8125rem;
-    color: hsl(var(--h) 55% 35%);
-    background: hsl(var(--h) 70% 94%);
-  }
-
-  .row-main {
-    display: grid;
-    min-width: 0;
-  }
-
-  .row-title {
-    font-size: 0.875rem;
-    font-weight: 550;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .row-co {
-    font-weight: 400;
-    color: var(--ink-2);
-  }
-
-  .row-meta {
-    font-size: 0.75rem;
-    color: var(--muted);
-  }
-
-  .pill {
-    font-family: var(--mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 0.2rem 0.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
     border-radius: 6px;
-    border: 1px solid;
+    background: var(--bg-3);
+    font-weight: 600;
+    font-size: 0.6875rem;
   }
 
-  .pill-applied {
-    color: #3150d8;
-    background: #eef2fe;
-    border-color: #d6defc;
+  .l-rows .new {
+    background: var(--bg-2);
+    border-radius: 6px;
   }
 
-  .pill-interviewing {
-    color: #9a4d0e;
-    background: #fdf1e3;
-    border-color: #f5dcc0;
+  .l-cv {
+    padding: 1rem 1.125rem;
+    display: grid;
+    align-content: start;
+    gap: 0.35rem;
   }
 
-  .pill-offer {
-    color: #2a6f44;
-    background: #e8f5ec;
-    border-color: #cbe7d5;
+  .cv-name {
+    font-weight: 600;
+    font-size: 1.0625rem;
+    letter-spacing: -0.02em;
   }
 
-  .pill-saved {
-    color: var(--ink-2);
-    background: var(--paper);
-    border-color: var(--rule);
+  .cv-sub {
+    font-size: 0.6875rem;
+    color: var(--grey);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 0.25rem;
   }
 
-  /* ---------- Features ---------- */
+  .cv-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    padding: 0.3rem 0;
+    border-bottom: 1px dashed var(--line-2);
+  }
+
+  /* ---------- Boards ---------- */
+
+  .boards {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2rem;
+    align-items: center;
+  }
+
+  .boards ul {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    font-weight: 600;
+    font-size: 1.0625rem;
+    letter-spacing: -0.02em;
+    color: var(--grey);
+  }
+
+  /* ---------- Features: a ruled grid, cells share borders ---------- */
 
   .features {
     list-style: none;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1rem;
-    margin-top: 2.5rem;
+    border-top: 1px solid var(--line);
   }
 
   .feature {
     display: grid;
     align-content: start;
     gap: 0.625rem;
-    padding: 1.5rem;
-    scroll-margin-top: 90px;
+    padding: 2rem clamp(1.25rem, 3vw, 2rem) 2.25rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    scroll-margin-top: 80px;
+    transition: background 200ms var(--ease);
   }
 
-  .feature .chip {
-    margin-bottom: 0.5rem;
+  .feature:hover {
+    background: var(--bg-2);
+  }
+
+  .feature:nth-child(3n) {
+    border-right: none;
+  }
+
+  .feature:nth-last-child(-n + 3) {
+    border-bottom: none;
   }
 
   .feature .h3 {
@@ -653,141 +878,81 @@ const jsonLd = [
 
   .feature-link {
     font-size: var(--t-small);
-    font-weight: 550;
-    color: var(--accent-ink);
+    font-weight: 500;
     text-decoration: none;
     margin-top: 0.25rem;
   }
 
   .feature-link:hover {
     text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
-  /* ---------- Bands ---------- */
+  /* ---------- Tailored CV trace ---------- */
 
-  .band {
-    position: relative;
-    overflow: hidden;
+  .trace-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 2rem;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: clamp(2rem, 5vw, 4rem);
     align-items: center;
-    padding: clamp(2rem, 5vw, 3.5rem);
-    border-radius: 20px;
-    background: var(--paper-deep);
-    border: 1px solid var(--rule);
+    background: var(--bg-2);
   }
 
-  .band-copy {
-    position: relative;
-    z-index: 1;
+  .trace-copy {
     display: grid;
     gap: 1.25rem;
     justify-items: start;
   }
 
-  .band-copy .body a {
-    color: var(--ink);
-    text-underline-offset: 2px;
-  }
-
-  .band-visual {
+  .trace {
     position: relative;
-    min-height: 240px;
-  }
-
-  .mini-cv {
-    position: absolute;
-    left: 0;
-    right: 30%;
-    top: 0;
-    padding: 1.5rem;
     display: grid;
-    gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4rem;
   }
 
-  .mini-name {
-    font-weight: 600;
+  .trace-wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
   }
 
-  .mini-role {
-    font-size: 0.8125rem;
-    color: var(--muted);
-    margin-top: -0.375rem;
+  .trace-wires :global(path) {
+    fill: none;
+    stroke: var(--signal);
+    stroke-width: 1.25;
   }
 
-  .mini-h {
-    font-family: var(--mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-top: 0.5rem;
+  .trace-col {
+    display: grid;
+    gap: 0.625rem;
+    align-content: start;
   }
 
-  .bar {
-    height: 7px;
-    border-radius: 4px;
-    background: var(--paper-deep);
-  }
-
-  .bar-short {
-    width: 60%;
-  }
-
-  .mini-hit {
+  .trace-item {
     font-size: 0.8125rem;
     line-height: 1.45;
-    padding: 0.375rem 0.5rem;
-    border-radius: 6px;
-    background: #fdf6d8;
-    border: 1px solid #f1e3a4;
+    padding: 0.625rem 0.75rem;
+    background: var(--bg);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
   }
 
-  .mini-src {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    box-shadow: var(--shadow-soft);
+  .trace-item.muted,
+  .trace-item.gap {
+    color: var(--grey-2);
+    background: transparent;
+    box-shadow: 0 0 0 1px var(--line-2);
   }
 
-  .mini-wire {
-    position: absolute;
-    left: 70%;
-    top: calc(50% - 8px);
-    width: calc(30% - 8.25rem);
-    height: 40px;
-  }
-
-  .mini-wire path {
-    stroke: var(--accent);
-    stroke-width: 1.25;
-    stroke-dasharray: 3 3;
-  }
-
-  .band-oss {
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.6fr);
-  }
-
-  .contours {
-    position: absolute;
-    right: -3rem;
-    bottom: -2rem;
-    width: 38%;
-    height: 100%;
-  }
-
-  .contours path {
-    stroke: var(--rule-strong);
-    stroke-width: 1;
-  }
-
-  .oss-note {
-    margin-top: -0.5rem;
-  }
-
-  .band-copy .cta {
-    margin-top: 0.25rem;
+  .trace-item.gap {
+    border: 0;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
   }
 
   /* ---------- Pricing ---------- */
@@ -795,8 +960,7 @@ const jsonLd = [
   .plans {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-    margin-top: 2.5rem;
+    border-top: 1px solid var(--line);
   }
 
   .plan {
@@ -804,32 +968,26 @@ const jsonLd = [
     align-content: start;
     justify-items: start;
     gap: 0.75rem;
-    padding: 2rem;
+    padding: 2.25rem clamp(1.25rem, 4vw, 3rem) 2.5rem;
   }
 
-  .plan-pro {
-    border-color: #cfd9fc;
-    box-shadow:
-      0 0 0 3px var(--accent-wash),
-      var(--shadow-soft);
-  }
-
-  .plan-name {
-    font-family: var(--mono);
-    font-size: var(--t-meta);
-    color: var(--muted);
+  .plan + .plan {
+    border-left: 1px solid var(--line);
+    background: var(--bg-2);
   }
 
   .plan-price {
-    font-family: var(--display);
+    font-weight: 600;
     font-size: 2.75rem;
+    letter-spacing: -0.05em;
     line-height: 1;
   }
 
   .plan-price span {
-    font-family: var(--sans);
     font-size: var(--t-small);
-    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--grey);
   }
 
   .plan-lead {
@@ -851,17 +1009,65 @@ const jsonLd = [
   }
 
   .plan li::before {
-    content: '✓';
+    content: '';
     position: absolute;
-    left: 0;
-    color: var(--accent-ink);
-    font-size: 0.8125rem;
+    left: 0.125rem;
+    top: 0.55rem;
+    width: 0.625rem;
+    height: 0.3125rem;
+    border-left: 1.5px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+    transform: rotate(-45deg);
   }
 
   .plan-note {
     font-size: 0.8125rem;
-    color: var(--muted);
-    margin-top: 0.25rem;
+    color: var(--grey);
+  }
+
+  /* ---------- Open source ---------- */
+
+  .oss {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+  }
+
+  .oss .body {
+    margin-top: 1.25rem;
+  }
+
+  .oss .body a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .oss-note {
+    margin-top: 0.75rem;
+  }
+
+  .term {
+    background: var(--ink);
+    color: #ededed;
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    line-height: 1.9;
+    overflow-x: auto;
+    box-shadow: var(--shadow-float);
+  }
+
+  .term .meta {
+    color: #8f8f8f;
+    text-transform: none;
+    font-size: inherit;
+  }
+
+  .term .c {
+    color: #8f8f8f;
   }
 
   /* ---------- FAQ ---------- */
@@ -874,17 +1080,17 @@ const jsonLd = [
   }
 
   .faq-item {
-    border-bottom: 1px solid var(--rule);
-    padding: 1.125rem 0;
+    border-bottom: 1px solid var(--line);
+    padding: 1rem 0;
   }
 
   .faq-item:first-child {
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--line);
   }
 
   .faq-item summary {
     cursor: pointer;
-    font-weight: 550;
+    font-weight: 500;
     list-style: none;
     display: flex;
     justify-content: space-between;
@@ -897,7 +1103,7 @@ const jsonLd = [
 
   .faq-item summary::after {
     content: '+';
-    color: var(--muted);
+    color: var(--grey);
     font-family: var(--mono);
   }
 
@@ -918,73 +1124,110 @@ const jsonLd = [
     display: grid;
     justify-items: center;
     text-align: center;
-    gap: 1.5rem;
-    padding-top: clamp(3rem, 8vw, 6rem);
-    padding-bottom: clamp(4rem, 9vw, 7rem);
+    background:
+      radial-gradient(circle at 1px 1px, var(--line-2) 1px, transparent 1.5px) 0 0 / 22px 22px;
   }
 
   .closer-title {
-    font-size: clamp(2.25rem, 4.6vw, 3.5rem);
-    max-width: 18ch;
+    font-size: clamp(2.25rem, 5vw, 4rem);
   }
 
   /* ---------- Narrow screens ---------- */
 
-  @media (max-width: 960px) {
-    .hero-aside {
-      display: none;
+  @media (max-width: 1000px) {
+    .stage {
+      grid-template-columns: 1fr;
+    }
+
+    .notes {
+      order: 2;
+      gap: 0.75rem;
+      padding: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      justify-items: stretch;
+      padding: 0 0 2.5rem;
+    }
+
+    .note {
+      max-width: none;
+    }
+
+    .scene {
+      order: 1;
+      height: 440px;
+    }
+
+    .stack {
+      scale: 0.8;
     }
 
     .features {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .feature:nth-child(3n) {
+      border-right: 1px solid var(--line);
+    }
+
+    .feature:nth-child(2n) {
+      border-right: none;
+    }
+
+    .feature:nth-last-child(-n + 3) {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .feature:nth-last-child(-n + 2) {
+      border-bottom: none;
+    }
   }
 
-  @media (max-width: 760px) {
-    .app {
+  @media (max-width: 720px) {
+    .scene {
+      height: 340px;
+    }
+
+    .stack {
+      scale: 0.6;
+    }
+
+    .notes {
       grid-template-columns: 1fr;
     }
 
-    .app-side {
-      display: none;
-    }
-
-    .app-main {
-      padding: 1rem;
-    }
-
-    .app-rows .row-meta {
-      display: none;
-    }
-
-    .band,
+    .boards,
+    .trace-row,
     .plans,
+    .oss,
     .faq,
     .features {
       grid-template-columns: 1fr;
     }
 
-    .band-visual {
-      min-height: 250px;
+    .boards ul {
+      justify-content: flex-start;
     }
 
-    .mini-cv {
-      right: 0;
+    .feature,
+    .feature:nth-child(3n) {
+      border-right: none;
     }
 
-    .mini-src {
-      top: auto;
-      bottom: 0;
-      right: 1rem;
+    .feature:nth-last-child(-n + 2) {
+      border-bottom: 1px solid var(--line);
     }
 
-    .mini-wire {
-      display: none;
+    .feature:last-child {
+      border-bottom: none;
     }
 
-    .contours {
-      width: 100%;
-      opacity: 0.6;
+    .plan + .plan {
+      border-left: none;
+      border-top: 1px solid var(--line);
+    }
+
+    .trace {
+      gap: 1.5rem;
     }
   }
 </style>

@@ -124,12 +124,13 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   title="Tailored CV that never invents experience · jlog"
   description="jlog builds a tailored CV (résumé) for each job from sentences you already wrote. Every line links back to its source in your own CV. Nothing is invented."
 >
+  <div class="rail">
   <!-- ─────────────── Hero ─────────────── -->
-  <section class="hero wrap">
+  <section class="row hero">
     <div class="hero-copy">
       <p class="meta">Tailored CV · Pro</p>
       <h1 class="display">
-        Your CV shouldn't start from <em>scratch</em>.
+        Your CV shouldn't start from <span class="dim">scratch</span>.
       </h1>
       <p class="lead">
         jlog builds a CV for each posting out of sentences you already wrote, and shows you
@@ -158,7 +159,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
             chosen.slice(0, 3).map((c) => (
               <li>
                 <span class="cv-text">{c.text}</span>
-                <span class={c.wording ? 'tag' : 'tag tag-accent'}>
+                <span class={c.wording ? 'tag' : 'tag tag-signal'}>
                   {c.wording ? 'earlier wording' : `your CV · line ${lineOf(c.fact)}`}
                 </span>
               </li>
@@ -171,7 +172,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
             chosen.slice(3).map((c) => (
               <li>
                 <span class="cv-text">{c.text}</span>
-                <span class="tag tag-accent">your CV · line {lineOf(c.fact)}</span>
+                <span class="tag tag-signal">your CV · line {lineOf(c.fact)}</span>
               </li>
             ))
           }
@@ -182,15 +183,15 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   </section>
 
   <!-- ─────────────── 01 Facts ─────────────── -->
-  <section class="chapter" id="how">
+  <section class="row" id="how">
     <div class="wrap">
-      <div class="chapter-head reveal">
-        <span class="chapter-n">01</span>
+      <div class="kicker reveal">
+        <span class="kicker-n">01</span>
         <span class="meta">Your history</span>
       </div>
       <div class="split">
         <div class="reveal">
-          <h2 class="h2">jlog reads your CV as <em>facts</em>.</h2>
+          <h2 class="h2">jlog reads your CV as <span class="dim">facts</span>.</h2>
           <p class="body">
             Import the CV you already have. jlog breaks it into single claims, one per line, and
             shows you the list before anything is stored. You tick what is true. What you leave
@@ -233,10 +234,10 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   </section>
 
   <!-- ─────────────── 02 The posting ─────────────── -->
-  <section class="chapter">
+  <section class="row">
     <div class="wrap">
-      <div class="chapter-head reveal">
-        <span class="chapter-n">02</span>
+      <div class="kicker reveal">
+        <span class="kicker-n">02</span>
         <span class="meta">The posting</span>
       </div>
       <div class="split split-flip">
@@ -275,14 +276,14 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   </section>
 
   <!-- ─────────────── 03 Selection ─────────────── -->
-  <section class="chapter chapter-wide">
+  <section class="row chapter-wide">
     <div class="wrap">
-      <div class="chapter-head reveal">
-        <span class="chapter-n">03</span>
+      <div class="kicker reveal">
+        <span class="kicker-n">03</span>
         <span class="meta">Selection</span>
       </div>
       <div class="reveal">
-        <h2 class="h2">It picks what the posting <em>asks for</em>.</h2>
+        <h2 class="h2">It picks what the posting <span class="dim">asks for</span>.</h2>
         <p class="body">
           The model reads the posting and your facts, and chooses which facts belong on this CV
           and in what order. It chooses. It does not write. Point at any line to see what
@@ -332,7 +333,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
                   <span>{c.text}</span>
                   <span class="line-src">
                     <span class="tag">{c.req}</span>
-                    <span class={c.wording ? 'tag' : 'tag tag-accent'}>
+                    <span class={c.wording ? 'tag' : 'tag tag-signal'}>
                       {c.wording ?? `line ${lineOf(c.fact)}`}
                     </span>
                   </span>
@@ -349,10 +350,10 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   </section>
 
   <!-- ─────────────── 04 Trace ─────────────── -->
-  <section class="chapter">
+  <section class="row">
     <div class="wrap">
-      <div class="chapter-head reveal">
-        <span class="chapter-n">04</span>
+      <div class="kicker reveal">
+        <span class="kicker-n">04</span>
         <span class="meta">Provenance</span>
       </div>
       <div class="split">
@@ -395,13 +396,13 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   </section>
 
   <!-- ─────────────── 05 Nothing invented ─────────────── -->
-  <section class="chapter finale">
+  <section class="row finale">
     <div class="wrap">
-      <div class="chapter-head reveal">
-        <span class="chapter-n">05</span>
+      <div class="kicker reveal">
+        <span class="kicker-n">05</span>
         <span class="meta">The rule</span>
       </div>
-      <h2 class="display finale-title reveal">Nothing <em>invented</em>.</h2>
+      <h2 class="display finale-title reveal">Nothing <span class="dim">invented</span>.</h2>
       <ol class="rules reveal">
         <li>
           <span class="meta">i</span>
@@ -425,6 +426,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
       </nav>
     </div>
   </section>
+  </div>
 </SiteLayout>
 
 <script>
@@ -517,6 +519,11 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
 </script>
 
 <style>
+  .row > .wrap {
+    max-width: none;
+    padding: 0;
+  }
+
   /* ---------- Hero ---------- */
 
   .hero {
@@ -558,14 +565,14 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   }
 
   .cv-name {
-    font-family: var(--display);
+    font-family: var(--sans);
     font-size: 2.25rem;
     line-height: 1;
   }
 
   .cv-sub {
     font-size: var(--t-small);
-    color: var(--muted);
+    color: var(--grey);
     margin-top: 0.35rem;
   }
 
@@ -574,7 +581,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
     font-size: 0.6875rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--grey);
     margin-bottom: 0.75rem;
   }
 
@@ -586,7 +593,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
 
   .cv-role span {
     font-weight: 400;
-    color: var(--muted);
+    color: var(--grey);
     font-size: var(--t-small);
     margin-left: 0.4rem;
   }
@@ -602,7 +609,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
     align-items: flex-start;
     gap: 1rem;
     padding: 0.45rem 0;
-    border-bottom: 1px dashed var(--rule);
+    border-bottom: 1px dashed var(--line);
     font-size: 0.875rem;
     line-height: 1.45;
   }
@@ -670,12 +677,12 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   .raw-lines .ln {
     font-family: var(--mono);
     font-size: 0.625rem;
-    color: var(--muted);
+    color: var(--grey);
     padding-top: 0.1rem;
   }
 
   .raw-name {
-    font-family: var(--display);
+    font-family: var(--sans);
     font-size: 1.1rem !important;
   }
 
@@ -687,7 +694,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
 
   .hl {
     color: inherit;
-    background: linear-gradient(transparent 55%, var(--accent-wash) 55%);
+    background: linear-gradient(transparent 55%, rgb(10 114 239 / 0.08) 55%);
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
   }
@@ -703,8 +710,8 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
     grid-template-columns: 1.25rem 1fr;
     gap: 0.625rem;
     padding: 0.75rem 0.875rem;
-    background: var(--sheet);
-    border: 1px solid var(--rule);
+    background: var(--bg);
+    border: 1px solid var(--line);
     border-radius: 6px;
     font-size: var(--t-small);
     line-height: 1.45;
@@ -720,9 +727,9 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
     place-items: center;
     width: 1.1rem;
     height: 1.1rem;
-    border: 1px solid var(--accent);
-    background: var(--accent);
-    color: var(--sheet);
+    border: 1px solid var(--signal);
+    background: var(--signal);
+    color: var(--bg);
     border-radius: 3px;
     font-size: 0.7rem;
     margin-top: 0.1rem;
@@ -730,12 +737,12 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
 
   .fact.off {
     background: transparent;
-    color: var(--muted);
+    color: var(--grey);
   }
 
   .fact.off .check {
     background: transparent;
-    border-color: var(--rule-strong);
+    border-color: var(--line-2);
   }
 
   /* 02: the posting, in a browser frame */
@@ -751,7 +758,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   .posting-co {
     font-family: var(--mono);
     font-size: var(--t-meta);
-    color: var(--muted);
+    color: var(--grey);
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -764,7 +771,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   }
 
   .posting-meta {
-    color: var(--muted);
+    color: var(--grey);
     font-size: var(--t-small);
     margin-top: 0.25rem;
   }
@@ -798,13 +805,13 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   .req-id {
     font-family: var(--mono);
     font-size: 0.6875rem;
-    color: var(--accent);
-    border: 1px solid var(--accent);
+    color: var(--signal);
+    border: 1px solid var(--signal);
     border-radius: 4px;
     height: 1.35rem;
     display: grid;
     place-items: center;
-    background: var(--accent-wash);
+    background: rgb(10 114 239 / 0.08);
   }
 
   /* 03: the board */
@@ -828,7 +835,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
 
   .wires :global(.wire) {
     fill: none;
-    stroke: var(--rule-strong);
+    stroke: var(--line-2);
     stroke-width: 1.25;
     transition:
       stroke 200ms var(--ease),
@@ -836,7 +843,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   }
 
   .wires :global(.wire-on) {
-    stroke: var(--accent);
+    stroke: var(--signal);
     stroke-width: 1.75;
   }
 
@@ -861,8 +868,8 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
     display: grid;
     gap: 0.35rem;
     padding: 0.75rem 0.875rem;
-    background: var(--sheet);
-    border: 1px solid var(--rule);
+    background: var(--bg);
+    border: 1px solid var(--line);
     border-radius: 6px;
     font-size: var(--t-small);
     line-height: 1.45;
@@ -881,12 +888,12 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
 
   .node-unused {
     background: transparent;
-    color: var(--muted);
+    color: var(--grey);
     border-style: dashed;
   }
 
   .unused-note {
-    color: var(--muted);
+    color: var(--grey);
   }
 
   .board.lit .node:not(.on) {
@@ -894,12 +901,12 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   }
 
   .node.on {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-wash);
+    border-color: var(--signal);
+    box-shadow: 0 0 0 3px rgb(10 114 239 / 0.08);
   }
 
   .node:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--signal);
     outline-offset: 2px;
   }
 
@@ -915,7 +922,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   }
 
   .board-cv .node.on {
-    background: var(--sheet);
+    background: var(--bg);
   }
 
   .line-src {
@@ -955,7 +962,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   .trace-arrow span {
     width: 1px;
     height: 100%;
-    background: var(--accent);
+    background: var(--signal);
     position: relative;
   }
 
@@ -965,7 +972,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
     bottom: -1px;
     left: -4px;
     border: 4.5px solid transparent;
-    border-top-color: var(--accent);
+    border-top-color: var(--signal);
     border-bottom: 0;
   }
 
@@ -974,9 +981,9 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   }
 
   .raw-lines .hit span:last-child {
-    background: var(--accent-wash);
-    color: var(--accent-ink);
-    outline: 1px solid var(--accent);
+    background: rgb(10 114 239 / 0.08);
+    color: var(--signal);
+    outline: 1px solid var(--signal);
     outline-offset: 1px;
   }
 
@@ -990,7 +997,7 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
     gap: 1rem 1.5rem;
     margin-top: 0.5rem;
     padding-top: 1.25rem;
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--line);
   }
 
   .record dd {
@@ -1041,20 +1048,20 @@ const chosenIds = new Set(chosen.map((c) => c.fact));
   .next {
     margin-top: 4rem;
     padding-top: 1.5rem;
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--line);
   }
 
   .next a {
     display: inline-flex;
     gap: 1rem;
     align-items: baseline;
-    font-family: var(--display);
+    font-family: var(--sans);
     font-size: clamp(1.5rem, 3vw, 2rem);
     text-decoration: none;
   }
 
   .next a:hover {
-    color: var(--accent);
+    color: var(--signal);
   }
 
   /* ---------- Narrow screens ---------- */
