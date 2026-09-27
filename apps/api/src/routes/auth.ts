@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { resolvedProviders } from '../lib/auth';
+import { isInviteOnly } from '../lib/invites';
 
 /**
  * The two auth endpoints Better Auth does not provide.
@@ -20,7 +21,13 @@ const router = new Hono<{ Bindings: Env; Variables: Variables }>();
  * buttons that work and no others. Unauthenticated by design — it reveals only
  * which providers are configured, which is visible from the login page anyway.
  */
-router.get('/providers', async (c) => c.json({ providers: await resolvedProviders(c.env) }));
+router.get('/providers', async (c) =>
+  c.json({
+    providers: await resolvedProviders(c.env),
+    // Whether new accounts need an invite, so the page can say so up front.
+    inviteOnly: isInviteOnly(c.env.ALLOWED_EMAILS),
+  }),
+);
 
 /**
  * The signed-in user, in jlog's own shape.

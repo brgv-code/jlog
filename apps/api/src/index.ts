@@ -72,6 +72,12 @@ export interface Env {
    * EMAIL_FROM must be on a domain verified in Resend.
    */
   RESEND_API_KEY?: string;
+  /**
+   * Optional: who may create an account (addresses, or `@domain` for a whole
+   * domain). Unset means sign-up is open. Existing accounts are never affected.
+   * See lib/invites.ts.
+   */
+  ALLOWED_EMAILS?: string;
   EMAIL_FROM?: string;
   // Dedicated secret for encrypting stored LLM API keys — kept separate from
   // SESSION_SECRET so a change to one doesn't have blast radius on the other.

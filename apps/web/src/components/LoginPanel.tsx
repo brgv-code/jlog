@@ -16,7 +16,7 @@ type Availability = AuthProviderAvailability;
 
 type Status =
   | { state: 'loading' }
-  | { state: 'ready'; providers: Availability }
+  | { state: 'ready'; providers: Availability; inviteOnly: boolean }
   // Reached when the API is unreachable. GitHub is assumed rather than showing
   // an empty card, since it is the one method every instance is expected to have.
   | { state: 'offline' };
@@ -26,6 +26,9 @@ type Status =
  * because everything in an OAuth round trip happens inside a navigation the
  * person is watching.
  */
+const INVITE_ONLY =
+  'jlog is invite-only while it is in early access. Sign in with the address you were invited with, or ask for an invite at support@jlog.ai.';
+
 const ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'You cancelled the sign-in. No harm done — try again when ready.',
   invalid_token: 'That sign-in link has already been used, or it expired. Ask for a new one.',
@@ -96,7 +99,14 @@ export default function LoginPanel() {
         // endpoint would otherwise hand back something shaped wrong and the
         // card would render no buttons at all, silently.
         const body = authProvidersResponseSchema.parse(await res.json());
-        setStatus({ state: 'ready', providers: body.providers });
+        setStatus({
+          state: 'ready',
+          providers: body.providers,
+          inviteOnly: body.inviteOnly ?? false,
+        });
+        // A refused sign-up arrives as the generic "could not create" code;
+        // on an invite-only instance that is almost always the reason.
+        if (body.inviteOnly && reason === 'unable_to_create_user') setError(INVITE_ONLY);
       })
       .catch(() => setStatus({ state: 'offline' }));
   }, []);
@@ -223,6 +233,18 @@ export default function LoginPanel() {
     <div style={card}>
       <h1 style={headingStyle}>jlog</h1>
       <p style={subheadingStyle}>Track your job applications — open source &amp; self-hostable.</p>
+
+      {status.state === 'ready' && status.inviteOnly && !error && (
+        <p
+          style={{
+            fontSize: 'var(--text-sm)',
+            color: 'var(--color-text-secondary)',
+            marginBottom: 'var(--space-6)',
+          }}
+        >
+          Early access: new accounts are by invite. Already invited? Sign in with that address.
+        </p>
+      )}
 
       {error && (
         <p

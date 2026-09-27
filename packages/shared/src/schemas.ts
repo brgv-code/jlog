@@ -27,6 +27,8 @@ export const authProvidersResponseSchema = z.object({
     apple: z.boolean(),
     email: z.boolean(),
   }),
+  // Optional so an older API without the invite list still parses.
+  inviteOnly: z.boolean().optional(),
 });
 
 export type AuthProviderAvailability = z.infer<typeof authProvidersResponseSchema>['providers'];

@@ -3,10 +3,12 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { magicLink } from 'better-auth/plugins';
+import { sql } from 'drizzle-orm';
 import type { Env } from '../index';
 import { cleanupBeforeAccountDeletion } from './accountDeletion';
 import { getAppleClientSecret, isAppleConfigured } from './apple';
 import { getMailer, magicLinkMessage } from './email';
+import { INVITE_ONLY_MESSAGE, isInvited } from './invites';
 
 /**
  * jlog's Better Auth instance.
@@ -191,6 +193,17 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
            * the sidebar shows a blank where a person should be.
            */
           before: async (user) => {
+            /*
+             * Invite-only sign-up. A plain Error rather than an APIError on
+             * purpose: Better Auth turns a failed creation during an OAuth
+             * callback into a redirect to the login page with
+             * `unable_to_create_user`, which the page explains, whereas an
+             * APIError would be rethrown and end on the API's own domain.
+             * Emailed links are refused earlier, in sendMagicLink.
+             */
+            if (!isInvited(env.ALLOWED_EMAILS, user.email)) {
+              throw new Error(`Sign-up refused: ${user.email} is not on the invite list`);
+            }
             if (user.name?.trim()) return { data: user };
             return { data: { ...user, name: nameFromEmail(user.email) } };
           },
@@ -236,6 +249,21 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
         // of hashes rather than a bundle of live sign-in links.
         storeToken: 'hashed',
         async sendMagicLink({ email, url }) {
+          // Refuse before sending, so a stranger gets the reason on the login
+          // page instead of a link that cannot work. Someone who already has
+          // an account may always sign in.
+          if (!isInvited(env.ALLOWED_EMAILS, email)) {
+            const [existing] = await createDb(env.DB)
+              .select({ id: users.id })
+              .from(users)
+              // lower() on both sides: accounts from before Better Auth may be mixed case.
+              .where(sql`lower(${users.email}) = ${email.toLowerCase()}`)
+              .limit(1);
+            if (!existing) {
+              throw new APIError('FORBIDDEN', { message: INVITE_ONLY_MESSAGE });
+            }
+          }
+
           const mailer = getMailer(env);
           if (!mailer) {
             // Reached only if mail credentials disappear between the login page
