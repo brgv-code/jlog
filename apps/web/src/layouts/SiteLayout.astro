@@ -106,7 +106,6 @@ const path = Astro.url.pathname.replace(/\/$/, '');
         </a>
       </nav>
     </div>
-    <p class="foot-word" aria-hidden="true">jlog</p>
   </footer>
 </Layout>
 
@@ -294,23 +293,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
 
   .foot {
     border-top: 1px solid var(--line);
-    padding: 3rem 0 0;
-    overflow: hidden;
-  }
-
-  /* The wordmark, set as wide as the page and cut by its bottom edge. */
-  .foot-word {
-    max-width: var(--page);
-    margin: clamp(2rem, 6vw, 4rem) auto 0;
-    padding: 0 var(--gutter);
-    font-weight: 600;
-    font-size: min(46vw, 38rem);
-    line-height: 0.92;
-    margin-bottom: -0.16em;
-    letter-spacing: -0.075em;
-    color: var(--ink);
-    user-select: none;
-    white-space: nowrap;
+    padding: 3rem 0;
   }
 
   .foot-row {
