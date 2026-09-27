@@ -177,12 +177,21 @@ grey (`.dim`); mono is for labels. Colour appears only inside the product
   `.frame` `.pill-*` (UI).
 - Motion shows how the product works, never decorates. The vocabulary is lines
   and arrows drawn like a schematic, on the page grid:
-  - intake wiring: each of the six boards is a source whose wire drops to a
-    shared bus and into jlog, with pulses travelling the wires;
-  - the exploded 3D stack, which separates on scroll with arrows to each layer;
+  - intake wiring: every kind of source (job boards, company sites, any job
+    page, referrals), each marked with how it arrives (auto, one click, by
+    hand), wired down a shared bus into jlog, with pulses on the wires;
+  - the exploded 3D stack, which separates on scroll with arrows to each layer
+    (anchors sit on each layer's visible front edge, so an arrow can only
+    land on its own layer);
   - "How it works", pinned while you scroll: a step index with an active bar, a
     frame that plays each step, and crossfading captions;
-  - the dark panel, which opens from an inset rounded card to full width;
+  - each feature cell opens with a small loop of its real UI (a capture
+    toast, fields typing in, a status pill cycling, "gone quiet" pings);
+  - the pricing receipt itemises what a search costs, line by line;
+  - the dark panel, which opens from an inset rounded card to full width,
+    with the self-hosting architecture wired like the hero and a terminal
+    that types itself;
+  - the closer, a list of applications that keeps arriving;
   - the tailored-CV board, whose wires join a line, its fact and its
     requirement.
   Reference sites are inspiration for principles, never a source of motifs: a

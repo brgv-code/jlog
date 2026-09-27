@@ -22,7 +22,17 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 const STORE_URL = '';
 const GITHUB_URL = 'https://github.com/brgv-code/jlog';
 
-const BOARDS = ['LinkedIn', 'Greenhouse', 'Lever', 'Ashby', 'Wellfound', 'YC Jobs'];
+/*
+ * Where applications come from. Every path the product really has: six boards
+ * are captured as you apply, any other page is one click, and anything else
+ * is added by hand.
+ */
+const SOURCES = [
+  { name: 'Job boards', note: 'LinkedIn, Greenhouse, Lever, Ashby…', how: 'auto' },
+  { name: 'Company sites', note: 'careers pages and their portals', how: '1 click' },
+  { name: 'Any job page', note: 'a posting anywhere on the web', how: '1 click' },
+  { name: 'Referrals', note: 'a friend, a recruiter, an event', how: 'by hand' },
+];
 
 /* The four layers, bottom to top, and what each arrow says about it. */
 const notes = [
@@ -62,6 +72,35 @@ const steps = [
     head: 'A CV built from your own lines.',
     body: 'jlog picks the sentences from your CV that answer this posting. Each one says where it came from, and none are made up.',
   },
+];
+
+/* The closing feed: invented applications, arriving from every kind of source. */
+const feed = [
+  {
+    co: 'Fabrikam',
+    role: 'Senior Frontend Engineer',
+    src: 'Greenhouse',
+    st: 'applied',
+    label: 'Applied',
+  },
+  {
+    co: 'Northwind',
+    role: 'Product Engineer',
+    src: 'careers page',
+    st: 'interviewing',
+    label: 'Interview',
+  },
+  { co: 'Contoso', role: 'Staff Engineer', src: 'referral', st: 'offer', label: 'Offer' },
+  { co: 'Adatum', role: 'Design Engineer', src: 'LinkedIn', st: 'saved', label: 'Saved' },
+  { co: 'Tailspin', role: 'Frontend Lead', src: 'any job page', st: 'applied', label: 'Applied' },
+  {
+    co: 'Litware',
+    role: 'Full-stack Engineer',
+    src: 'Ashby',
+    st: 'interviewing',
+    label: 'Interview',
+  },
+  { co: 'Proseware', role: 'UI Engineer', src: 'recruiter', st: 'saved', label: 'Saved' },
 ];
 
 const features = [
@@ -184,15 +223,23 @@ const jsonLd = [
       </div>
 
       <!--
-        Intake, drawn as a wiring diagram: each board is a source, its wire
+        Intake, drawn as a wiring diagram: each source has a wire that
         runs down to a shared bus and into jlog, and from there into the stack
         below. Small pulses travel the wires. Routed by the script, with square
         corners softened, to match the page grid.
       -->
       <div class="intake" data-intake>
-        <p class="meta intake-label">Captures applications on</p>
+        <p class="meta intake-label">From anywhere you apply</p>
         <ul class="intake-boards">
-          {BOARDS.map((b) => <li data-src>{b}</li>)}
+          {
+            SOURCES.map((src) => (
+              <li data-src>
+                <span class="src-how">{src.how}</span>
+                <b>{src.name}</b>
+                <span class="src-note">{src.note}</span>
+              </li>
+            ))
+          }
         </ul>
         <svg class="intake-wires" data-wires aria-hidden="true"></svg>
         <p class="intake-node" data-sink aria-hidden="true">
@@ -397,7 +444,68 @@ const jsonLd = [
     <ul class="features">
       {
         features.map((f) => (
-          <li class="feature" id={f.id}>
+          <li class="feature reveal" id={f.id}>
+            <div class={`mini mini-${f.id}`} aria-hidden="true">
+              {f.id === 'capture' && (
+                <>
+                  <p class="mini-bar">jobs.lever.co/northwind</p>
+                  <p class="mini-h">Product Engineer</p>
+                  <span class="mini-apply">Submit application</span>
+                  <p class="mini-toast"><span class="toast-mark">j</span> Saved · Northwind</p>
+                </>
+              )}
+              {f.id === 'autofill' && (
+                <>
+                  {[
+                    ['Name', 'Ada Lovelace'],
+                    ['Email', 'ada.lovelace@example.com'],
+                    ['Notice period', 'One month'],
+                  ].map(([k, v], i) => (
+                    <p class="mini-field" style={`--d:${i}`}>
+                      <span>{k}</span>
+                      <b>{v}</b>
+                    </p>
+                  ))}
+                </>
+              )}
+              {f.id === 'tailored-cv' && (
+                <>
+                  <p class="mini-line" style="--d:0"><span></span><em class="tag tag-signal">CV line 7</em></p>
+                  <p class="mini-line" style="--d:1"><span></span><em class="tag tag-signal">CV line 8</em></p>
+                  <p class="mini-line" style="--d:2"><span></span><em class="tag">sent to Contoso</em></p>
+                </>
+              )}
+              {f.id === 'answers' && (
+                <>
+                  <p class="mini-q">Why do you want to work here?</p>
+                  <p class="mini-draft"><span>Your checkout rewrite is the problem I solved at Ledgerline</span></p>
+                  <p class="mini-facts"><em class="tag">fact · Ledgerline</em><em class="tag">fact · React</em></p>
+                </>
+              )}
+              {f.id === 'tracking' && (
+                <>
+                  <p class="mini-row">
+                    <span class="t">F</span>
+                    <span>Fabrikam</span>
+                    <span class="mini-status">
+                      <span class="pill pill-saved">Saved</span>
+                      <span class="pill pill-applied">Applied</span>
+                      <span class="pill pill-interviewing">Interview</span>
+                      <span class="pill pill-offer">Offer</span>
+                    </span>
+                  </p>
+                  <p class="mini-row dim-row"><span class="t">N</span><span>Northwind</span><span class="pill pill-applied">Applied</span></p>
+                  <p class="mini-row dim-row"><span class="t">C</span><span>Contoso</span><span class="pill pill-saved">Saved</span></p>
+                </>
+              )}
+              {f.id === 'home' && (
+                <>
+                  <p class="mini-alert"><span class="ping"></span> Gone quiet <b>Northwind · 14 days</b></p>
+                  <p class="mini-alert"><span class="ping ping-2"></span> Reply owed <b>Contoso recruiter</b></p>
+                  <p class="mini-alert"><span class="ping ping-3"></span> Interview <b>Fabrikam · Thursday</b></p>
+                </>
+              )}
+            </div>
             <span class="meta feature-n">{f.n}</span>
             <h3 class="h3">
               {f.title}
@@ -443,9 +551,19 @@ const jsonLd = [
     </section>
 
     <!-- ─────────────── Pricing ─────────────── -->
-    <section class="row" id="pricing">
-      <div class="kicker"><span class="kicker-n">€</span><span class="meta">Pricing</span></div>
-      <h2 class="h2">Tracking is free,<br /><span class="dim">and stays free.</span></h2>
+    <section class="row pricing-head" id="pricing">
+      <div>
+        <div class="kicker"><span class="kicker-n">€</span><span class="meta">Pricing</span></div>
+        <h2 class="h2">Tracking is free,<br /><span class="dim">and stays free.</span></h2>
+      </div>
+      <!-- What a whole search costs on Pro, itemised like a receipt. -->
+      <div class="receipt reveal" aria-label="A typical job search on Pro: €9 a month for jlog, and under €2 of model usage billed by your AI provider.">
+        <p class="meta receipt-h">A typical search on Pro</p>
+        <p class="receipt-l" style="--d:0"><span>jlog Pro, one month</span><b>€9.00</b></p>
+        <p class="receipt-l" style="--d:1"><span>Model usage, your key <em>billed by your provider</em></span><b>&lt; €2.00</b></p>
+        <p class="receipt-l" style="--d:2"><span>Markup on model usage</span><b>€0.00</b></p>
+        <p class="receipt-l receipt-t" style="--d:3"><span>Tracking, capture, autofill</span><b>free</b></p>
+      </div>
     </section>
     <div class="plans">
       <article class="plan">
@@ -506,9 +624,24 @@ const jsonLd = [
         </div>
         {!STORE_URL && <p class="meta oss-note">Extension built from source until its store listing is live</p>}
       </div>
-      <pre class="term" aria-label="Clone the repository"><span class="meta">~</span> git clone {GITHUB_URL}
-<span class="meta">~</span> cd jlog && pnpm install
-<span class="c"># then follow the README to deploy</span></pre>
+      <div class="oss-side">
+        <!--
+          What self-hosting is: three pieces on your own Cloudflare account,
+          plus the model you choose. Wired like the hero, pulses included.
+        -->
+        <div class="arch" data-arch aria-label="The extension talks to a Cloudflare Worker, which stores data in D1 and calls the AI provider you configured.">
+          <svg class="arch-wires" data-arch-wires aria-hidden="true"></svg>
+          <p class="arch-node" data-arch-node="ext"><span class="meta">Chrome</span>Extension</p>
+          <p class="arch-node" data-arch-node="web"><span class="meta">Pages</span>Web app</p>
+          <p class="arch-node arch-core" data-arch-node="api"><span class="meta">Worker</span>API</p>
+          <p class="arch-node" data-arch-node="db"><span class="meta">D1</span>Your data</p>
+          <p class="arch-node" data-arch-node="ai"><span class="meta">Your key</span>Any model</p>
+          <p class="arch-cap meta">Web app, API and data run on your Cloudflare account</p>
+        </div>
+        <pre class="term" data-term aria-label="Clone the repository"><span class="term-l" style="--d:0"><span class="meta">~</span> git clone {GITHUB_URL}</span>
+<span class="term-l" style="--d:1"><span class="meta">~</span> cd jlog && pnpm install</span>
+<span class="term-l" style="--d:2"><span class="c"># then follow the README to deploy</span></span></pre>
+      </div>
     </section>
 
     <!-- ─────────────── FAQ ─────────────── -->
@@ -536,6 +669,23 @@ const jsonLd = [
         <a href="/login" class="btn btn-ink">Get started for free</a>
         <a href="/features/tailored-cv" class="btn btn-line">See the tailored CV</a>
       </div>
+      <div class="feed frame" aria-hidden="true">
+        <p class="frame-bar">jlog · Applications</p>
+        <div class="feed-window">
+          <ul class="feed-list">
+            {
+              [...feed, ...feed].map((r) => (
+                <li>
+                  <span class="t">{r.co[0]}</span>
+                  <span class="feed-role">{r.role} · {r.co}</span>
+                  <span class="feed-src meta">{r.src}</span>
+                  <span class={`pill pill-${r.st}`}>{r.label}</span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -553,6 +703,29 @@ const jsonLd = [
   const svg = document.querySelector<SVGSVGElement>('[data-arrows]');
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const NS = 'http://www.w3.org/2000/svg';
+
+  /* A small square that travels a wire, then rests at its end for a beat. */
+  function pulse(svg: SVGSVGElement, pathId: string, delay: number, dur: number) {
+    if (reduce) return;
+    const dot = document.createElementNS(NS, 'rect');
+    dot.setAttribute('class', 'pulse');
+    dot.setAttribute('x', '-2.5');
+    dot.setAttribute('y', '-2.5');
+    dot.setAttribute('width', '5');
+    dot.setAttribute('height', '5');
+    const motion = document.createElementNS(NS, 'animateMotion');
+    motion.setAttribute('dur', `${dur}s`);
+    motion.setAttribute('begin', `-${delay % dur}s`);
+    motion.setAttribute('repeatCount', 'indefinite');
+    motion.setAttribute('keyPoints', '0;1;1');
+    motion.setAttribute('keyTimes', '0;0.55;1');
+    motion.setAttribute('calcMode', 'linear');
+    const mpath = document.createElementNS(NS, 'mpath');
+    mpath.setAttribute('href', `#${pathId}`);
+    motion.appendChild(mpath);
+    dot.appendChild(motion);
+    svg.appendChild(dot);
+  }
 
   function drawArrows() {
     if (!stage || !svg) return;
@@ -622,8 +795,10 @@ const jsonLd = [
       const y2 = t.top + t.height / 2 - box.top;
       const m = (x1 + x2) / 2;
       const path = document.createElementNS(NS, 'path');
+      path.setAttribute('id', `trace-${from}`);
       path.setAttribute('d', `M${x1},${y1} C${m},${y1} ${m},${y2} ${x2},${y2}`);
       wires.appendChild(path);
+      pulse(wires, `trace-${from}`, from === 'a' ? 0 : 1.1, 2.2);
     }
   }
   window.addEventListener('resize', drawTrace);
@@ -631,7 +806,7 @@ const jsonLd = [
   drawTrace();
 
   /*
-   * Intake wiring. Each board's wire drops to a shared bus, runs along it to
+   * Intake wiring. Each source's wire drops to a shared bus, runs along it to
    * the centre and down into jlog; the corners are square with a small
    * radius, like the page grid. A pulse travels each wire, staggered.
    */
@@ -665,29 +840,73 @@ const jsonLd = [
       path.setAttribute('id', `wire-${i}`);
       path.setAttribute('d', d);
       wiresSvg.appendChild(path);
-      if (reduce) return;
-      const pulse = document.createElementNS(NS, 'rect');
-      pulse.setAttribute('class', 'pulse');
-      pulse.setAttribute('x', '-2.5');
-      pulse.setAttribute('y', '-2.5');
-      pulse.setAttribute('width', '5');
-      pulse.setAttribute('height', '5');
-      const motion = document.createElementNS(NS, 'animateMotion');
-      motion.setAttribute('dur', '2.6s');
-      motion.setAttribute('begin', `-${(i * 0.83) % 2.6}s`);
-      motion.setAttribute('repeatCount', 'indefinite');
-      motion.setAttribute('keyPoints', '0;1;1');
-      motion.setAttribute('keyTimes', '0;0.55;1');
-      motion.setAttribute('calcMode', 'linear');
-      const mpath = document.createElementNS(NS, 'mpath');
-      mpath.setAttribute('href', `#wire-${i}`);
-      motion.appendChild(mpath);
-      pulse.appendChild(motion);
-      wiresSvg.appendChild(pulse);
+      pulse(wiresSvg, `wire-${i}`, i * 0.83, 2.6);
     });
   }
   if (intake) new ResizeObserver(wire).observe(intake);
   document.fonts?.ready.then(wire);
+
+  /*
+   * The self-hosting diagram: elbow wires from the extension and the web app
+   * into the API, and from the API out to the data and the model.
+   */
+  const arch = document.querySelector<HTMLElement>('[data-arch]');
+  const archSvg = document.querySelector<SVGSVGElement>('[data-arch-wires]');
+  function elbow(x1: number, y1: number, x2: number, y2: number) {
+    const R = 8;
+    const mid = (x1 + x2) / 2;
+    if (Math.abs(y2 - y1) < 2 * R) return `M${x1},${y1} H${x2}`;
+    const dy = Math.sign(y2 - y1);
+    return `M${x1},${y1} H${mid - R} Q${mid},${y1} ${mid},${y1 + dy * R} V${y2 - dy * R} Q${mid},${y2} ${mid + R},${y2} H${x2}`;
+  }
+  function drawArch() {
+    if (!arch || !archSvg) return;
+    const box = arch.getBoundingClientRect();
+    archSvg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    archSvg.replaceChildren();
+    const at = (k: string) => arch.querySelector(`[data-arch-node="${k}"]`)?.getBoundingClientRect();
+    const api = at('api');
+    if (!api) return;
+    const links: [string, boolean][] = [
+      ['ext', true],
+      ['web', true],
+      ['db', false],
+      ['ai', false],
+    ];
+    links.forEach(([k, into], i) => {
+      const n = at(k);
+      if (!n) return;
+      const d = into
+        ? elbow(n.right - box.left, n.top + n.height / 2 - box.top, api.left - box.left, api.top + api.height / 2 - box.top + (i === 0 ? -8 : 8))
+        : elbow(api.right - box.left, api.top + api.height / 2 - box.top + (i === 2 ? -8 : 8), n.left - box.left, n.top + n.height / 2 - box.top);
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('id', `arch-${k}`);
+      path.setAttribute('d', d);
+      archSvg.appendChild(path);
+      pulse(archSvg, `arch-${k}`, i * 0.7 + (into ? 0 : 1.2), 2.8);
+    });
+  }
+  if (arch) new ResizeObserver(drawArch).observe(arch);
+  document.fonts?.ready.then(drawArch);
+
+  /* Things that play once when they scroll into view: the terminal types. */
+  const plays = document.querySelectorAll('[data-term]');
+  if ('IntersectionObserver' in window) {
+    const po = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add('play');
+            po.unobserve(e.target);
+          }
+        }
+      },
+      { rootMargin: '0px 0px -15% 0px' },
+    );
+    for (const el of plays) po.observe(el);
+  } else {
+    for (const el of plays) el.classList.add('play');
+  }
 
   /*
    * How it works. The track is several screens tall and its content is pinned;
@@ -784,7 +1003,7 @@ const jsonLd = [
   .intake {
     position: relative;
     width: 100%;
-    max-width: 820px;
+    max-width: 880px;
     margin-top: 3.5rem;
     display: grid;
     justify-items: center;
@@ -797,21 +1016,47 @@ const jsonLd = [
   .intake-boards {
     list-style: none;
     width: 100%;
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
     position: relative;
     z-index: 1;
   }
 
   .intake-boards li {
-    padding: 0.375rem 0.75rem;
+    display: grid;
+    gap: 0.125rem;
+    justify-items: start;
+    text-align: left;
+    padding: 0.625rem 0.75rem 0.7rem;
     border: 1px solid var(--line-2);
-    border-radius: 8px;
+    border-radius: 10px;
     background: var(--bg);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--ink-2);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+
+  .intake-boards b {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .src-note {
+    font-size: 0.75rem;
+    color: var(--grey);
+    line-height: 1.35;
+  }
+
+  .src-how {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    padding: 0 0.3rem;
+    margin-bottom: 0.3rem;
   }
 
   .intake-wires {
@@ -978,7 +1223,6 @@ const jsonLd = [
     position: absolute;
     inset: 0;
     transform: translateZ(calc(var(--i) * var(--gap)));
-    transition: transform 80ms linear;
     text-align: left;
     box-shadow:
       0 0 0 1px rgb(0 0 0 / 0.08),
@@ -994,14 +1238,18 @@ const jsonLd = [
     box-shadow: 0 0 0 3px var(--bg);
   }
 
+  /*
+   * Anchors sit on each layer's front edge: the strip that stays visible
+   * under the layer above, so an arrow can only land on its own layer.
+   */
   .anchor-l {
-    left: 14px;
-    top: 50%;
+    left: 16%;
+    bottom: 10px;
   }
 
   .anchor-r {
-    right: 14px;
-    top: 30%;
+    right: 16%;
+    bottom: 10px;
   }
 
   .l-body {
@@ -1470,6 +1718,344 @@ const jsonLd = [
     text-underline-offset: 3px;
   }
 
+  /* ---------- Feature minis: a little of the real UI, moving ---------- */
+
+  .mini {
+    position: relative;
+    height: 148px;
+    margin-bottom: 0.75rem;
+    padding: 0.875rem;
+    border-radius: 10px;
+    background: var(--bg-2);
+    box-shadow: inset 0 0 0 1px var(--line);
+    overflow: hidden;
+    display: grid;
+    align-content: start;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+  }
+
+  .mini .t {
+    display: grid;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 5px;
+    background: var(--bg-3);
+    font-weight: 600;
+    font-size: 0.625rem;
+  }
+
+  /* capture */
+  .mini-bar {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    color: var(--grey);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .mini-h {
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+
+  .mini-apply {
+    justify-self: start;
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 0.6875rem;
+  }
+
+  .mini-toast {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.55rem 0.3rem 0.3rem;
+    border-radius: 8px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 0.6875rem;
+    box-shadow: var(--shadow-float);
+  }
+
+  .mini-toast .toast-mark {
+    display: grid;
+    place-items: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 4px;
+    background: #fff;
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  /* autofill */
+  .mini-field {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .mini-field span {
+    color: var(--grey);
+  }
+
+  .mini-field b {
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* tailored cv */
+  .mini-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 6px;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .mini-line span {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--line-2);
+  }
+
+  .mini-line em {
+    font-style: normal;
+  }
+
+  /* drafted answers */
+  .mini-q {
+    color: var(--grey);
+  }
+
+  .mini-draft {
+    padding: 0.45rem 0.55rem;
+    border-radius: 6px;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px var(--line);
+    line-height: 1.45;
+  }
+
+  .mini-draft span {
+    display: inline;
+  }
+
+  .mini-facts {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+  }
+
+  .mini-facts em {
+    font-style: normal;
+  }
+
+  /* tracking */
+  .mini-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .dim-row {
+    opacity: 0.55;
+  }
+
+  .mini-status {
+    display: grid;
+    height: 1.2rem;
+    overflow: hidden;
+  }
+
+  .mini-status .pill {
+    grid-area: 1 / 1;
+    justify-self: end;
+  }
+
+  /* home */
+  .mini-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 6px;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px var(--line);
+    color: var(--grey);
+  }
+
+  .mini-alert b {
+    margin-left: auto;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .ping {
+    position: relative;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--st-interview);
+    flex: none;
+  }
+
+  .ping-2 {
+    background: var(--st-applied);
+  }
+
+  .ping-3 {
+    background: var(--st-offer);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .mini-toast {
+      animation: toast 4.5s var(--ease) infinite;
+    }
+
+    .mini-field b {
+      animation: type 5s steps(14) infinite;
+      animation-delay: calc(var(--d) * 0.45s);
+    }
+
+    .mini-line {
+      animation: rise 5s var(--ease) infinite;
+      animation-delay: calc(var(--d) * 0.3s);
+    }
+
+    .mini-draft span {
+      animation: type 6s steps(40) infinite;
+    }
+
+    .mini-status .pill {
+      animation: status 8s infinite;
+    }
+
+    .mini-status .pill:nth-child(2) {
+      animation-delay: -6s;
+    }
+
+    .mini-status .pill:nth-child(3) {
+      animation-delay: -4s;
+    }
+
+    .mini-status .pill:nth-child(4) {
+      animation-delay: -2s;
+    }
+
+    .ping::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: inherit;
+      animation: ping 2s ease-out infinite;
+    }
+
+    .ping-2::after {
+      animation-delay: 0.6s;
+    }
+
+    .ping-3::after {
+      animation-delay: 1.2s;
+    }
+  }
+
+  @keyframes toast {
+    0%,
+    15% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    25%,
+    85% {
+      opacity: 1;
+      transform: none;
+    }
+    100% {
+      opacity: 0;
+      transform: none;
+    }
+  }
+
+  @keyframes type {
+    0% {
+      clip-path: inset(0 100% 0 0);
+    }
+    35%,
+    100% {
+      clip-path: inset(0);
+    }
+  }
+
+  @keyframes rise {
+    0% {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    12%,
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Each pill owns a quarter of the loop: in, hold, out. */
+  @keyframes status {
+    0% {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    4%,
+    22% {
+      opacity: 1;
+      transform: none;
+    }
+    26%,
+    100% {
+      opacity: 0;
+      transform: translateY(-100%);
+    }
+  }
+
+  @keyframes ping {
+    0% {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(3);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mini-status .pill:not(:nth-child(2)) {
+      display: none;
+    }
+  }
+
   /* ---------- Tailored CV trace ---------- */
 
   .trace-row {
@@ -1508,6 +2094,10 @@ const jsonLd = [
     stroke-width: 1.25;
   }
 
+  .trace-wires :global(.pulse) {
+    fill: var(--signal);
+  }
+
   .trace-col {
     display: grid;
     gap: 0.625rem;
@@ -1538,6 +2128,78 @@ const jsonLd = [
   }
 
   /* ---------- Pricing ---------- */
+
+  .pricing-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+    gap: 2rem;
+    align-items: end;
+  }
+
+  .receipt {
+    display: grid;
+    gap: 0.125rem;
+    padding: 1.125rem 1.25rem 1rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: var(--bg-2);
+    box-shadow: inset 0 0 0 1px var(--line-2);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    /* A torn bottom edge. */
+    mask: linear-gradient(#000, #000) top / 100% calc(100% - 6px) no-repeat,
+      radial-gradient(circle at 6px 0, transparent 4px, #000 4.5px) bottom / 12px 6px repeat-x;
+  }
+
+  .receipt-h {
+    margin-bottom: 0.5rem;
+  }
+
+  .receipt-l {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px dashed var(--line-2);
+  }
+
+  .receipt-l span {
+    color: var(--ink-2);
+  }
+
+  .receipt-l em {
+    display: block;
+    font-style: normal;
+    color: var(--grey);
+    font-size: 0.6875rem;
+  }
+
+  .receipt-l b {
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .receipt-t {
+    border-bottom: 0;
+    border-top: 1px solid var(--ink);
+    margin-top: 0.25rem;
+    padding-bottom: 0.75rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .receipt .receipt-l {
+      opacity: 0;
+      transform: translateY(4px);
+      transition:
+        opacity 400ms var(--ease) calc(300ms + var(--d) * 180ms),
+        transform 500ms var(--ease) calc(300ms + var(--d) * 180ms);
+    }
+
+    .receipt.in .receipt-l {
+      opacity: 1;
+      transform: none;
+    }
+  }
 
   .plans {
     display: grid;
@@ -1664,6 +2326,109 @@ const jsonLd = [
     margin-top: 0.75rem;
   }
 
+  .oss-side {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .arch {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto auto auto;
+    column-gap: 3rem;
+    row-gap: 1rem;
+    align-items: center;
+  }
+
+  .arch-wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .arch-wires :global(path) {
+    fill: none;
+    stroke: #3a3a3a;
+    stroke-width: 1;
+  }
+
+  .arch-wires :global(.pulse) {
+    fill: #fff;
+  }
+
+  .arch-node {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 0.125rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #2e2e2e;
+    border-radius: 8px;
+    background: #141414;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .arch-node .meta {
+    font-size: 0.625rem;
+  }
+
+  [data-arch-node='ext'] {
+    grid-area: 1 / 1;
+  }
+
+  [data-arch-node='web'] {
+    grid-area: 2 / 1;
+  }
+
+  [data-arch-node='api'] {
+    grid-area: 1 / 2 / 3 / 3;
+  }
+
+  [data-arch-node='db'] {
+    grid-area: 1 / 3;
+  }
+
+  [data-arch-node='ai'] {
+    grid-area: 2 / 3;
+  }
+
+  .arch-core {
+    background: #fff;
+    color: var(--ink);
+    border-color: #fff;
+  }
+
+  .oss .arch-core .meta {
+    color: var(--grey);
+  }
+
+  .arch-cap {
+    grid-area: 3 / 1 / 4 / 4;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .term-l {
+    display: inline-block;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .term-l {
+      clip-path: inset(0 100% 0 0);
+    }
+
+    .term.play .term-l {
+      clip-path: inset(0);
+      transition: clip-path 900ms steps(30) calc(200ms + var(--d) * 1s);
+    }
+  }
+
   .term {
     background: #161616;
     border: 1px solid #262626;
@@ -1746,6 +2511,67 @@ const jsonLd = [
 
   .closer-title {
     font-size: clamp(2.25rem, 5vw, 4rem);
+  }
+
+  /* A list that never stops filling: applications arriving from everywhere. */
+  .feed {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 3.5rem;
+    text-align: left;
+    box-shadow: var(--shadow-float);
+  }
+
+  .feed-window {
+    height: 232px;
+    overflow: hidden;
+    mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  }
+
+  .feed-list {
+    list-style: none;
+    padding: 0 0.875rem;
+  }
+
+  .feed-list li {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr auto auto;
+    gap: 0.75rem;
+    align-items: center;
+    height: 46px;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.8125rem;
+  }
+
+  .feed-list .t {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+    background: var(--bg-3);
+    font-weight: 600;
+    font-size: 0.6875rem;
+  }
+
+  .feed-src {
+    text-transform: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .feed-list {
+      animation: feed 24s linear infinite;
+    }
+
+    .feed:hover .feed-list {
+      animation-play-state: paused;
+    }
+  }
+
+  @keyframes feed {
+    to {
+      transform: translateY(-50%);
+    }
   }
 
   /* ---------- Narrow screens ---------- */
@@ -1850,15 +2676,27 @@ const jsonLd = [
     }
 
     .intake-boards {
-      flex-wrap: wrap;
-      justify-content: center;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .intake-node {
       margin-top: 1.25rem;
     }
 
+    .arch {
+      column-gap: 1.25rem;
+    }
+
+    .feed-src {
+      display: none;
+    }
+
+    .feed-list li {
+      grid-template-columns: 1.5rem 1fr auto;
+    }
+
     .trace-row,
+    .pricing-head,
     .plans,
     .oss,
     .faq,
