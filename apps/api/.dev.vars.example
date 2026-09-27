@@ -37,7 +37,7 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 # URIs and answers with a cross-site form POST, which needs a Secure cookie and
 # therefore HTTPS. Configure it for your deployed origin and test it there.
 #
-# APPLE_CLIENT_ID is the *Services ID* (e.g. dev.bhargav.jlog.web), not the app's
+# APPLE_CLIENT_ID is the *Services ID* (e.g. ai.jlog.web), not the app's
 # bundle id. APPLE_PRIVATE_KEY is the whole contents of the downloaded .p8 file,
 # newlines and all — Apple issues no client secret, so one is signed per request
 # from this key.

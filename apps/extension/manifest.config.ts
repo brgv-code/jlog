@@ -8,7 +8,7 @@ export default defineManifest({
     'Track job applications from LinkedIn, Greenhouse, Lever and more, and fill in application forms from your profile.',
   permissions: ['storage', 'activeTab', 'scripting'],
   host_permissions: [
-    'https://jlog-api.bhargav.dev/*',
+    'https://api.jlog.ai/*',
     'https://*.linkedin.com/*',
     'https://*.wellfound.com/*',
     'https://*.ashbyhq.com/*',
