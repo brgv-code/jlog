@@ -254,7 +254,7 @@ jlog/
 
 ## Docs
 
-- **[User and self-hosting docs](https://jlog.bhargav.dev/docs)**, also in this repo under
+- **[User and self-hosting docs](https://jlog.ai/docs)**, also in this repo under
   [`apps/web/src/pages/docs`](apps/web/src/pages/docs): using every feature, AI providers,
   and a step-by-step deploy with the full configuration reference.
 - [Design system](apps/web/DESIGN.md) — the rules, the palette, and why primary is not accent.

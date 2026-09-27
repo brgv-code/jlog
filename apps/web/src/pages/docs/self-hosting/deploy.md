@@ -83,7 +83,7 @@ The copy of the extension published for the hosted jlog is pinned to the hosted 
    VITE_API_BASE=https://your-api.example.com
    VITE_WEB_BASE=https://jobs.example.com
    ```
-2. In `apps/extension/manifest.config.ts`, replace `https://jlog-api.bhargav.dev/*` in `host_permissions` with your API's origin.
+2. In `apps/extension/manifest.config.ts`, replace `https://api.jlog.ai/*` in `host_permissions` with your API's origin.
 3. Build it with `pnpm --filter @jlog/extension build` and load `apps/extension/dist` unpacked, as in [run it locally](/docs/self-hosting/local#6-load-the-extension).
 4. Copy its ID from `chrome://extensions` into `EXTENSION_ID` in `wrangler.toml`, and deploy the Worker again.
 

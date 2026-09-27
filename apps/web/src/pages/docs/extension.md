@@ -26,7 +26,7 @@ pnpm --filter @jlog/extension build
 
 Then open `chrome://extensions`, turn on **Developer mode**, press **Load unpacked** and choose `apps/extension/dist`.
 
-A build talks to the API named in `apps/extension/.env`. For the hosted jlog, use the hosted API and web origins there. If you self-host, see [deploy to Cloudflare](/docs/self-hosting/deploy#6-the-extension).
+A build talks to the API named in `apps/extension/.env`. For the hosted jlog, set `VITE_API_BASE=https://api.jlog.ai` and `VITE_WEB_BASE=https://jlog.ai` there. If you self-host, see [deploy to Cloudflare](/docs/self-hosting/deploy#6-the-extension).
 
 ## Connect it
 

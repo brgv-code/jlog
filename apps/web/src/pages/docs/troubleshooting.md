@@ -84,3 +84,7 @@ Apple does not work on `http://localhost`. Set it up on your deployed HTTPS orig
 ### Pro features say Pro is required
 
 They are not part of the open-source build. See [plans and billing](/docs/plans#self-hosted).
+
+## Still stuck
+
+Email [support@jlog.ai](mailto:support@jlog.ai) with what you tried and what you saw. On a self-hosted instance, whoever runs it is your first stop; for a bug in jlog itself, [open an issue](https://github.com/brgv-code/jlog/issues).
