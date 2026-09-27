@@ -1,0 +1,619 @@
+---
+/*
+ * The docs. Markdown pages under src/pages/docs use this as their layout, and
+ * Astro hands it the page's frontmatter and headings; an .astro page passes
+ * the same three props itself.
+ *
+ * Three columns on wide screens: the section list, the article, and an
+ * "On this page" outline that follows the reader. Below 1100px the outline
+ * goes; below 860px the section list folds into a menu above the article.
+ */
+import { DOCS, locate } from '../data/docs';
+import SiteLayout from './SiteLayout.astro';
+
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Props {
+  frontmatter?: { title: string; description?: string };
+  title?: string;
+  description?: string;
+  headings?: Heading[];
+  /** Set by Astro for markdown pages: the absolute path of the source file. */
+  file?: string;
+}
+
+const props = Astro.props;
+const title = props.frontmatter?.title ?? props.title ?? 'Docs';
+const description = props.frontmatter?.description ?? props.description ?? '';
+const outline = (props.headings ?? []).filter((h) => h.depth === 2 || h.depth === 3);
+
+const GITHUB_URL = 'https://github.com/brgv-code/jlog';
+const path = Astro.url.pathname.replace(/\/$/, '') || '/docs';
+const { group, prev, next } = locate(path);
+// Markdown pages link to their source on GitHub; .astro pages pass no file.
+const at = props.file?.indexOf('apps/web/') ?? -1;
+const source = props.file && at >= 0 ? props.file.slice(at) : null;
+---
+
+<SiteLayout title={`${title} · jlog docs`} description={description || `${title}, in the jlog documentation.`}>
+  <div class="rail docs">
+    <aside class="docs-nav" aria-label="Documentation">
+      <details class="docs-menu" data-docs-menu>
+        <summary><span class="meta">Docs</span> {title}</summary>
+        <nav>
+          {
+            DOCS.map((g) => (
+              <div class="docs-group">
+                <p class="meta">{g.title}</p>
+                <ul>
+                  {g.pages.map((p) => (
+                    <li>
+                      <a href={p.href} aria-current={p.href === path ? 'page' : undefined}>
+                        {p.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </nav>
+      </details>
+    </aside>
+
+    <article class="docs-main">
+      <header class="docs-head">
+        {group && <p class="meta">{group}</p>}
+        <h1 class="docs-title">{title}</h1>
+        {description && <p class="lead docs-lead">{description}</p>}
+      </header>
+
+      <div class="prose" data-prose>
+        <slot />
+      </div>
+
+      <nav class="docs-pn" aria-label="Previous and next">
+        {
+          prev ? (
+            <a href={prev.href} class="pn-prev">
+              <span class="meta">Previous</span>
+              <b>← {prev.title}</b>
+            </a>
+          ) : (
+            <span />
+          )
+        }
+        {
+          next && (
+            <a href={next.href} class="pn-next">
+              <span class="meta">Next</span>
+              <b>{next.title} →</b>
+            </a>
+          )
+        }
+      </nav>
+      {
+        source && (
+          <p class="docs-edit">
+            <a href={`${GITHUB_URL}/edit/main/${source}`} target="_blank" rel="noopener noreferrer">
+              Edit this page on GitHub
+            </a>
+          </p>
+        )
+      }
+    </article>
+
+    <aside class="docs-toc" aria-label="On this page">
+      {
+        outline.length > 1 && (
+          <>
+            <p class="meta">On this page</p>
+            <ul>
+              {outline.map((h) => (
+                <li class={h.depth === 3 ? 'sub' : undefined}>
+                  <a href={`#${h.slug}`} data-toc={h.slug}>
+                    {h.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      }
+    </aside>
+  </div>
+</SiteLayout>
+
+<script>
+  /*
+   * The section list is always open on wide screens and a menu on narrow
+   * ones. The outline marks the heading you are reading, and every heading
+   * gets a link to itself for sharing.
+   */
+  const menu = document.querySelector<HTMLDetailsElement>('[data-docs-menu]');
+  const wide = window.matchMedia('(min-width: 861px)');
+  const syncMenu = () => {
+    if (menu) menu.open = wide.matches;
+  };
+  syncMenu();
+  wide.addEventListener('change', syncMenu);
+
+  const prose = document.querySelector('[data-prose]');
+  const heads = [...(prose?.querySelectorAll<HTMLElement>('h2[id], h3[id]') ?? [])];
+  for (const h of heads) {
+    const a = document.createElement('a');
+    a.href = `#${h.id}`;
+    a.className = 'anchor';
+    a.setAttribute('aria-label', `Link to “${h.textContent ?? ''}”`);
+    a.textContent = '#';
+    h.appendChild(a);
+  }
+
+  const links = new Map(
+    [...document.querySelectorAll<HTMLAnchorElement>('[data-toc]')].map((a) => [a.dataset.toc, a]),
+  );
+  if (links.size && 'IntersectionObserver' in window) {
+    let current: string | undefined;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) if (e.isIntersecting) current = (e.target as HTMLElement).id;
+        for (const [id, a] of links) a.classList.toggle('on', id === current);
+      },
+      { rootMargin: '-72px 0px -70% 0px' },
+    );
+    for (const h of heads) io.observe(h);
+  }
+</script>
+
+<style>
+  .docs {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr) 208px;
+    align-items: start;
+    min-height: 70vh;
+  }
+
+  /* ---------- Section list ---------- */
+
+  .docs-nav {
+    position: sticky;
+    top: 64px;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+    padding: 2rem 1.25rem 2rem 1.5rem;
+    border-right: 1px solid var(--line);
+  }
+
+  .docs-menu summary {
+    display: none;
+  }
+
+  .docs-group + .docs-group {
+    margin-top: 1.5rem;
+  }
+
+  .docs-group .meta {
+    margin-bottom: 0.5rem;
+  }
+
+  .docs-group ul {
+    list-style: none;
+    display: grid;
+    gap: 0.125rem;
+  }
+
+  .docs-group a {
+    display: block;
+    padding: 0.3rem 0.625rem;
+    margin-left: -0.625rem;
+    border-radius: 6px;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+
+  .docs-group a:hover {
+    color: var(--ink);
+    background: var(--bg-2);
+  }
+
+  .docs-group a[aria-current='page'] {
+    color: var(--ink);
+    font-weight: 600;
+    background: var(--bg-3);
+  }
+
+  /* ---------- Article ---------- */
+
+  .docs-main {
+    min-width: 0;
+    padding: 2.75rem clamp(1.25rem, 4vw, 3.5rem) 4rem;
+  }
+
+  .docs-head {
+    padding-bottom: 1.75rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .docs-head .meta {
+    margin-bottom: 0.75rem;
+  }
+
+  .docs-title {
+    font-weight: 600;
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    line-height: 1.05;
+    letter-spacing: -0.045em;
+  }
+
+  .docs-lead {
+    margin-top: 1rem;
+    max-width: 62ch;
+  }
+
+  .docs-pn {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-top: 3.5rem;
+  }
+
+  .docs-pn a {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    text-decoration: none;
+    transition: border-color 150ms var(--ease), background 150ms var(--ease);
+  }
+
+  .docs-pn a:hover {
+    border-color: var(--grey-2);
+    background: var(--bg-2);
+  }
+
+  .pn-next {
+    grid-column: 2;
+    text-align: right;
+  }
+
+  .docs-pn b {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .docs-edit {
+    margin-top: 1.5rem;
+    font-size: var(--t-small);
+  }
+
+  .docs-edit a {
+    color: var(--ink-2);
+  }
+
+  /* ---------- Outline ---------- */
+
+  .docs-toc {
+    position: sticky;
+    top: 64px;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+    padding: 2.75rem 1.25rem 2rem 0.5rem;
+  }
+
+  .docs-toc .meta {
+    margin-bottom: 0.625rem;
+  }
+
+  .docs-toc ul {
+    list-style: none;
+    display: grid;
+    gap: 0.125rem;
+    border-left: 1px solid var(--line);
+  }
+
+  .docs-toc a {
+    display: block;
+    margin-left: -1px;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    border-left: 1px solid transparent;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--grey);
+    text-decoration: none;
+  }
+
+  .docs-toc .sub a {
+    padding-left: 1.5rem;
+  }
+
+  .docs-toc a:hover {
+    color: var(--ink);
+  }
+
+  .docs-toc a.on {
+    color: var(--ink);
+    border-left-color: var(--ink);
+  }
+
+  /* ---------- Prose: the markdown itself ---------- */
+
+  .prose {
+    max-width: 70ch;
+    color: var(--ink-2);
+  }
+
+  .prose :global(h2) {
+    position: relative;
+    margin: 2.75rem 0 0.875rem;
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    scroll-margin-top: 80px;
+  }
+
+  .prose :global(h3) {
+    position: relative;
+    margin: 2rem 0 0.625rem;
+    font-weight: 600;
+    font-size: 1.125rem;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    scroll-margin-top: 80px;
+  }
+
+  .prose :global(h2:first-child) {
+    margin-top: 0;
+  }
+
+  .prose :global(.anchor) {
+    margin-left: 0.4rem;
+    font-weight: 400;
+    color: var(--grey-2);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity 150ms var(--ease);
+  }
+
+  .prose :global(h2:hover .anchor),
+  .prose :global(h3:hover .anchor),
+  .prose :global(.anchor:focus-visible) {
+    opacity: 1;
+  }
+
+  .prose :global(p),
+  .prose :global(ul),
+  .prose :global(ol),
+  .prose :global(table),
+  .prose :global(pre),
+  .prose :global(blockquote) {
+    margin: 0 0 1.125rem;
+  }
+
+  /* The global reset strips list markers; prose needs them back. */
+  .prose :global(ul),
+  .prose :global(ol) {
+    padding-left: 1.25rem;
+  }
+
+  .prose :global(ul) {
+    list-style: disc;
+  }
+
+  .prose :global(ol) {
+    list-style: decimal;
+  }
+
+  .prose :global(li > ul),
+  .prose :global(li > ol),
+  .prose :global(li > pre) {
+    margin: 0.5rem 0;
+  }
+
+  .prose :global(li) {
+    margin: 0.3rem 0;
+  }
+
+  .prose :global(li::marker) {
+    color: var(--grey);
+  }
+
+  .prose :global(strong) {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .prose :global(a) {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--grey-2);
+    text-underline-offset: 3px;
+  }
+
+  .prose :global(a:hover) {
+    text-decoration-color: var(--ink);
+  }
+
+  .prose :global(:not(pre) > code) {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    background: var(--bg-3);
+    color: var(--ink);
+  }
+
+  .prose :global(pre) {
+    padding: 1rem 1.125rem;
+    border-radius: 10px;
+    background: var(--ink) !important;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+
+  .prose :global(pre code) {
+    font-family: inherit;
+  }
+
+  /* Shiki's comment grey is too faint on ink; lift it to AA. */
+  .prose :global(pre span[style*='#6A737D' i]) {
+    color: #9a9a9a !important;
+  }
+
+  .prose :global(blockquote) {
+    padding: 0.875rem 1.125rem;
+    border-left: 2px solid var(--ink);
+    border-radius: 0 8px 8px 0;
+    background: var(--bg-2);
+  }
+
+  .prose :global(blockquote p:last-child) {
+    margin-bottom: 0;
+  }
+
+  /*
+   * Fixed layout: column widths do not depend on the text in them, so the
+   * font arriving does not reflow a table, and long code wraps instead of
+   * pushing the page sideways on a phone.
+   */
+  .prose :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: var(--t-small);
+  }
+
+  .prose :global(th),
+  .prose :global(td) {
+    overflow-wrap: anywhere;
+  }
+
+  .prose :global(th:first-child) {
+    width: 34%;
+  }
+
+  .prose :global(th) {
+    text-align: left;
+    font-weight: 600;
+    color: var(--ink);
+    padding: 0.5rem 1rem 0.5rem 0;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  .prose :global(td) {
+    padding: 0.55rem 1rem 0.55rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  .prose :global(kbd) {
+    font-family: var(--mono);
+    font-size: 0.8em;
+    padding: 0.05rem 0.35rem;
+    border: 1px solid var(--line-2);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .prose :global(hr) {
+    border: 0;
+    border-top: 1px solid var(--line);
+    margin: 2rem 0;
+  }
+
+  /* ---------- Narrow screens ---------- */
+
+  @media (max-width: 1100px) {
+    .docs {
+      grid-template-columns: 220px minmax(0, 1fr);
+    }
+
+    .docs-toc {
+      display: none;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .docs {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Variable names are the thing a reader scans for; keep them whole. */
+    .prose :global(th:first-child) {
+      width: 46%;
+    }
+
+    .prose :global(td:first-child code) {
+      font-size: 0.72em;
+    }
+
+    .docs-nav {
+      position: sticky;
+      top: 56px;
+      z-index: 5;
+      max-height: none;
+      overflow: visible;
+      padding: 0;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+      background: rgb(255 255 255 / 0.92);
+      backdrop-filter: blur(8px);
+    }
+
+    .docs-menu summary {
+      display: flex;
+      align-items: baseline;
+      gap: 0.625rem;
+      padding: 0.75rem var(--gutter);
+      font-size: var(--t-small);
+      font-weight: 500;
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .docs-menu summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .docs-menu summary::after {
+      content: '▾';
+      margin-left: auto;
+      color: var(--grey);
+    }
+
+    .docs-menu[open] summary::after {
+      content: '▴';
+    }
+
+    .docs-menu nav {
+      max-height: 65vh;
+      overflow-y: auto;
+      padding: 0.5rem var(--gutter) 1.25rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .docs-main {
+      padding-top: 2rem;
+    }
+
+    .docs-pn {
+      grid-template-columns: 1fr;
+    }
+
+    .pn-next {
+      grid-column: 1;
+    }
+  }
+</style>

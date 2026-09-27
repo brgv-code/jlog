@@ -7,6 +7,8 @@
  * The Product menu lists only what exists. A feature with its own page links
  * to it; the rest point at their section of the homepage until they get one.
  */
+import geistMono from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url';
+import geist from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
 import '../styles/site.css';
 import Layout from './Layout.astro';
 
@@ -27,7 +29,7 @@ const product = [
 ];
 
 const resources = [
-  { href: `${GITHUB_URL}#readme`, label: 'Docs', note: 'setup and self-hosting' },
+  { href: '/docs', label: 'Docs', note: 'using jlog, and self-hosting it' },
   { href: GITHUB_URL, label: 'GitHub', note: 'the source, MIT licensed' },
   { href: '/privacy', label: 'Privacy', note: 'what is stored, in plain words' },
 ];
@@ -36,6 +38,15 @@ const path = Astro.url.pathname.replace(/\/$/, '');
 ---
 
 <Layout title={title} description={description} bodyClass="site">
+  <!--
+    Both faces are needed for the first paint. Fetched late, their swap
+    reflows text that is already laid out, which is most of the layout shift a
+    text-heavy page like the docs would otherwise have.
+  -->
+  <Fragment slot="head">
+    <link rel="preload" as="font" type="font/woff2" href={geist} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={geistMono} crossorigin />
+  </Fragment>
   <a class="skip" href="#content">Skip to content</a>
   <header class="nav">
     <div class="wrap nav-row">
@@ -127,6 +138,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
         <a href="/features/tracking">Tracking</a>
         <a href="/features/tailored-cv">Tailored CV</a>
         <a href="/#pricing">Pricing</a>
+        <a href="/docs">Docs</a>
         <a href="/privacy">Privacy</a>
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href={`${GITHUB_URL}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">

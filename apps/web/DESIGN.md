@@ -205,6 +205,11 @@ grey (`.dim`); mono is for labels. Colour appears only inside the product
   `Chapter` and `FeatureEnd`, and `scripts/site-motion.ts`: `[data-play]`
   starts (and with a number, replays) a CSS sequence when in view,
   `[data-wired]` draws wires with pulses from `[data-to]` to `[data-id]`.
+- Docs live in `src/pages/docs` as Markdown on `layouts/DocsLayout.astro`
+  (section list, prose, "On this page", previous and next). Their order is
+  `src/data/docs.ts`; a new page is added there once and appears everywhere.
+  Every statement in them is checked against the code, like the rest of the
+  site, and error messages are quoted exactly as the app shows them.
 - Demo data comes from `src/data/demo.ts`: one person, Ada Lovelace, a senior
   frontend engineer in Berlin, and one search of senior frontend roles. A
   demo never shows her applying to unrelated roles, or to an employer on her
