@@ -118,7 +118,7 @@ does *for the user*, not what the code does with it.
 > page you asked to extract. Without it the extension would have no way to see
 > the posting you are trying to save.
 
-### Host permission — `https://jlog-api.bhargav.dev/*`
+### Host permission — `https://api.jlog.ai/*`
 
 > jlog's own API. This is where your tracked applications are saved. It is the
 > only server the extension ever contacts.
@@ -191,9 +191,11 @@ Then tick all three certifications: data is not sold, not used for anything
 unrelated to the single purpose above, and not used for creditworthiness or
 lending.
 
-**Privacy policy URL:** `https://jlog.bhargav.dev/privacy/`
+**Privacy policy URL:** `https://jlog.ai/privacy/`
 (with the trailing slash — without it the URL redirects, and it is better not to
 hand a reviewer a redirect).
+
+**Support email:** `support@jlog.ai`, the same address the privacy policy gives.
 
 ---
 
@@ -219,9 +221,9 @@ Things that need you:
       LinkedIn posting, the popup mid-extraction on some other careers page, and
       the dashboard the applications land in.
 - [ ] **A developer account**, which costs a one-off $5 registration fee.
-- [ ] **Decide on the version.** The manifest says `0.1.0`. A first public
-      release is usually `1.0.0`, and the store will not let you go backwards
-      once published.
+- [x] **Decide on the version.** `1.0.0` for the first public release. The
+      store will not let a version go backwards once published, so every
+      upload after this needs a higher number.
 - [x] **Decide on the host permissions**: keep them, see the note above.
 - [ ] Optional: a 440×280 promotional tile, which the store uses if it ever
       features the extension.

@@ -327,7 +327,7 @@ export function CvProfileForm() {
             label="Homepage"
             value={profile.homepage}
             onChange={(v) => set('homepage', v)}
-            placeholder="bhargav.dev"
+            placeholder="yourname.com"
           />
         </div>
 

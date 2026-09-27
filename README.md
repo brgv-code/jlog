@@ -105,7 +105,7 @@ Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, 
 
 > **Note on the published extension.** The build above talks to whatever `VITE_API_BASE`
 > is set to in `apps/extension/.env`. The copy published to the Chrome Web Store is
-> pinned to the hosted instance — `jlog-api.bhargav.dev` is in the manifest's
+> pinned to the hosted instance — `api.jlog.ai` is in the manifest's
 > `host_permissions`, and an extension cannot be repointed after installation. **If you
 > self-host, build your own copy** with your own API URL and load it unpacked, as above.
 >

@@ -39,7 +39,7 @@ compatibility_flags = ["nodejs_compat"]
 # and the login page does not offer it.
 
 [vars]
-WEB_ORIGIN = "https://jlog.bhargav.dev"
+WEB_ORIGIN = "https://jlog.ai"
 COOKIE_DOMAIN = "production"
 # Not sensitive — the actual keys (LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY) are
 # set as secrets. Tracing is skipped entirely if those two aren't set (see
