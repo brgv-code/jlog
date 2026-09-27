@@ -1,0 +1,716 @@
+---
+/*
+ * /features/tracking. What the app has, and nothing more:
+ *
+ * - statuses saved, applied, interviewing, offer, rejected, withdrawn;
+ * - each application keeps its job description and notes, and a timeline of
+ *   what happened to it (ApplicationDetail, Timeline);
+ * - Home opens on three tiles, whose hints are quoted from HomeShell:
+ *   Ghosted, Awaiting response, In interview; below them the charts
+ *   (pipeline, where they came from, added over time, how long replies take).
+ *
+ * The data is Ada's search from data/demo, the same everywhere on the site.
+ */
+import Chapter from '../../components/site/Chapter.astro';
+import FeatureEnd from '../../components/site/FeatureEnd.astro';
+import FeatureHero from '../../components/site/FeatureHero.astro';
+import { APPLICATIONS, STATUS_LABEL, type Status, shortRole } from '../../data/demo';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+
+const order: Status[] = ['saved', 'applied', 'interviewing', 'offer'];
+const columns = order.map((st) => ({ st, apps: APPLICATIONS.filter((a) => a.st === st) }));
+const max = Math.max(...columns.map((c) => c.apps.length));
+
+/* Grouped the way Home labels them: boards by name, Extract as "AI extracted", the rest "Manual". */
+const SOURCE_LABEL: Record<string, string> = {
+  'careers page': 'AI extracted',
+  'any job page': 'AI extracted',
+  referral: 'Manual',
+  recruiter: 'Manual',
+};
+const sources = Object.entries(
+  APPLICATIONS.reduce<Record<string, number>>((acc, a) => {
+    const label = SOURCE_LABEL[a.src] ?? a.src;
+    acc[label] = (acc[label] ?? 0) + 1;
+    return acc;
+  }, {}),
+).sort((a, b) => b[1] - a[1]);
+
+/* The hero table: Northwind moves from Applied to Interview while you watch. */
+const rows = APPLICATIONS.slice(0, 6);
+
+const timeline = [
+  { when: '19 Sep', what: 'Added', detail: 'Read from northwind.com/careers with Extract' },
+  { when: '19 Sep', what: 'Status', detail: 'Saved → Applied' },
+  { when: '24 Sep', what: 'Follow-up', detail: 'Emailed the recruiter, logged here' },
+  { when: '26 Sep', what: 'Status', detail: 'Applied → Interviewing' },
+];
+
+const replyBuckets = [
+  { label: 'Under 3 days', n: 1 },
+  { label: '3 to 7 days', n: 2 },
+  { label: '1 to 2 weeks', n: 1 },
+  { label: 'Over 2 weeks', n: 0 },
+];
+const replyMax = Math.max(...replyBuckets.map((b) => b.n));
+---
+
+<SiteLayout
+  title="Job application tracker: saved to offer in one list · jlog"
+  description="Track every job application from saved to offer, with notes, follow-ups and the original posting. jlog's Home shows what has gone quiet and what needs a reply."
+>
+  <div class="rail">
+    <FeatureHero
+      eyebrow="Tracking · Free"
+      lead="Every application in one list, with its status, the posting it came from, your notes and what happened when. Home opens on what needs you, not on everything."
+    >
+      <Fragment slot="title">Saved to offer,<br /><span class="dim">in one list.</span></Fragment>
+
+      <div slot="visual" class="ui tr-table" data-play="7000" aria-label="Ada's applications, all senior frontend roles, with Northwind moving from Applied to Interview">
+        <p class="frame-bar">jlog · Applications</p>
+        <div class="tr-stats">
+          <p><b>{APPLICATIONS.length}</b><span>applications</span></p>
+          <p><b>2</b><span>interviewing</span></p>
+          <p><b>1</b><span>offer</span></p>
+        </div>
+        <ul class="tr-rows">
+          {
+            rows.map((a) => (
+              <li class={a.co === 'Northwind' ? 'tr-move' : undefined}>
+                <span class="t">{a.co[0]}</span>
+                <span class="tr-r">
+                  <b>{a.co}</b>
+                  <span>{shortRole(a.role)}</span>
+                </span>
+                <span class="tr-when meta">{a.when}</span>
+                {a.co === 'Northwind' ? (
+                  <span class="tr-flip">
+                    <span class="pill pill-applied">Applied</span>
+                    <span class="pill pill-interviewing">Interview</span>
+                  </span>
+                ) : (
+                  <span class={`pill pill-${a.st}`}>{STATUS_LABEL[a.st]}</span>
+                )}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </FeatureHero>
+
+    <Chapter n="01" label="Every status" id="how">
+      <Fragment slot="title">Where everything<br /><span class="dim">stands, at a glance.</span></Fragment>
+      <p>
+        Saved, applied, interviewing, offer. Rejected and withdrawn too, because a search has
+        those, and hiding them makes the numbers lie.
+      </p>
+      <p>Change a status in one click. The change is dated and kept.</p>
+      <div slot="visual" class="tr-pipe" data-play>
+        {
+          columns.map((c, i) => (
+            <div class="tr-col" style={`--d:${i}`}>
+              <p class="tr-col-h">
+                <span class={`pill pill-${c.st}`}>{STATUS_LABEL[c.st]}</span>
+                <b>{c.apps.length}</b>
+              </p>
+              <span class="tr-bar" style={`--w:${c.apps.length / max}`} />
+              <ul>
+                {c.apps.map((a) => (
+                  <li>
+                    <b>{a.co}</b>
+                    <span>{shortRole(a.role)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+        <p class="tr-rest meta">Rejected 0 · Withdrawn 0</p>
+      </div>
+    </Chapter>
+
+    <Chapter n="02" label="Everything about one application" flip tint>
+      <Fragment slot="title">The posting, your notes,<br /><span class="dim">and what happened when.</span></Fragment>
+      <p>
+        Postings get taken down. jlog keeps the description with the application, next to your
+        notes, so the interview prep is where the application is.
+      </p>
+      <p>
+        Every change lands on a timeline: when it was added and from where, each status, each
+        follow-up you logged.
+      </p>
+      <div slot="visual" class="ui tr-detail" data-play>
+        <p class="frame-bar">jlog · Northwind</p>
+        <div class="ui-body">
+          <div class="tr-d-head">
+            <div>
+              <p class="tr-d-co">Northwind</p>
+              <p class="tr-d-role">Senior Frontend Engineer</p>
+            </div>
+            <span class="pill pill-interviewing">Interview</span>
+          </div>
+          <p class="tr-tabs"><span class="on">Job description</span><span>Notes</span></p>
+          <p class="tr-jd">
+            We are looking for a senior frontend engineer to own our customer dashboard. React,
+            TypeScript, and a habit of measuring before optimising…
+          </p>
+          <ol class="tr-tl">
+            {
+              timeline.map((t, i) => (
+                <li style={`--d:${i}`}>
+                  <span class="meta">{t.when}</span>
+                  <b>{t.what}</b>
+                  <span>{t.detail}</span>
+                </li>
+              ))
+            }
+          </ol>
+        </div>
+      </div>
+    </Chapter>
+
+    <Chapter n="03" label="Home">
+      <Fragment slot="title">It opens on<br /><span class="dim">what needs you.</span></Fragment>
+      <p>
+        Three numbers first: applications that have gone quiet, the ones still inside their two
+        weeks, and the conversations in progress. Each one opens the list, already filtered.
+      </p>
+      <div slot="visual" class="tr-home" data-play>
+        <div class="tr-tile" style="--d:0">
+          <span class="ping"></span>
+          <b>1</b>
+          <span class="tr-tile-l">Ghosted</span>
+          <span class="tr-tile-h">Applied over 14 days ago, still silent</span>
+          <span class="tr-tile-who">Tailspin · 15 days</span>
+        </div>
+        <div class="tr-tile" style="--d:1">
+          <span class="ping ping-2"></span>
+          <b>1</b>
+          <span class="tr-tile-l">Awaiting response</span>
+          <span class="tr-tile-h">Applied within the last 14 days</span>
+          <span class="tr-tile-who">Fabrikam · today</span>
+        </div>
+        <div class="tr-tile" style="--d:2">
+          <span class="ping ping-3"></span>
+          <b>2</b>
+          <span class="tr-tile-l">In interview</span>
+          <span class="tr-tile-h">Conversations currently open</span>
+          <span class="tr-tile-who">Northwind, Litware</span>
+        </div>
+      </div>
+    </Chapter>
+
+    <Chapter n="04" label="How it is going" flip tint>
+      <Fragment slot="title">The numbers<br /><span class="dim">behind the search.</span></Fragment>
+      <p>
+        Where your applications came from, how many you add each week, and how long replies take.
+        Enough to see what is working, without turning a job search into a dashboard hobby.
+      </p>
+      <div slot="visual" class="tr-charts" data-play>
+        <div class="ui">
+          <p class="frame-bar">Where they came from</p>
+          <ul class="ui-body tr-bars">
+            {
+              sources.map(([src, n], i) => (
+                <li style={`--d:${i}; --w:${n / (sources[0]?.[1] ?? 1)}`}>
+                  <span>{src}</span>
+                  <span class="tr-b" />
+                  <b>{n}</b>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+        <div class="ui">
+          <p class="frame-bar">How long replies take</p>
+          <div class="ui-body">
+            <p class="tr-median"><b>5 days</b><span class="meta">median</span></p>
+            <ul class="tr-bars">
+              {
+                replyBuckets.map((b, i) => (
+                  <li style={`--d:${i}; --w:${b.n / replyMax}`}>
+                    <span>{b.label}</span>
+                    <span class="tr-b" />
+                    <b>{b.n}</b>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </div>
+      </div>
+    </Chapter>
+
+    <FeatureEnd
+      rules={[
+        { head: 'Unlimited.', body: 'Applications, notes and follow-ups, on the free plan, for as long as the search takes.' },
+        { head: 'Honest numbers.', body: 'Rejections and withdrawals count, so the charts show the search you had.' },
+        { head: 'Yours.', body: 'Self-host it and every row lives on your own Cloudflare account.' },
+      ]}
+      cta={{ label: 'Start tracking for free', href: '/login', note: 'Free · no card, no time limit' }}
+      next={{ label: 'Tailored CV: every line has a source', href: '/features/tailored-cv' }}
+    />
+  </div>
+</SiteLayout>
+
+<script>
+  import { play } from '../../scripts/site-motion';
+  play();
+</script>
+
+<style>
+  /* ---------- Hero table ---------- */
+
+  .tr-table {
+    max-width: 540px;
+    width: 100%;
+    justify-self: center;
+  }
+
+  .tr-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tr-stats p {
+    display: grid;
+    padding: 0.75rem 1rem;
+  }
+
+  .tr-stats p + p {
+    border-left: 1px solid var(--line);
+  }
+
+  .tr-stats b {
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .tr-stats span {
+    font-size: 0.6875rem;
+    color: var(--grey);
+  }
+
+  .tr-rows {
+    list-style: none;
+    padding: 0.25rem 0.75rem;
+  }
+
+  .tr-rows li {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr) auto auto;
+    gap: 0.625rem;
+    align-items: center;
+    padding: 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tr-rows li:last-child {
+    border-bottom: 0;
+  }
+
+  .t {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+    background: var(--bg-3);
+    font-weight: 600;
+    font-size: 0.6875rem;
+  }
+
+  .tr-r {
+    display: grid;
+    line-height: 1.3;
+    min-width: 0;
+  }
+
+  .tr-r b {
+    font-weight: 600;
+  }
+
+  .tr-r span {
+    color: var(--grey);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tr-when {
+    text-transform: none;
+  }
+
+  .tr-move {
+    transition: background 400ms var(--ease) 1.2s;
+    border-radius: 6px;
+  }
+
+  .tr-table.run .tr-move {
+    background: rgb(180 83 9 / 0.06);
+  }
+
+  /* The tint costs the grey its contrast; this row's role goes one step darker. */
+  .tr-move .tr-r span {
+    color: var(--ink-2);
+  }
+
+  .tr-flip {
+    display: grid;
+    justify-items: end;
+  }
+
+  .tr-flip .pill {
+    grid-area: 1 / 1;
+    transition:
+      opacity 300ms var(--ease) 1.2s,
+      transform 400ms var(--ease) 1.2s;
+  }
+
+  .tr-flip .pill-interviewing {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  .tr-table.run .tr-flip .pill-applied {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  .tr-table.run .tr-flip .pill-interviewing {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ---------- 01 pipeline ---------- */
+
+  .tr-pipe {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.625rem;
+  }
+
+  .tr-col {
+    display: grid;
+    align-content: start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 10px;
+    background: var(--bg);
+    box-shadow: var(--shadow);
+  }
+
+  .tr-col-h {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tr-bar {
+    display: block;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--ink);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 700ms var(--ease) calc(200ms + var(--d) * 150ms);
+  }
+
+  .tr-pipe.run .tr-bar {
+    transform: scaleX(var(--w));
+  }
+
+  .tr-col ul {
+    list-style: none;
+    display: grid;
+    gap: 0.375rem;
+  }
+
+  .tr-col li {
+    display: grid;
+    padding: 0.45rem 0.5rem;
+    border-radius: 6px;
+    background: var(--bg-2);
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+
+  .tr-col li span {
+    color: var(--grey);
+    font-size: 0.6875rem;
+  }
+
+  .tr-rest {
+    grid-column: 1 / -1;
+    text-transform: none;
+  }
+
+  /* ---------- 02 detail ---------- */
+
+  .tr-d-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .tr-d-co {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+
+  .tr-d-role {
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .tr-tabs {
+    display: flex;
+    gap: 1rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.75rem;
+    color: var(--grey);
+  }
+
+  .tr-tabs span {
+    padding-bottom: 0.4rem;
+  }
+
+  .tr-tabs .on {
+    color: var(--ink);
+    box-shadow: inset 0 -2px 0 var(--ink);
+  }
+
+  .tr-jd {
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+  }
+
+  .tr-tl {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    padding-left: 0.875rem;
+    border-left: 1px solid var(--line-2);
+  }
+
+  .tr-tl li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 3.5rem auto 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+    font-size: 0.75rem;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition:
+      opacity 300ms var(--ease) calc(200ms + var(--d) * 260ms),
+      transform 400ms var(--ease) calc(200ms + var(--d) * 260ms);
+  }
+
+  .tr-tl li::before {
+    content: '';
+    position: absolute;
+    left: calc(-0.875rem - 3.5px);
+    top: 0.4em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ink);
+  }
+
+  .tr-tl .meta {
+    text-transform: none;
+  }
+
+  .tr-tl span:last-child {
+    color: var(--ink-2);
+  }
+
+  .tr-detail.run .tr-tl li {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ---------- 03 home ---------- */
+
+  .tr-home {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.625rem;
+  }
+
+  .tr-tile {
+    position: relative;
+    display: grid;
+    gap: 0.25rem;
+    align-content: start;
+    padding: 1rem;
+    border-radius: 12px;
+    background: var(--bg);
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 400ms var(--ease) calc(150ms + var(--d) * 150ms),
+      transform 500ms var(--ease) calc(150ms + var(--d) * 150ms);
+  }
+
+  .tr-home.run .tr-tile {
+    opacity: 1;
+    transform: none;
+  }
+
+  .tr-tile b {
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
+  .tr-tile-l {
+    font-weight: 600;
+  }
+
+  .tr-tile-h {
+    font-size: 0.75rem;
+    color: var(--grey);
+  }
+
+  .tr-tile-who {
+    margin-top: 0.5rem;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--ink);
+  }
+
+  .ping {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--st-interview);
+  }
+
+  .ping-2 {
+    background: var(--st-applied);
+  }
+
+  .ping-3 {
+    background: var(--st-offer);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ping::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: inherit;
+      animation: ping 2s ease-out infinite;
+    }
+  }
+
+  @keyframes ping {
+    0% {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(3);
+      opacity: 0;
+    }
+  }
+
+  /* ---------- 04 charts ---------- */
+
+  .tr-charts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  .tr-bars {
+    list-style: none;
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .tr-bars li {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr 1rem;
+    gap: 0.5rem;
+    align-items: center;
+    font-size: 0.75rem;
+  }
+
+  .tr-bars li > span:first-child {
+    color: var(--ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tr-bars b {
+    font-weight: 500;
+    text-align: right;
+  }
+
+  .tr-b {
+    height: 8px;
+    border-radius: 2px;
+    background: var(--ink);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 700ms var(--ease) calc(200ms + var(--d) * 120ms);
+  }
+
+  .tr-charts.run .tr-b {
+    transform: scaleX(var(--w));
+  }
+
+  .tr-median {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .tr-median b {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .tr-median .meta {
+    text-transform: none;
+  }
+
+  @media (max-width: 720px) {
+    .tr-pipe {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .tr-home,
+    .tr-charts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tr-when {
+      display: none;
+    }
+
+    .tr-rows li {
+      grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+    }
+  }
+</style>

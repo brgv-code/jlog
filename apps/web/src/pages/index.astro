@@ -12,6 +12,7 @@
  * Every claim is what the product does. Companies and people are invented.
  * The FAQ and the structured data are built from one list.
  */
+import { APPLICATIONS, STATUS_LABEL, shortRole } from '../data/demo';
 import SiteLayout from '../layouts/SiteLayout.astro';
 
 /*
@@ -74,34 +75,8 @@ const steps = [
   },
 ];
 
-/* The closing feed: invented applications, arriving from every kind of source. */
-const feed = [
-  {
-    co: 'Fabrikam',
-    role: 'Senior Frontend Engineer',
-    src: 'Greenhouse',
-    st: 'applied',
-    label: 'Applied',
-  },
-  {
-    co: 'Northwind',
-    role: 'Product Engineer',
-    src: 'careers page',
-    st: 'interviewing',
-    label: 'Interview',
-  },
-  { co: 'Contoso', role: 'Staff Engineer', src: 'referral', st: 'offer', label: 'Offer' },
-  { co: 'Adatum', role: 'Design Engineer', src: 'LinkedIn', st: 'saved', label: 'Saved' },
-  { co: 'Tailspin', role: 'Frontend Lead', src: 'any job page', st: 'applied', label: 'Applied' },
-  {
-    co: 'Litware',
-    role: 'Full-stack Engineer',
-    src: 'Ashby',
-    st: 'interviewing',
-    label: 'Interview',
-  },
-  { co: 'Proseware', role: 'UI Engineer', src: 'recruiter', st: 'saved', label: 'Saved' },
-];
+/* The closing feed: Ada's search, arriving from every kind of source. */
+const feed = APPLICATIONS;
 
 const features = [
   {
@@ -109,12 +84,14 @@ const features = [
     id: 'capture',
     title: 'Capture',
     body: 'Apply on LinkedIn, Greenhouse, Lever, Ashby, Wellfound or YC and the row writes itself. Anywhere else, one click reads the page.',
+    href: '/features/job-capture',
   },
   {
     n: '02',
     id: 'autofill',
     title: 'Autofill',
     body: 'Fills the empty fields of an application from your profile. Never guesses visa or salary answers, and never presses submit.',
+    href: '/features/autofill',
   },
   {
     n: '03',
@@ -135,6 +112,7 @@ const features = [
     id: 'tracking',
     title: 'Tracking',
     body: 'Saved to offer in one list, with notes, follow-ups and the original posting kept next to each application.',
+    href: '/features/tracking',
   },
   {
     n: '06',
@@ -206,7 +184,7 @@ const jsonLd = [
     <!-- ─────────────── Hero ─────────────── -->
     <section class="row hero">
       <div class="hero-top">
-        <a class="announce" href="#autofill">
+        <a class="announce" href="/features/autofill">
           <span class="tag">New</span> Autofill on Greenhouse, Lever and Ashby <span aria-hidden="true">→</span>
         </a>
         <h1 class="display hero-title">
@@ -265,7 +243,7 @@ const jsonLd = [
         <ol class="notes notes-left">
           {
             [notes[2], notes[0]].map((note) => note && (
-              <li class="note" data-note={note.n}>
+              <li class="note" data-note={note.n} style={`--o:${Number(note.n)}`}>
                 <span class="kicker-n">{note.n}</span>
                 <span class="note-t">{note.title}</span>
                 <span class="note-b">{note.body}</span>
@@ -307,9 +285,9 @@ const jsonLd = [
               <p class="frame-bar">jlog · Applications</p>
               <ul class="l-rows">
                 <li class="new"><span class="t">F</span><span>Senior Frontend Engineer · Fabrikam</span><span class="pill pill-applied">Applied</span></li>
-                <li><span class="t">N</span><span>Product Engineer · Northwind</span><span class="pill pill-interviewing">Interview</span></li>
-                <li><span class="t">C</span><span>Staff Engineer · Contoso</span><span class="pill pill-offer">Offer</span></li>
-                <li><span class="t">B</span><span>Frontend Engineer · Brightwave</span><span class="pill pill-saved">Saved</span></li>
+                <li><span class="t">N</span><span>Senior Frontend Engineer · Northwind</span><span class="pill pill-interviewing">Interview</span></li>
+                <li><span class="t">C</span><span>Senior Frontend Engineer · Contoso</span><span class="pill pill-offer">Offer</span></li>
+                <li><span class="t">W</span><span>Senior Frontend Engineer · Woodgrove</span><span class="pill pill-saved">Saved</span></li>
               </ul>
               <span class="anchor anchor-l" data-anchor="03"></span>
             </div>
@@ -329,7 +307,7 @@ const jsonLd = [
         <ol class="notes notes-right">
           {
             [notes[3], notes[1]].map((note) => note && (
-              <li class="note" data-note={note.n}>
+              <li class="note" data-note={note.n} style={`--o:${Number(note.n)}`}>
                 <span class="kicker-n">{note.n}</span>
                 <span class="note-t">{note.title}</span>
                 <span class="note-b">{note.body}</span>
@@ -402,11 +380,11 @@ const jsonLd = [
               <!-- 03 · track: the new row lands at the top of the list -->
               <div class="panel p-track" data-how-p="2">
                 <ul class="l-rows">
-                  <li class="new"><span class="t">F</span><span>Senior Frontend Engineer · Fabrikam</span><span class="pill pill-applied">Applied</span></li>
-                  <li><span class="t">N</span><span>Product Engineer · Northwind</span><span class="pill pill-interviewing">Interview</span></li>
-                  <li><span class="t">C</span><span>Staff Engineer · Contoso</span><span class="pill pill-offer">Offer</span></li>
-                  <li><span class="t">B</span><span>Frontend Engineer · Brightwave</span><span class="pill pill-saved">Saved</span></li>
-                  <li><span class="t">A</span><span>Design Engineer · Adatum</span><span class="pill pill-saved">Saved</span></li>
+                  <li class="new"><span class="t">F</span><span class="co-r"><b>Fabrikam</b><span>Senior Frontend Engineer</span></span><span class="pill pill-applied">Applied</span></li>
+                  <li><span class="t">N</span><span class="co-r"><b>Northwind</b><span>Senior Frontend Engineer</span></span><span class="pill pill-interviewing">Interview</span></li>
+                  <li><span class="t">C</span><span class="co-r"><b>Contoso</b><span>Senior Frontend Engineer</span></span><span class="pill pill-offer">Offer</span></li>
+                  <li><span class="t">W</span><span class="co-r"><b>Woodgrove</b><span>Senior Frontend Engineer</span></span><span class="pill pill-saved">Saved</span></li>
+                  <li><span class="t">L</span><span class="co-r"><b>Litware</b><span>Senior Software Engineer</span></span><span class="pill pill-interviewing">Interview</span></li>
                 </ul>
               </div>
 
@@ -448,10 +426,10 @@ const jsonLd = [
             <div class={`mini mini-${f.id}`} aria-hidden="true">
               {f.id === 'capture' && (
                 <>
-                  <p class="mini-bar">jobs.lever.co/northwind</p>
-                  <p class="mini-h">Product Engineer</p>
+                  <p class="mini-bar">jobs.ashbyhq.com/litware</p>
+                  <p class="mini-h">Senior Software Engineer, Frontend</p>
                   <span class="mini-apply">Submit application</span>
-                  <p class="mini-toast"><span class="toast-mark">j</span> Saved · Northwind</p>
+                  <p class="mini-toast"><span class="toast-mark">j</span> Saved · Litware</p>
                 </>
               )}
               {f.id === 'autofill' && (
@@ -494,15 +472,15 @@ const jsonLd = [
                       <span class="pill pill-offer">Offer</span>
                     </span>
                   </p>
-                  <p class="mini-row dim-row"><span class="t">N</span><span>Northwind</span><span class="pill pill-applied">Applied</span></p>
-                  <p class="mini-row dim-row"><span class="t">C</span><span>Contoso</span><span class="pill pill-saved">Saved</span></p>
+                  <p class="mini-row dim-row"><span class="t">N</span><span>Northwind</span><span class="pill pill-interviewing">Interview</span></p>
+                  <p class="mini-row dim-row"><span class="t">W</span><span>Woodgrove</span><span class="pill pill-saved">Saved</span></p>
                 </>
               )}
               {f.id === 'home' && (
                 <>
-                  <p class="mini-alert"><span class="ping"></span> Gone quiet <b>Northwind · 14 days</b></p>
-                  <p class="mini-alert"><span class="ping ping-2"></span> Reply owed <b>Contoso recruiter</b></p>
-                  <p class="mini-alert"><span class="ping ping-3"></span> Interview <b>Fabrikam · Thursday</b></p>
+                  <p class="mini-alert"><span class="ping"></span> Ghosted <b>Tailspin · 15 days</b></p>
+                  <p class="mini-alert"><span class="ping ping-2"></span> Awaiting reply <b>Fabrikam · today</b></p>
+                  <p class="mini-alert"><span class="ping ping-3"></span> In interview <b>Northwind, Litware</b></p>
                 </>
               )}
             </div>
@@ -677,9 +655,9 @@ const jsonLd = [
               [...feed, ...feed].map((r) => (
                 <li>
                   <span class="t">{r.co[0]}</span>
-                  <span class="feed-role">{r.role} · {r.co}</span>
+                  <span class="co-r feed-role"><b>{r.co}</b><span>{shortRole(r.role)}</span></span>
                   <span class="feed-src meta">{r.src}</span>
-                  <span class={`pill pill-${r.st}`}>{r.label}</span>
+                  <span class={`pill pill-${r.st}`}>{STATUS_LABEL[r.st]}</span>
                 </li>
               ))
             }
@@ -1587,7 +1565,7 @@ const jsonLd = [
   }
 
   .p-track li:not(.new) {
-    transform: translateY(-2.7rem);
+    transform: translateY(-100%);
     transition: transform 650ms var(--ease) 250ms;
   }
 
@@ -1716,6 +1694,25 @@ const jsonLd = [
   .feature-link:hover {
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+
+  /* Company first, role under it: rows that stay one tidy height on a phone. */
+  .co-r {
+    display: grid;
+    min-width: 0;
+    line-height: 1.3;
+  }
+
+  .co-r b {
+    font-weight: 600;
+  }
+
+  .co-r span {
+    color: var(--grey);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* ---------- Feature minis: a little of the real UI, moving ---------- */
@@ -2523,7 +2520,7 @@ const jsonLd = [
   }
 
   .feed-window {
-    height: 232px;
+    height: 270px;
     overflow: hidden;
     mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
   }
@@ -2538,7 +2535,7 @@ const jsonLd = [
     grid-template-columns: 1.5rem 1fr auto auto;
     gap: 0.75rem;
     align-items: center;
-    height: 46px;
+    height: 54px;
     border-bottom: 1px solid var(--line);
     font-size: 0.8125rem;
   }
@@ -2619,21 +2616,34 @@ const jsonLd = [
       grid-template-columns: 1fr;
     }
 
-    .notes {
-      order: 2;
-      gap: 0.75rem;
-      padding: 0;
+    /*
+     * Stacked, the two note lists dissolve into one 2 by 2 legend under the
+     * scene, in reading order 01 to 04 rather than the order the arrows need.
+     */
+    .stage {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      justify-items: stretch;
-      padding: 0 0 2.5rem;
+      gap: 0.5rem;
+      padding-bottom: 2.5rem;
+    }
+
+    .notes {
+      display: contents;
     }
 
     .note {
+      order: var(--o);
       max-width: none;
+      padding: 0.5rem 0.625rem;
+      box-shadow: inset 0 0 0 1px var(--line-2);
+    }
+
+    .note-b {
+      font-size: 0.75rem;
     }
 
     .scene {
-      order: 1;
+      order: 0;
+      grid-column: 1 / -1;
       height: 440px;
     }
 
@@ -2669,10 +2679,6 @@ const jsonLd = [
 
     .stack {
       scale: 0.6;
-    }
-
-    .notes {
-      grid-template-columns: 1fr;
     }
 
     .intake-boards {

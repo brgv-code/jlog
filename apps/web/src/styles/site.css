@@ -341,3 +341,267 @@
     transform: none;
   }
 }
+
+/* ---------- Feature pages (components/site) ---------- */
+
+.site .fp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+  padding-top: clamp(3rem, 7vw, 6rem);
+  background: radial-gradient(circle at 1px 1px, var(--line-2) 1px, transparent 1.5px) 0 0 / 22px
+    22px;
+}
+
+.site .fp-eyebrow {
+  margin-bottom: 1.25rem;
+}
+
+.site .fp-title {
+  font-size: clamp(2.375rem, 5.2vw, 4.25rem);
+}
+
+.site .fp-lead {
+  margin-top: 1.5rem;
+}
+
+.site .fp-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+
+.site .chapter {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+  scroll-margin-top: 64px;
+}
+
+.site .chapter-flip {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.site .chapter-flip .chapter-copy {
+  order: 2;
+}
+
+.site .chapter-tint {
+  background: var(--bg-2);
+}
+
+.site .chapter-body {
+  display: grid;
+  gap: 0.875rem;
+  margin-top: 1.25rem;
+  color: var(--ink-2);
+  max-width: 52ch;
+}
+
+.site .chapter-body strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.site .fp-end {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.site .fp-rules {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--ink);
+}
+
+.site .fp-rules li {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+  padding: 1.25rem 1.5rem 0 0;
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+}
+
+.site .fp-rules strong {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.site .fp-end-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+}
+
+.site .fp-next {
+  border-top: 1px solid var(--line);
+  padding-top: 1.5rem;
+}
+
+.site .fp-next a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-weight: 600;
+  font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.site .fp-next a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@media (max-width: 900px) {
+  .site .fp-hero,
+  .site .chapter,
+  .site .chapter-flip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .site .chapter-flip .chapter-copy {
+    order: 0;
+  }
+
+  .site .fp-rules {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .site .fp-rules li {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+/* ---------- Product UI parts drawn on marketing pages ---------- */
+
+.site .ui {
+  background: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  font-size: 0.8125rem;
+}
+
+.site .ui-body {
+  padding: 1rem 1.125rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.site .ui-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.site .ui-field > span {
+  font-size: 0.6875rem;
+  color: var(--grey);
+}
+
+.site .ui-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.site .ui-input b {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.site .ui-input.left {
+  border-style: dashed;
+  color: var(--grey);
+}
+
+.site .src {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.02em;
+  color: var(--grey);
+  white-space: nowrap;
+}
+
+.site .src-saved {
+  color: #0757c2;
+}
+
+.site .wired {
+  position: relative;
+}
+
+.site .wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.site .wires path {
+  fill: none;
+  stroke: var(--grey-2);
+  stroke-width: 1;
+}
+
+.site .wires .pulse {
+  fill: var(--ink);
+}
+
+.site .jtoast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+  border-radius: 10px;
+  background: var(--ink);
+  color: #ededed;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  box-shadow: var(--shadow-float);
+}
+
+.site .jtoast b {
+  color: #fff;
+}
+
+.site .jmark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.8125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site [data-play] *,
+  .site [data-play] *::before,
+  .site [data-play] *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

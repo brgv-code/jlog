@@ -198,5 +198,13 @@ grey (`.dim`); mono is for labels. Colour appears only inside the product
   signature element of another site (its hero device, its illustration style)
   is not reused.
   Reduced motion gets every one of these in its finished, still state.
+- Feature pages (`/features/*`) share `components/site/FeatureHero`,
+  `Chapter` and `FeatureEnd`, and `scripts/site-motion.ts`: `[data-play]`
+  starts (and with a number, replays) a CSS sequence when in view,
+  `[data-wired]` draws wires with pulses from `[data-to]` to `[data-id]`.
+- Demo data comes from `src/data/demo.ts`: one person, Ada Lovelace, a senior
+  frontend engineer in Berlin, and one search of senior frontend roles. A
+  demo never shows her applying to unrelated roles, or to an employer on her
+  own CV.
 - Every claim a page makes has to be what the code does. The tailored-CV page
   says posting links are quotes checked to exist, and no more, until BRG-228.
