@@ -31,6 +31,38 @@ const notes = [
   { n: '04', side: 'right', title: 'Tailored', body: 'a CV built from your own lines' },
 ];
 
+/* The pinned walkthrough: one step per screen of scroll. */
+const steps = [
+  {
+    n: '01',
+    title: 'Capture',
+    bar: 'boards.greenhouse.io/fabrikam',
+    head: 'Apply as usual. The row writes itself.',
+    body: 'On six boards jlog notices the application and saves the company, role and link. Anywhere else, one click reads the page.',
+  },
+  {
+    n: '02',
+    title: 'Autofill',
+    bar: 'Fabrikam · application form',
+    head: 'The form, filled from your profile.',
+    body: 'Name, contact details, work authorisation and notice period go in. Experience stays yours to write, and submit stays yours to press.',
+  },
+  {
+    n: '03',
+    title: 'Track',
+    bar: 'jlog · Applications',
+    head: 'Saved to offer, in one list.',
+    body: 'Every application with its status, notes, follow-ups and the original posting, so nothing goes quiet without you noticing.',
+  },
+  {
+    n: '04',
+    title: 'Tailor',
+    bar: 'jlog · CV for Fabrikam',
+    head: 'A CV built from your own lines.',
+    body: 'jlog picks the sentences from your CV that answer this posting. Each one says where it came from, and none are made up.',
+  },
+];
+
 const features = [
   {
     n: '01',
@@ -133,19 +165,43 @@ const jsonLd = [
   <div class="rail">
     <!-- ─────────────── Hero ─────────────── -->
     <section class="row hero">
-      <a class="announce" href="#autofill">
-        <span class="tag">New</span> Autofill on Greenhouse, Lever and Ashby <span aria-hidden="true">→</span>
-      </a>
-      <h1 class="display hero-title">
-        Job applications,<br /><span class="dim">without the busywork.</span>
-      </h1>
-      <p class="lead hero-lead">
-        jlog records every application you make, fills in the forms, and builds a tailored CV
-        (résumé) from your real experience.
-      </p>
-      <div class="cta">
-        <a href="/login" class="btn btn-ink">Get started for free</a>
-        <a href="#features" class="btn btn-line">See how it works</a>
+      <div class="hero-top">
+        <!--
+          The ribbon. A posting's raw text drifts along a thin line, loops
+          behind the headline, passes through jlog, and comes out the other
+          side as a record. Drawn by the script to fit whatever width it has.
+        -->
+        <svg class="ribbon" data-ribbon aria-hidden="true">
+          <path id="rb-raw-path" class="rb-raw-line" data-rb="raw-line"></path>
+          <path id="rb-rec-path" class="rb-rec-line" data-rb="rec-line"></path>
+          <text class="rb-raw"><textPath data-rb="raw" href="#rb-raw-path"></textPath></text>
+          <text class="rb-rec"><textPath data-rb="rec" href="#rb-rec-path"></textPath></text>
+          <g class="rb-node" data-rb="node">
+            <rect x="-46" y="-17" width="92" height="34" rx="17"></rect>
+            <g class="rb-bars">
+              <rect x="-24" y="-8" width="3" height="16" rx="1.5"></rect>
+              <rect x="-18" y="-8" width="3" height="16" rx="1.5"></rect>
+              <rect x="-12" y="-8" width="3" height="16" rx="1.5"></rect>
+              <rect x="-6" y="-8" width="3" height="16" rx="1.5"></rect>
+            </g>
+            <text x="6" y="4.5">jlog</text>
+          </g>
+        </svg>
+
+        <a class="announce" href="#autofill">
+          <span class="tag">New</span> Autofill on Greenhouse, Lever and Ashby <span aria-hidden="true">→</span>
+        </a>
+        <h1 class="display hero-title">
+          Job applications,<br /><span class="dim">without the <span class="scribble">busywork.<svg viewBox="0 0 300 20" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M3 13 C 60 5, 130 4, 190 9 S 270 15, 297 7"></path></svg></span></span>
+        </h1>
+        <p class="lead hero-lead">
+          jlog records every application you make, fills in the forms, and builds a tailored CV
+          (résumé) from your real experience.
+        </p>
+        <div class="cta">
+          <a href="/login" class="btn btn-ink">Get started for free</a>
+          <a href="#how" class="btn btn-line">See how it works</a>
+        </div>
       </div>
 
       <!--
@@ -246,6 +302,104 @@ const jsonLd = [
       <ul>{BOARDS.map((b) => <li>{b}</li>)}</ul>
     </section>
 
+    <!-- ─────────────── How it works ─────────────── -->
+    <!--
+      Pinned while you scroll past it. The index on the left marks the step,
+      the frame in the middle plays it, the caption on the right explains it.
+      A wide soft stroke behind draws itself along with the scroll.
+    -->
+    <section class="how" id="how">
+      <div class="how-head">
+        <div class="kicker"><span class="kicker-n">∗</span><span class="meta">How it works</span></div>
+        <h2 class="h2">One application,<br /><span class="dim">four things done for you.</span></h2>
+      </div>
+      <div class="how-track" data-how style={`--steps:${steps.length}`}>
+        <div class="how-pin">
+          <svg class="swoosh" viewBox="0 0 1200 800" preserveAspectRatio="none" aria-hidden="true">
+            <path data-swoosh pathLength="1" d="M-60 720 C 180 700, 260 420, 470 430 S 760 700, 900 520 S 1080 90, 1270 60"></path>
+          </svg>
+
+          <ol class="how-index" aria-hidden="true">
+            {steps.map((s, i) => <li data-how-i={i}>{s.title}</li>)}
+          </ol>
+
+          <div class="how-frame frame" aria-hidden="true">
+            <p class="frame-bar" data-how-bar>{steps[0]?.bar}</p>
+            <div class="how-panels">
+              <!-- 01 · capture: the posting, and a toast that says it was saved -->
+              <div class="panel p-capture" data-how-p="0">
+                <p class="l-co">Fabrikam</p>
+                <p class="l-title">Senior Frontend Engineer, Payments</p>
+                <p class="l-sub">Berlin or remote (EU) · €80,000 to €95,000</p>
+                <span class="bar"></span><span class="bar"></span><span class="bar bar-s"></span>
+                <div class="toast">
+                  <span class="toast-mark">j</span>
+                  <span><b>Saved to jlog</b><br />Fabrikam · Senior Frontend Engineer</span>
+                  <span class="pill pill-applied">Applied</span>
+                </div>
+              </div>
+
+              <!-- 02 · autofill: fields fill one by one, submit stays untouched -->
+              <div class="panel p-fill" data-how-p="1">
+                {
+                  [
+                    ['First name', 'Ada'],
+                    ['Last name', 'Lovelace'],
+                    ['Email', 'ada.lovelace@example.com'],
+                    ['Phone', '+1 202 555 0142'],
+                    ['Authorised to work in Germany?', 'Yes'],
+                    ['Notice period', 'One month'],
+                  ].map(([k, v], i) => (
+                    <div class="field" style={`--d:${i}`}>
+                      <span>{k}</span>
+                      <b>{v}</b>
+                      <i>✓</i>
+                    </div>
+                  ))
+                }
+                <div class="fill-foot">
+                  <span class="tag">Fill with jlog</span>
+                  <span class="submit">Submit application</span>
+                </div>
+              </div>
+
+              <!-- 03 · track: the new row lands at the top of the list -->
+              <div class="panel p-track" data-how-p="2">
+                <ul class="l-rows">
+                  <li class="new"><span class="t">F</span><span>Senior Frontend Engineer · Fabrikam</span><span class="pill pill-applied">Applied</span></li>
+                  <li><span class="t">N</span><span>Product Engineer · Northwind</span><span class="pill pill-interviewing">Interview</span></li>
+                  <li><span class="t">C</span><span>Staff Engineer · Contoso</span><span class="pill pill-offer">Offer</span></li>
+                  <li><span class="t">B</span><span>Frontend Engineer · Brightwave</span><span class="pill pill-saved">Saved</span></li>
+                  <li><span class="t">A</span><span>Design Engineer · Adatum</span><span class="pill pill-saved">Saved</span></li>
+                </ul>
+              </div>
+
+              <!-- 04 · tailor: lines arrive, each with the place it came from -->
+              <div class="panel p-cv" data-how-p="3">
+                <p class="cv-name">Ada Lovelace</p>
+                <p class="cv-sub">Senior Frontend Engineer · for Fabrikam</p>
+                <div class="cv-line" style="--d:0"><span>Led the move of the checkout from jQuery to React without a feature freeze.</span><span class="tag tag-signal">CV line 7</span></div>
+                <div class="cv-line" style="--d:1"><span>Cut p95 page load from 3.1s to 1.2s with code-splitting.</span><span class="tag tag-signal">CV line 8</span></div>
+                <div class="cv-line" style="--d:2"><span>Owned the component library five product teams build on.</span><span class="tag">sent to Contoso</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="how-captions">
+            {
+              steps.map((s, i) => (
+                <div class="how-cap" data-how-c={i} data-bar={s.bar}>
+                  <p class="meta">{s.n} · {s.title}</p>
+                  <h3 class="how-cap-t">{s.head}</h3>
+                  <p class="how-cap-b">{s.body}</p>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ─────────────── Features ─────────────── -->
     <section class="row" id="features">
       <div class="kicker"><span class="kicker-n">∗</span><span class="meta">Product</span></div>
@@ -275,7 +429,7 @@ const jsonLd = [
     <section class="row trace-row">
       <div class="trace-copy">
         <div class="kicker"><span class="kicker-n">03</span><span class="meta">Tailored CV</span></div>
-        <h2 class="h2">A CV that never<br /><span class="dim">invents experience.</span></h2>
+        <h2 class="h2">A CV that <span class="scribble">never<svg viewBox="0 0 300 20" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M3 12 C 70 4, 150 5, 210 9 S 280 14, 297 8"></path></svg></span><br /><span class="dim">invents experience.</span></h2>
         <p class="body">
           Every line on a tailored CV is a sentence from the CV you imported, or a wording you
           already sent. The model chooses and orders them. It does not write new ones.
@@ -339,7 +493,7 @@ const jsonLd = [
     </div>
 
     <!-- ─────────────── Open source ─────────────── -->
-    <section class="row oss">
+    <section class="row oss" data-panel>
       <div>
         <div class="kicker"><span class="kicker-n">MIT</span><span class="meta">Open source</span></div>
         <h2 class="h2">Self-host it.<br /><span class="dim">Bring your own model.</span></h2>
@@ -486,6 +640,157 @@ const jsonLd = [
   window.addEventListener('resize', drawTrace);
   document.fonts?.ready.then(drawTrace);
   drawTrace();
+
+  /*
+   * The ribbon. The posting's text flows along the thin line into the node,
+   * and the record flows out of it along the thick one. Each text is one unit
+   * repeated, and its offset loops over one unit, so the stream never jumps.
+   */
+  const ribbon = document.querySelector<SVGSVGElement>('[data-ribbon]');
+  const RAW =
+    'About the role: we are looking for a senior frontend engineer to join Payments, in Berlin or remote within the EU. You will own the checkout, work in React and TypeScript, and ship every week. Salary €80,000 to €95,000. Apply by 14 October.      ';
+  const REC =
+    'Fabrikam   ·   Senior Frontend Engineer   ·   Berlin or remote (EU)   ·   €80k to €95k   ·   via Greenhouse   ·   Applied 27 Sep   ·   ';
+  const rb = <T extends SVGElement>(k: string) => ribbon?.querySelector<T>(`[data-rb="${k}"]`) ?? null;
+  const flows: { tp: SVGTextPathElement; unit: number }[] = [];
+
+  function measure(text: string, cls: string) {
+    if (!ribbon) return 1;
+    const probe = document.createElementNS(NS, 'text');
+    probe.setAttribute('class', cls);
+    probe.textContent = text;
+    ribbon.appendChild(probe);
+    const w = probe.getComputedTextLength();
+    probe.remove();
+    return w || 1;
+  }
+
+  function layoutRibbon() {
+    const rawLine = rb<SVGPathElement>('raw-line');
+    const recLine = rb<SVGPathElement>('rec-line');
+    const raw = rb<SVGTextPathElement>('raw');
+    const rec = rb<SVGTextPathElement>('rec');
+    const node = rb<SVGGElement>('node');
+    if (!ribbon || !rawLine || !recLine || !raw || !rec || !node) return;
+    const { width: w, height: h } = ribbon.getBoundingClientRect();
+    ribbon.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const px = w * 0.5;
+    const py = h - 52;
+    // Wide screens get the loop behind the headline; narrow ones a plain sweep.
+    rawLine.setAttribute(
+      'd',
+      w < 900
+        ? `M -40 ${py - 60} C ${w * 0.2} ${py - 60}, ${w * 0.28} ${py}, ${px} ${py}`
+        : `M -40 ${h * 0.64} C ${w * 0.06} ${h * 0.64}, ${w * 0.17} ${h * 0.46}, ${w * 0.145} ${h * 0.25}
+           C ${w * 0.125} ${h * 0.07}, ${w * 0.035} ${h * 0.1}, ${w * 0.05} ${h * 0.3}
+           C ${w * 0.065} ${h * 0.54}, ${w * 0.22} ${py}, ${px} ${py}`,
+    );
+    recLine.setAttribute(
+      'd',
+      `M ${px} ${py} C ${w * 0.66} ${py}, ${w * 0.8} ${py - 30}, ${w + 40} ${py - (w < 900 ? 70 : 150)}`,
+    );
+    node.setAttribute('transform', `translate(${px} ${py})`);
+
+    flows.length = 0;
+    for (const [tp, line, unit, cls] of [
+      [raw, rawLine, RAW, 'rb-raw'],
+      [rec, recLine, REC, 'rb-rec'],
+    ] as const) {
+      const u = measure(unit, cls);
+      tp.textContent = unit.repeat(Math.ceil(line.getTotalLength() / u) + 2);
+      flows.push({ tp, unit: u });
+    }
+    flowTo(performance.now());
+  }
+
+  const SPEED = 38; // px a second
+  function flowTo(now: number) {
+    const s = reduce ? 0 : now / 1000;
+    for (const f of flows) f.tp.setAttribute('startOffset', String(-f.unit + ((s * SPEED) % f.unit)));
+  }
+
+  let flowing = false;
+  function loop(now: number) {
+    flowTo(now);
+    if (flowing) requestAnimationFrame(loop);
+  }
+  if (ribbon) {
+    new ResizeObserver(layoutRibbon).observe(ribbon);
+    document.fonts?.ready.then(layoutRibbon);
+    if (!reduce && 'IntersectionObserver' in window) {
+      new IntersectionObserver(([e]) => {
+        const was = flowing;
+        flowing = !!e?.isIntersecting;
+        if (flowing && !was) requestAnimationFrame(loop);
+      }).observe(ribbon);
+    }
+  }
+
+  /*
+   * How it works. The track is several screens tall and its content is pinned;
+   * how far through the track you are picks the step, and draws the swoosh.
+   */
+  const how = document.querySelector<HTMLElement>('[data-how]');
+  const swoosh = document.querySelector<SVGPathElement>('[data-swoosh]');
+  const howBar = document.querySelector<HTMLElement>('[data-how-bar]');
+  const count = how ? how.querySelectorAll('[data-how-c]').length : 0;
+  let current = -1;
+
+  function updateHow() {
+    if (!how || !count) return;
+    const r = how.getBoundingClientRect();
+    const run = r.height - window.innerHeight;
+    const p = run > 0 ? Math.min(1, Math.max(0, -r.top / run)) : 0;
+    swoosh?.style.setProperty('stroke-dashoffset', String(reduce ? 0 : 1 - p));
+    const i = Math.min(count - 1, Math.floor(p * count));
+    if (i === current) return;
+    current = i;
+    for (const el of how.querySelectorAll<HTMLElement>('[data-how-i],[data-how-p],[data-how-c]')) {
+      const n = Number(el.dataset.howI ?? el.dataset.howP ?? el.dataset.howC);
+      el.classList.toggle('on', n === i);
+    }
+    const cap = how.querySelector<HTMLElement>(`[data-how-c="${i}"]`);
+    if (howBar && cap?.dataset.bar) howBar.textContent = cap.dataset.bar;
+  }
+
+  /* The dark panel opens from an inset card to the full width as it arrives. */
+  const panel = document.querySelector<HTMLElement>('[data-panel]');
+  function updatePanel() {
+    if (!panel || reduce) return;
+    const r = panel.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const p = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.7)));
+    panel.style.setProperty('--open', (1 - (1 - p) ** 2).toFixed(3));
+  }
+
+  const onScroll = () =>
+    requestAnimationFrame(() => {
+      updateHow();
+      updatePanel();
+    });
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  updateHow();
+  updatePanel();
+
+  /* Hand-drawn underlines draw once, when they come into view. */
+  const scribbles = document.querySelectorAll('.scribble');
+  if ('IntersectionObserver' in window) {
+    const so = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add('drawn');
+            so.unobserve(e.target);
+          }
+        }
+      },
+      { rootMargin: '0px 0px -15% 0px' },
+    );
+    for (const el of scribbles) so.observe(el);
+  } else {
+    for (const el of scribbles) el.classList.add('drawn');
+  }
 </script>
 
 <style>
@@ -525,6 +830,109 @@ const jsonLd = [
     border-color: var(--grey-2);
   }
 
+  .hero-top {
+    position: relative;
+    width: 100%;
+    display: grid;
+    justify-items: center;
+    padding-bottom: 140px;
+  }
+
+  .hero-top > :not(.ribbon) {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ---------- The ribbon ---------- */
+
+  .ribbon {
+    position: absolute;
+    top: calc(-1 * clamp(4rem, 9vw, 7rem));
+    bottom: 0;
+    left: calc(-1 * clamp(1.25rem, 4vw, 3rem));
+    right: calc(-1 * clamp(1.25rem, 4vw, 3rem));
+    width: calc(100% + 2 * clamp(1.25rem, 4vw, 3rem));
+    height: calc(100% + clamp(4rem, 9vw, 7rem));
+    overflow: visible;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .rb-raw-line {
+    fill: none;
+    stroke: none;
+  }
+
+  .rb-rec-line {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 26;
+  }
+
+  .ribbon :global(.rb-raw) {
+    font-family: var(--mono);
+    font-size: 11px;
+    fill: #9a9a9a;
+  }
+
+  .ribbon :global(.rb-rec) {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    fill: #fff;
+    dominant-baseline: central;
+  }
+
+  .rb-node > rect {
+    fill: var(--bg);
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    filter: drop-shadow(0 6px 12px rgb(0 0 0 / 0.12));
+  }
+
+  .rb-node text {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.03em;
+    fill: var(--ink);
+  }
+
+  .rb-bars rect {
+    fill: var(--ink);
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scaleY(0.5);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rb-bars rect {
+      animation: read 1.1s ease-in-out infinite;
+    }
+
+    .rb-bars rect:nth-child(2) {
+      animation-delay: -0.25s;
+    }
+
+    .rb-bars rect:nth-child(3) {
+      animation-delay: -0.5s;
+    }
+
+    .rb-bars rect:nth-child(4) {
+      animation-delay: -0.75s;
+    }
+  }
+
+  @keyframes read {
+    0%,
+    100% {
+      transform: scaleY(0.35);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+
   .hero-title {
     max-width: 20ch;
   }
@@ -553,7 +961,7 @@ const jsonLd = [
     display: grid;
     grid-template-columns: minmax(0, 1fr) 620px minmax(0, 1fr);
     align-items: center;
-    margin-top: 4.5rem;
+    margin-top: 1.5rem;
     color: var(--ink);
   }
 
@@ -833,6 +1241,292 @@ const jsonLd = [
     color: var(--grey);
   }
 
+  /* ---------- How it works: pinned ---------- */
+
+  .how {
+    border-top: 1px solid var(--line);
+  }
+
+  .how-head {
+    padding: clamp(3.5rem, 7vw, 6rem) clamp(1.25rem, 4vw, 3rem) 0;
+  }
+
+  .how-track {
+    position: relative;
+    height: calc(var(--steps) * 85vh + 15vh);
+  }
+
+  .how-pin {
+    position: sticky;
+    top: 64px;
+    height: calc(100vh - 64px);
+    min-height: 520px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr) 280px;
+    gap: clamp(1.5rem, 4vw, 3.5rem);
+    align-items: center;
+    padding: 0 clamp(1.25rem, 4vw, 3rem);
+  }
+
+  .swoosh {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .swoosh path {
+    fill: none;
+    stroke: var(--bg-3);
+    stroke-width: 120;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+
+  .how-index,
+  .how-frame,
+  .how-captions {
+    position: relative;
+    z-index: 1;
+  }
+
+  .how-index {
+    list-style: none;
+    display: grid;
+    gap: 0.25rem;
+    border-left: 1px solid var(--line-2);
+  }
+
+  .how-index li {
+    position: relative;
+    padding: 0.2rem 0 0.2rem 1rem;
+    font-size: 0.9375rem;
+    color: var(--grey);
+    transition: color 300ms var(--ease);
+  }
+
+  .how-index li::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--ink);
+    transform: scaleY(0);
+    transition: transform 400ms var(--ease);
+  }
+
+  .how-index li.on {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .how-index li.on::before {
+    transform: none;
+  }
+
+  .how-frame {
+    justify-self: center;
+    width: 100%;
+    max-width: 540px;
+    height: 380px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    box-shadow: var(--shadow-float);
+  }
+
+  .how-panels {
+    position: relative;
+  }
+
+  .panel {
+    position: absolute;
+    inset: 0;
+    padding: 1.25rem 1.375rem;
+    display: grid;
+    align-content: start;
+    gap: 0.5rem;
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 450ms var(--ease),
+      transform 600ms var(--ease);
+  }
+
+  .panel.on {
+    opacity: 1;
+    transform: none;
+  }
+
+  .toast {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.625rem 0.75rem;
+    max-width: 330px;
+    background: var(--ink);
+    color: #ededed;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    box-shadow: var(--shadow-float);
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+    transition:
+      opacity 400ms var(--ease) 500ms,
+      transform 600ms var(--ease) 500ms;
+  }
+
+  .toast b {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .toast .pill {
+    color: #9dbcff;
+  }
+
+  .toast-mark {
+    display: grid;
+    place-items: center;
+    width: 1.625rem;
+    height: 1.625rem;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .on .toast {
+    opacity: 1;
+    transform: none;
+  }
+
+  .p-fill .field b,
+  .p-fill .field i {
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path 380ms steps(12) calc(250ms + var(--d) * 220ms);
+  }
+
+  .p-fill.on .field b,
+  .p-fill.on .field i {
+    clip-path: inset(0);
+  }
+
+  .p-fill .field {
+    transition: border-color 300ms var(--ease) calc(250ms + var(--d) * 220ms);
+  }
+
+  .p-fill.on .field {
+    border-color: var(--line-2);
+  }
+
+  .fill-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .submit {
+    padding: 0.35rem 0.75rem;
+    border: 1px dashed var(--grey-2);
+    border-radius: 6px;
+    color: var(--grey);
+  }
+
+  .p-track .l-rows {
+    padding: 0;
+  }
+
+  .p-track li:not(.new) {
+    transform: translateY(-2.7rem);
+    transition: transform 650ms var(--ease) 250ms;
+  }
+
+  .p-track .new {
+    opacity: 0;
+    transition: opacity 400ms var(--ease) 650ms;
+  }
+
+  .p-track.on li:not(.new) {
+    transform: none;
+  }
+
+  .p-track.on .new {
+    opacity: 1;
+  }
+
+  .p-cv .cv-line {
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity 400ms var(--ease) calc(300ms + var(--d) * 250ms),
+      transform 500ms var(--ease) calc(300ms + var(--d) * 250ms);
+  }
+
+  .p-cv .cv-line .tag {
+    opacity: 0;
+    transition: opacity 300ms var(--ease) calc(650ms + var(--d) * 250ms);
+  }
+
+  .p-cv.on .cv-line,
+  .p-cv.on .cv-line .tag {
+    opacity: 1;
+    transform: none;
+  }
+
+  .how-captions {
+    display: grid;
+  }
+
+  .how-cap {
+    grid-area: 1 / 1;
+    display: grid;
+    gap: 0.625rem;
+    align-content: start;
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 400ms var(--ease),
+      transform 500ms var(--ease);
+  }
+
+  .how-cap.on {
+    opacity: 1;
+    transform: none;
+  }
+
+  .how-cap-t {
+    font-weight: 600;
+    font-size: 1.375rem;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+  }
+
+  .how-cap-b {
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .how *,
+    .how *::before {
+      transition: none !important;
+    }
+  }
+
   /* ---------- Features: a ruled grid, cells share borders ---------- */
 
   .features {
@@ -1027,21 +1721,55 @@ const jsonLd = [
 
   /* ---------- Open source ---------- */
 
+  /*
+   * The dark panel. It arrives as an inset, rounded card and opens to the full
+   * width of the rail as it scrolls in (--open, set by the script).
+   */
   .oss {
+    --open: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: clamp(2rem, 5vw, 4rem);
     align-items: center;
+    background: var(--ink);
+    color: #ededed;
+    border-top-color: transparent;
+    clip-path: inset(0 calc((1 - var(--open)) * 6%) round calc(4px + (1 - var(--open)) * 28px));
+  }
+
+  .oss .h2 {
+    color: #fff;
+  }
+
+  .oss .meta {
+    color: #a3a3a3;
+  }
+
+  .oss .kicker-n {
+    color: #fff;
+    border-color: #3a3a3a;
   }
 
   .oss .body {
     margin-top: 1.25rem;
+    color: #b4b4b4;
   }
 
   .oss .body a {
-    color: var(--ink);
+    color: #fff;
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+
+  .oss .btn-line {
+    background: transparent;
+    color: #fff;
+    border-color: #3a3a3a;
+  }
+
+  .oss .btn-line:hover {
+    background: #1c1c1c;
+    border-color: #5a5a5a;
   }
 
   .oss-note {
@@ -1049,7 +1777,8 @@ const jsonLd = [
   }
 
   .term {
-    background: var(--ink);
+    background: #161616;
+    border: 1px solid #262626;
     color: #ededed;
     border-radius: var(--radius);
     padding: 1.25rem 1.5rem;
@@ -1057,7 +1786,6 @@ const jsonLd = [
     font-size: 0.8125rem;
     line-height: 1.9;
     overflow-x: auto;
-    box-shadow: var(--shadow-float);
   }
 
   .term .meta {
@@ -1135,6 +1863,44 @@ const jsonLd = [
   /* ---------- Narrow screens ---------- */
 
   @media (max-width: 1000px) {
+    .how-pin {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto auto;
+      align-content: center;
+      gap: 1.25rem;
+    }
+
+    .how-index {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 1rem;
+      border-left: 0;
+    }
+
+    .how-index li {
+      padding: 0 0 0.25rem;
+    }
+
+    .how-index li::before {
+      left: 0;
+      right: 0;
+      top: auto;
+      bottom: 0;
+      width: auto;
+      height: 2px;
+      transform: scaleX(0);
+    }
+
+    .how-frame {
+      height: 330px;
+    }
+
+    .how-captions {
+      max-width: 540px;
+      justify-self: center;
+      width: 100%;
+    }
+
     .stage {
       grid-template-columns: 1fr;
     }

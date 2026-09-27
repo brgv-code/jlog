@@ -175,8 +175,18 @@ grey (`.dim`); mono is for labels. Colour appears only inside the product
 - Primitives: `.display` `.h2` `.h3` `.lead` `.body` `.meta` (type), `.rail`
   `.row` `.kicker` (structure), `.btn-ink` `.btn-line` `.tag` `.card` `.sheet`
   `.frame` `.pill-*` (UI).
-- Motion shows how the product works, never decorates: the homepage's exploded
-  3D stack separates on scroll with arrows to each layer; the tailored-CV board
-  draws wires between a line, its fact and its requirement.
+- Motion shows how the product works, never decorates. The vocabulary is lines
+  and arrows (after Wispr Flow's site, in monochrome):
+  - the hero ribbon: a posting's raw text flows along a thin line, through a
+    jlog node, and out as a black ribbon carrying the record;
+  - the exploded 3D stack, which separates on scroll with arrows to each layer;
+  - "How it works", pinned while you scroll: a step index with an active bar, a
+    frame that plays each step, crossfading captions, and a wide soft stroke
+    behind that draws with the scroll;
+  - `.scribble`, a hand-drawn underline under one word, drawn once in view;
+  - the dark panel, which opens from an inset rounded card to full width;
+  - the tailored-CV board, whose wires join a line, its fact and its
+    requirement.
+  Reduced motion gets every one of these in its finished, still state.
 - Every claim a page makes has to be what the code does. The tailored-CV page
   says posting links are quotes checked to exist, and no more, until BRG-228.

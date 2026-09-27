@@ -329,6 +329,47 @@
 
 /* ---------- Motion ---------- */
 
+/*
+ * A hand-drawn underline under one word of a headline. The path carries
+ * pathLength="1", so it draws by animating the dash offset from 1 to 0; the
+ * page adds .drawn when it scrolls into view.
+ */
+.site .scribble {
+  position: relative;
+  white-space: nowrap;
+}
+
+.site .scribble svg {
+  position: absolute;
+  left: -2%;
+  bottom: -0.14em;
+  width: 104%;
+  height: 0.28em;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.site .scribble path {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site .scribble path {
+    stroke-dashoffset: 1;
+  }
+
+  .site .scribble.drawn path {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1100ms var(--ease) 350ms;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .site .reveal {
     opacity: 0;
