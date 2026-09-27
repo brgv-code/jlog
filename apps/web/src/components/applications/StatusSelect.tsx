@@ -9,9 +9,21 @@ interface StatusSelectProps {
   applicationId: string;
   currentStatus: ApplicationStatus;
   onStatusChange: (newStatus: ApplicationStatus) => void;
+  /**
+   * Off for the landing page's demo, which has no session. Left on, every
+   * change there fired an unauthenticated PATCH at the production API, took
+   * the 401 as a failed save and snapped the pill back — so the one thing the
+   * section invites you to do was the one thing that could not work.
+   */
+  persist?: boolean;
 }
 
-export function StatusSelect({ applicationId, currentStatus, onStatusChange }: StatusSelectProps) {
+export function StatusSelect({
+  applicationId,
+  currentStatus,
+  onStatusChange,
+  persist = true,
+}: StatusSelectProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [optimistic, setOptimistic] = useState<ApplicationStatus>(currentStatus);
@@ -57,6 +69,12 @@ export function StatusSelect({ applicationId, currentStatus, onStatusChange }: S
     setJustChanged(false);
     setOptimistic(newStatus);
     setEditing(false);
+
+    if (!persist) {
+      onStatusChange(newStatus);
+      return;
+    }
+
     setSaving(true);
 
     try {

@@ -28,6 +28,17 @@ interface ApplicationsTableProps {
   /** A filter or search is narrowing the list, so "none" means "none matched". */
   isFiltered?: boolean;
   onClearFilters?: () => void;
+  /**
+   * Off for the landing page's demo, which has no session to fetch logos with.
+   * Rows fall back to the monogram, which is the normal state for most
+   * employers anyway.
+   */
+  showLogos?: boolean;
+  /**
+   * Off for the demo, for the same reason as `showLogos`: there is no session
+   * behind it, so a status change has nowhere to save to. See `StatusSelect`.
+   */
+  persistStatus?: boolean;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -77,8 +88,8 @@ function hueFor(name: string): number {
  * The monogram is the default rather than the failure state: most companies
  * will never resolve a logo, and a column of forty rows still needs landmarks.
  */
-function CompanyAvatar({ company }: { company: string }) {
-  const logo = useCompanyLogo(company);
+function CompanyAvatar({ company, showLogos }: { company: string; showLogos: boolean }) {
+  const logo = useCompanyLogo(company, showLogos);
 
   if (logo) {
     return (
@@ -137,6 +148,8 @@ export function ApplicationsTable({
   onAddClick,
   isFiltered = false,
   onClearFilters,
+  showLogos = true,
+  persistStatus = true,
 }: ApplicationsTableProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   // Each row's primary action is a real button, so j/k moves DOM focus rather
@@ -145,10 +158,27 @@ export function ApplicationsTable({
   // a row that was itself a button could not contain either.
   const buttonsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
+  /*
+   * Which row this effect last moved focus to.
+   *
+   * `applications` has to stay in the dependency list — the row's button does
+   * not exist yet on the render that selects it — but firing on every new array
+   * identity means anything that rebuilds the list steals focus. Typing in the
+   * search box does exactly that: the first character filtered the list, focus
+   * jumped to the matching row, and the rest of the word went nowhere.
+   */
+  const focusedId = useRef<string | undefined>(undefined);
+
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId) {
+      focusedId.current = undefined;
+      return;
+    }
+    if (selectedId === focusedId.current) return;
     const idx = applications.findIndex((a) => a.id === selectedId);
-    if (idx !== -1) buttonsRef.current[idx]?.focus();
+    if (idx === -1) return;
+    buttonsRef.current[idx]?.focus();
+    focusedId.current = selectedId;
   }, [selectedId, applications]);
 
   function move(delta: number, e: React.KeyboardEvent) {
@@ -250,7 +280,7 @@ export function ApplicationsTable({
                 cursor: 'pointer',
               }}
             >
-              <CompanyAvatar company={app.company} />
+              <CompanyAvatar company={app.company} showLogos={showLogos} />
 
               <span style={{ flex: 1, minWidth: 0, display: 'grid', gap: '1px' }}>
                 <span
@@ -324,6 +354,7 @@ export function ApplicationsTable({
                 applicationId={app.id}
                 currentStatus={app.status}
                 onStatusChange={(s) => onStatusChange(app.id, s)}
+                persist={persistStatus}
               />
             </span>
           </li>

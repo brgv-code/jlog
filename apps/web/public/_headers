@@ -1,0 +1,8 @@
+# Cloudflare Pages response headers.
+#
+# Preview deployments (one per commit and one per branch) are full copies of
+# the site on *.pages.dev. Without this they can be indexed and compete with
+# the real domain in search. The production pages.dev alias is left alone: its
+# canonical tag already points at the real domain.
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex
