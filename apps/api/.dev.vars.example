@@ -53,6 +53,12 @@ APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIGT...\n-----END PRIVATE KEY---
 RESEND_API_KEY=re_...
 EMAIL_FROM="jlog <login@yourdomain.com>"
 
+# Optional: invite-only sign-up. Addresses, or @domain for everyone at a domain,
+# separated by commas. Unset means anyone can create an account. People who
+# already have an account can always sign in. On Cloudflare, set it as a secret
+# (wrangler secret put ALLOWED_EMAILS) so the list stays out of the repo.
+# ALLOWED_EMAILS=you@example.com, @yourcompany.com
+
 # Optional: only needed when something in front of the worker rewrites the Host
 # header. Normally the origin is derived from the request.
 # API_ORIGIN=http://localhost:8787
