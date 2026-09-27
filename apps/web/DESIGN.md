@@ -180,7 +180,10 @@ grey (`.dim`); mono is for labels. Colour appears only inside the product
   - intake wiring: every kind of source (job boards, company sites, any job
     page, referrals), each marked with how it arrives (auto, one click, by
     hand), wired down a shared bus into jlog, with pulses on the wires;
-  - the exploded 3D stack, which separates on scroll with arrows to each layer
+  - the exploded 3D stack, in its own section after the features (the hero
+    is the intake wiring alone, one idea above the fold); it separates on
+    scroll with arrows to each layer, and its top layer, the CV, leads into
+    the tailored-CV trace
     (anchors sit on each layer's visible front edge, so an arrow can only
     land on its own layer);
   - "How it works", pinned while you scroll: a step index with an active bar, a

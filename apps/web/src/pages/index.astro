@@ -2,12 +2,11 @@
 /*
  * The homepage.
  *
- * One idea above the fold: applications arrive from six boards, are wired
- * into jlog, and become four things (the posting, the form, the record, the
- * CV). The intake is a wiring diagram; the four things are an exploded stack
- * of real UI in 3D that separates as you scroll, each layer labelled by an
- * arrow. Below: how it works (pinned), the six features, the tailored-CV
- * trace, pricing, open source, FAQ.
+ * One idea above the fold: applications arrive from anywhere and are wired
+ * into one list. Below: how it works (pinned), the six features, then the
+ * four layers of one application as an exploded 3D stack that separates as
+ * you scroll, each layer labelled by an arrow, leading into the tailored-CV
+ * trace (the top layer). Then pricing, open source, FAQ.
  *
  * Every claim is what the product does. Companies and people are invented.
  * The FAQ and the structured data are built from one list.
@@ -202,8 +201,8 @@ const jsonLd = [
 
       <!--
         Intake, drawn as a wiring diagram: each source has a wire that
-        runs down to a shared bus and into jlog, and from there into the stack
-        below. Small pulses travel the wires. Routed by the script, with square
+        runs down to a shared bus and into jlog. Small pulses travel the
+        wires. Routed by the script, with square
         corners softened, to match the page grid.
       -->
       <div class="intake" data-intake>
@@ -224,97 +223,6 @@ const jsonLd = [
           <span class="intake-mark">j</span>
           <span>one list</span>
         </p>
-      </div>
-
-      <!--
-        The exploded stack. Four layers of real UI, bottom to top: the posting,
-        the form, the record, the CV. They start almost flat and separate as the
-        page scrolls; each carries an anchor the arrows are drawn to.
-      -->
-      <div class="stage" data-stage aria-label="How one application moves through jlog: captured, filled, tracked, tailored">
-        <svg class="arrows" data-arrows aria-hidden="true">
-          <defs>
-            <marker id="tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M1 1 L8 5 L1 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
-            </marker>
-          </defs>
-        </svg>
-
-        <ol class="notes notes-left">
-          {
-            [notes[2], notes[0]].map((note) => note && (
-              <li class="note" data-note={note.n} style={`--o:${Number(note.n)}`}>
-                <span class="kicker-n">{note.n}</span>
-                <span class="note-t">{note.title}</span>
-                <span class="note-b">{note.body}</span>
-              </li>
-            ))
-          }
-        </ol>
-
-        <div class="scene" aria-hidden="true">
-          <div class="stack" data-stack>
-            <!-- 01 · the posting -->
-            <div class="layer frame l-post" style="--i:0">
-              <p class="frame-bar">boards.greenhouse.io/fabrikam</p>
-              <div class="l-body">
-                <p class="l-co">Fabrikam</p>
-                <p class="l-title">Senior Frontend Engineer, Payments</p>
-                <p class="l-sub">Berlin or remote (EU) · Full time</p>
-                <span class="bar"></span><span class="bar"></span><span class="bar bar-s"></span>
-                <span class="l-apply">Apply for this job</span>
-              </div>
-              <span class="anchor anchor-l" data-anchor="01"></span>
-            </div>
-
-            <!-- 02 · the form, filled -->
-            <div class="layer frame l-form" style="--i:1">
-              <p class="frame-bar">Fabrikam · application</p>
-              <div class="l-body">
-                <div class="field"><span>First name</span><b>Ada</b><i>✓</i></div>
-                <div class="field"><span>Email</span><b>ada.lovelace@example.com</b><i>✓</i></div>
-                <div class="field"><span>Phone</span><b>+1 202 555 0142</b><i>✓</i></div>
-                <div class="field"><span>Authorised to work in Germany?</span><b>Yes</b><i>✓</i></div>
-                <p class="l-foot"><span class="tag">Fill with jlog</span> 9 fields filled · submit is yours</p>
-              </div>
-              <span class="anchor anchor-r" data-anchor="02"></span>
-            </div>
-
-            <!-- 03 · the record -->
-            <div class="layer frame l-list" style="--i:2">
-              <p class="frame-bar">jlog · Applications</p>
-              <ul class="l-rows">
-                <li class="new"><span class="t">F</span><span>Senior Frontend Engineer · Fabrikam</span><span class="pill pill-applied">Applied</span></li>
-                <li><span class="t">N</span><span>Senior Frontend Engineer · Northwind</span><span class="pill pill-interviewing">Interview</span></li>
-                <li><span class="t">C</span><span>Senior Frontend Engineer · Contoso</span><span class="pill pill-offer">Offer</span></li>
-                <li><span class="t">W</span><span>Senior Frontend Engineer · Woodgrove</span><span class="pill pill-saved">Saved</span></li>
-              </ul>
-              <span class="anchor anchor-l" data-anchor="03"></span>
-            </div>
-
-            <!-- 04 · the tailored CV -->
-            <div class="layer sheet l-cv" style="--i:3">
-              <p class="cv-name">Ada Lovelace</p>
-              <p class="cv-sub">Senior Frontend Engineer · for Fabrikam</p>
-              <div class="cv-line"><span>Led the move of the checkout from jQuery to React without a feature freeze.</span><span class="tag tag-signal">line 7</span></div>
-              <div class="cv-line"><span>Cut p95 page load from 3.1s to 1.2s with code-splitting.</span><span class="tag tag-signal">line 8</span></div>
-              <div class="cv-line"><span>Owned the component library five product teams build on.</span><span class="tag">earlier</span></div>
-              <span class="anchor anchor-r" data-anchor="04"></span>
-            </div>
-          </div>
-        </div>
-
-        <ol class="notes notes-right">
-          {
-            [notes[3], notes[1]].map((note) => note && (
-              <li class="note" data-note={note.n} style={`--o:${Number(note.n)}`}>
-                <span class="kicker-n">{note.n}</span>
-                <span class="note-t">{note.title}</span>
-                <span class="note-b">{note.body}</span>
-              </li>
-            ))
-          }
-        </ol>
       </div>
     </section>
 
@@ -499,6 +407,110 @@ const jsonLd = [
         ))
       }
     </ul>
+
+    <!-- ─────────────── The stack ─────────────── -->
+    <section class="row stack-row" id="layers">
+      <div class="stack-head">
+        <div class="kicker"><span class="kicker-n">∗</span><span class="meta">How it fits together</span></div>
+        <h2 class="h2">Four layers,<br /><span class="dim">and your CV on top.</span></h2>
+        <p class="body">
+          The posting jlog captured tells it what the role asks for. Your profile filled the
+          form. The list knows where the application stands. And the CV on top is built only
+          from lines you already wrote.
+        </p>
+      </div>
+
+      <!--
+        The exploded stack. Four layers of real UI, bottom to top: the posting,
+        the form, the record, the CV. They start almost flat and separate as the
+        page scrolls; each carries an anchor the arrows are drawn to.
+      -->
+      <div class="stage" data-stage aria-label="How one application moves through jlog: captured, filled, tracked, tailored">
+        <svg class="arrows" data-arrows aria-hidden="true">
+          <defs>
+            <marker id="tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M1 1 L8 5 L1 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </marker>
+          </defs>
+        </svg>
+
+        <ol class="notes notes-left">
+          {
+            [notes[2], notes[0]].map((note) => note && (
+              <li class="note" data-note={note.n} style={`--o:${Number(note.n)}`}>
+                <span class="kicker-n">{note.n}</span>
+                <span class="note-t">{note.title}</span>
+                <span class="note-b">{note.body}</span>
+              </li>
+            ))
+          }
+        </ol>
+
+        <div class="scene" aria-hidden="true">
+          <div class="stack" data-stack>
+            <!-- 01 · the posting -->
+            <div class="layer frame l-post" style="--i:0">
+              <p class="frame-bar">boards.greenhouse.io/fabrikam</p>
+              <div class="l-body">
+                <p class="l-co">Fabrikam</p>
+                <p class="l-title">Senior Frontend Engineer, Payments</p>
+                <p class="l-sub">Berlin or remote (EU) · Full time</p>
+                <span class="bar"></span><span class="bar"></span><span class="bar bar-s"></span>
+                <span class="l-apply">Apply for this job</span>
+              </div>
+              <span class="anchor anchor-l" data-anchor="01"></span>
+            </div>
+
+            <!-- 02 · the form, filled -->
+            <div class="layer frame l-form" style="--i:1">
+              <p class="frame-bar">Fabrikam · application</p>
+              <div class="l-body">
+                <div class="field"><span>First name</span><b>Ada</b><i>✓</i></div>
+                <div class="field"><span>Email</span><b>ada.lovelace@example.com</b><i>✓</i></div>
+                <div class="field"><span>Phone</span><b>+1 202 555 0142</b><i>✓</i></div>
+                <div class="field"><span>Authorised to work in Germany?</span><b>Yes</b><i>✓</i></div>
+                <p class="l-foot"><span class="tag">Fill with jlog</span> 9 fields filled · submit is yours</p>
+              </div>
+              <span class="anchor anchor-r" data-anchor="02"></span>
+            </div>
+
+            <!-- 03 · the record -->
+            <div class="layer frame l-list" style="--i:2">
+              <p class="frame-bar">jlog · Applications</p>
+              <ul class="l-rows">
+                <li class="new"><span class="t">F</span><span>Senior Frontend Engineer · Fabrikam</span><span class="pill pill-applied">Applied</span></li>
+                <li><span class="t">N</span><span>Senior Frontend Engineer · Northwind</span><span class="pill pill-interviewing">Interview</span></li>
+                <li><span class="t">C</span><span>Senior Frontend Engineer · Contoso</span><span class="pill pill-offer">Offer</span></li>
+                <li><span class="t">W</span><span>Senior Frontend Engineer · Woodgrove</span><span class="pill pill-saved">Saved</span></li>
+              </ul>
+              <span class="anchor anchor-l" data-anchor="03"></span>
+            </div>
+
+            <!-- 04 · the tailored CV -->
+            <div class="layer sheet l-cv" style="--i:3">
+              <p class="cv-name">Ada Lovelace</p>
+              <p class="cv-sub">Senior Frontend Engineer · for Fabrikam</p>
+              <div class="cv-line"><span>Led the move of the checkout from jQuery to React without a feature freeze.</span><span class="tag tag-signal">line 7</span></div>
+              <div class="cv-line"><span>Cut p95 page load from 3.1s to 1.2s with code-splitting.</span><span class="tag tag-signal">line 8</span></div>
+              <div class="cv-line"><span>Owned the component library five product teams build on.</span><span class="tag">earlier</span></div>
+              <span class="anchor anchor-r" data-anchor="04"></span>
+            </div>
+          </div>
+        </div>
+
+        <ol class="notes notes-right">
+          {
+            [notes[3], notes[1]].map((note) => note && (
+              <li class="note" data-note={note.n} style={`--o:${Number(note.n)}`}>
+                <span class="kicker-n">{note.n}</span>
+                <span class="note-t">{note.title}</span>
+                <span class="note-b">{note.body}</span>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+    </section>
 
     <!-- ─────────────── Tailored CV ─────────────── -->
     <section class="row trace-row">
@@ -940,7 +952,7 @@ const jsonLd = [
     justify-items: center;
     text-align: center;
     padding-top: clamp(4rem, 9vw, 7rem);
-    padding-bottom: 0;
+    padding-bottom: clamp(3.5rem, 7vw, 5.5rem);
     overflow: hidden;
     background:
       radial-gradient(circle at 1px 1px, var(--line-2) 1px, transparent 1.5px) 0 0 / 22px 22px;
@@ -1106,13 +1118,40 @@ const jsonLd = [
 
   /* ---------- The stack ---------- */
 
+  .stack-row {
+    overflow: hidden;
+    padding-bottom: clamp(2rem, 5vw, 4rem);
+    background: radial-gradient(circle at 1px 1px, var(--line-2) 1px, transparent 1.5px) 0 0 / 22px
+      22px;
+  }
+
+  .stack-head {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .stack-head .kicker {
+    margin-bottom: 0.25rem;
+  }
+
+  .stack-head .body {
+    max-width: 56ch;
+  }
+
+  /* The top layer rises as the stack opens; leave it room under the copy. */
+  .stack-row .stage {
+    margin-top: clamp(5.5rem, 10vw, 8rem);
+  }
+
   .stage {
     position: relative;
     width: 100%;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 620px minmax(0, 1fr);
     align-items: center;
-    margin-top: 1.5rem;
+    margin-top: 2.5rem;
     color: var(--ink);
   }
 
