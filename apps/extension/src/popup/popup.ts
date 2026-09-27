@@ -156,12 +156,21 @@ function renderStatus(conn: Connection | null): void {
   if (!el) return;
   clear(el);
   el.className = 'status';
+  el.removeAttribute('title');
   if (!conn || conn.status === 'no-key') return;
 
   if (conn.status === 'active') {
     const soon = conn.expiresAt !== null && conn.expiresAt - Date.now() < RENEW_WARNING_MS;
     if (soon) el.className = 'status status-warn';
     el.appendChild(h('span', { class: 'status-dot' }));
+    // Name the account. The key decides which account's jobs the popup lists,
+    // not the site's login, so someone with two jlog accounts needs to see
+    // which one this browser is linked to.
+    if (conn.account?.email) {
+      el.title = `Linked to ${conn.account.email}`;
+      el.appendChild(h('span', { class: 'status-account' }, conn.account.email));
+      el.appendChild(document.createTextNode(' · '));
+    }
     el.appendChild(document.createTextNode(describeExpiry(conn.expiresAt)));
     return;
   }
