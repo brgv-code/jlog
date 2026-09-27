@@ -1,0 +1,582 @@
+---
+/*
+ * /features/autofill. Every claim is what apps/extension/src/lib/autofill.ts
+ * does, and the rules at the top of that file are this page's chapters:
+ *
+ * - it runs on Greenhouse, Lever and Ashby forms, in every frame, so a form a
+ *   company embeds in its own careers page works too (content/autofill.ts);
+ * - it fills only empty fields, from the CV profile and the saved answers;
+ * - visa, sponsorship, salary and EEO are filled only from saved values and
+ *   only when exactly one option fits; criminal history never;
+ * - it never submits, and its summary line is the one summarise() writes.
+ */
+import Chapter from '../../components/site/Chapter.astro';
+import FeatureEnd from '../../components/site/FeatureEnd.astro';
+import FeatureHero from '../../components/site/FeatureHero.astro';
+import { PERSON } from '../../data/demo';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+
+/* The hero form, in document order. `src` is where the value comes from. */
+const form: { label: string; value?: string; src?: 'profile' | 'saved'; left?: string }[] = [
+  { label: 'First name', value: PERSON.first, src: 'profile' },
+  { label: 'Last name', value: PERSON.last, src: 'profile' },
+  { label: 'Email', value: PERSON.email, src: 'profile' },
+  { label: 'Phone', value: PERSON.phone, src: 'saved' },
+  { label: 'Location', value: PERSON.city, src: 'profile' },
+  { label: 'LinkedIn profile', value: PERSON.linkedin, src: 'profile' },
+  { label: 'Are you authorised to work in Germany?', value: 'Yes', src: 'saved' },
+  { label: 'Salary expectation', value: '€85,000', src: 'saved' },
+  { label: 'Why do you want to join Fabrikam?', left: 'yours to write' },
+];
+const filled = form.filter((f) => f.value).length;
+
+/* Chapter 01: profile → form. */
+const profile = [
+  { id: 'p-name', k: 'Name', v: `${PERSON.first} ${PERSON.last}` },
+  { id: 'p-email', k: 'Email', v: PERSON.email },
+  { id: 'p-city', k: 'Location', v: PERSON.city },
+  { id: 'p-links', k: 'Links', v: `${PERSON.linkedin}, ${PERSON.github}` },
+];
+const fields = [
+  { id: 'f-first', label: 'First name', from: 'p-name' },
+  { id: 'f-last', label: 'Last name', from: 'p-name' },
+  { id: 'f-email', label: 'Email address', from: 'p-email' },
+  { id: 'f-loc', label: 'Current location', from: 'p-city' },
+  { id: 'f-li', label: 'LinkedIn URL', from: 'p-links' },
+  { id: 'f-gh', label: 'GitHub or portfolio', from: 'p-links' },
+];
+
+/* Chapter 02: the questions it must not guess, and what happens to each. */
+const saved = [
+  { k: 'Phone', v: PERSON.phone },
+  { k: 'Authorised to work in', v: 'Germany, the EU' },
+  { k: 'Salary expectation', v: '€85,000' },
+  { k: 'Notice period', v: PERSON.notice },
+  { k: 'Equal opportunity questions', v: 'Decline to answer' },
+];
+const questions = [
+  { q: 'Are you legally authorised to work in Germany?', a: 'Yes', how: 'from your saved answer' },
+  { q: 'Will you require visa sponsorship?', a: 'No', how: 'from your saved answer' },
+  { q: 'What are your salary expectations?', a: '€85,000', how: 'from your saved answer' },
+  { q: 'Gender', a: 'Decline to self-identify', how: 'only if that option exists' },
+  { q: 'Have you ever been convicted of a crime?', a: '', how: 'never answered' },
+];
+---
+
+<SiteLayout
+  title="Autofill for job applications, never submitted · jlog"
+  description="jlog fills the standard fields of Greenhouse, Lever and Ashby application forms from your profile. It never guesses visa or salary answers, and never presses submit."
+>
+  <div class="rail">
+    <FeatureHero
+      eyebrow="Autofill · Free"
+      lead="On Greenhouse, Lever and Ashby, one click fills the fields every form asks for from your jlog profile. You read what it wrote, finish what is yours, and press submit yourself."
+    >
+      <Fragment slot="title">Every form asks the same.<br /><span class="dim">You answer it once.</span></Fragment>
+
+      <div slot="visual" class="ui af-form" data-play="9000" aria-label={`An application form for Fabrikam with ${filled} fields filled by jlog and one left for Ada`}>
+        <p class="frame-bar">boards.greenhouse.io/fabrikam · Apply</p>
+        <div class="ui-body af-fields">
+          {
+            form.map((f, i) => (
+              <label class="ui-field" style={`--d:${i}`}>
+                <span>{f.label}</span>
+                <span class={f.left ? 'ui-input left' : 'ui-input'}>
+                  {f.value ? (
+                    <>
+                      <b>{f.value}</b>
+                      <span class={f.src === 'saved' ? 'src src-saved' : 'src'}>{f.src === 'saved' ? 'saved answer' : 'profile'}</span>
+                    </>
+                  ) : (
+                    <span class="af-left">{f.left}</span>
+                  )}
+                </span>
+              </label>
+            ))
+          }
+          <div class="af-foot">
+            <span class="af-submit">Submit application</span>
+            <p class="jtoast af-summary">
+              <span class="jmark">j</span>
+              <span>
+                <b>Filled {filled} fields.</b> 1 required field left for you. Review before you submit.
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </FeatureHero>
+
+    <Chapter n="01" label="What it fills" id="how">
+      <Fragment slot="title">From your profile,<br /><span class="dim">into the empty fields.</span></Fragment>
+      <p>
+        Name, email, location and links come from the profile jlog read out of your CV. They go
+        into the fields every form has, however each form happens to label them.
+      </p>
+      <p>
+        <strong>Only empty fields.</strong> Anything you or your browser already typed stays as
+        it is.
+      </p>
+      <div slot="visual" class="wired af-map" data-wired>
+        <svg class="wires" aria-hidden="true"></svg>
+        <div class="ui af-profile">
+          <p class="frame-bar">jlog · your profile</p>
+          <ul class="ui-body">
+            {
+              profile.map((p) => (
+                <li class="af-p" data-to={fields.filter((f) => f.from === p.id).map((f) => f.id).join(' ')}>
+                  <span class="meta">{p.k}</span>
+                  <b>{p.v}</b>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+        <div class="ui af-target">
+          <p class="frame-bar">the form</p>
+          <ul class="ui-body">
+            {fields.map((f) => <li class="ui-input" data-id={f.id}><span>{f.label}</span><span class="src">✓</span></li>)}
+          </ul>
+        </div>
+      </div>
+    </Chapter>
+
+    <Chapter n="02" label="What it never guesses" flip tint>
+      <Fragment slot="title">Visa and salary<br /><span class="dim">come from you, once.</span></Fragment>
+      <p>
+        Questions about work authorisation, sponsorship, pay and equal opportunity are spotted
+        before anything else. jlog answers them only from values you saved in Settings, and only
+        when exactly one option on the form fits.
+      </p>
+      <p>
+        <strong>Criminal history is never answered</strong>, whatever you saved. A question it
+        is unsure about stays empty: a gap you can see beats a wrong answer sent under your name.
+      </p>
+      <div slot="visual" class="af-sensitive" data-play>
+        <div class="ui af-saved">
+          <p class="frame-bar">jlog · Settings · Application answers</p>
+          <dl class="ui-body">
+            {
+              saved.map((s) => (
+                <div>
+                  <dt>{s.k}</dt>
+                  <dd>{s.v}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </div>
+        <ul class="af-q">
+          {
+            questions.map((q, i) => (
+              <li style={`--d:${i}`} class={q.a ? undefined : 'never'}>
+                <span class="af-q-q">{q.q}</span>
+                <span class="af-q-a">
+                  {q.a ? <b>{q.a}</b> : <b>—</b>}
+                  <span class={q.a ? 'src src-saved' : 'src'}>{q.how}</span>
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </Chapter>
+
+    <Chapter n="03" label="What it never does">
+      <Fragment slot="title">It never presses<br /><span class="dim">submit.</span></Fragment>
+      <p>
+        Nothing in the extension clicks a button or sends a form. When it is done it says what it
+        did and what it left, and the last step is yours.
+      </p>
+      <p>
+        Open questions like “Why Fabrikam?” stay empty. On Pro, a small icon in the field offers
+        a draft built from your real experience, with the facts it used listed underneath.
+      </p>
+      <div slot="visual" class="af-end" data-play="7000">
+        <div class="ui">
+          <p class="frame-bar">boards.greenhouse.io/fabrikam · Apply</p>
+          <div class="ui-body">
+            <label class="ui-field">
+              <span>Why do you want to join Fabrikam? *</span>
+              <span class="ui-input left af-textarea">
+                <span class="af-left">Required · left for you</span>
+                <span class="af-draft" title="Draft with jlog (Pro)">✎ Draft</span>
+              </span>
+            </label>
+            <div class="af-foot">
+              <span class="af-submit af-submit-big">Submit application<span class="af-hand">you press this</span></span>
+            </div>
+          </div>
+        </div>
+        <p class="jtoast af-summary-2">
+          <span class="jmark">j</span>
+          <span><b>Filled 8 fields.</b> 1 required field left for you. 1 question on visa, pay or EEO left untouched. Review before you submit.</span>
+        </p>
+      </div>
+    </Chapter>
+
+    <Chapter n="04" label="Where it works" flip tint>
+      <Fragment slot="title">Greenhouse, Lever, Ashby.<br /><span class="dim">Even inside a careers page.</span></Fragment>
+      <p>
+        Many companies put a Greenhouse or Ashby form inside their own site. jlog runs inside that
+        embedded form too, so the button shows up on the company's page, not only on the board.
+      </p>
+      <p>
+        On other forms it stays quiet: fewer than two fields it recognises means the page is a
+        posting, not a form.
+      </p>
+      <div slot="visual" class="ui af-embed">
+        <p class="frame-bar">northwind.com/careers/senior-frontend-engineer</p>
+        <div class="ui-body">
+          <p class="af-co">Northwind</p>
+          <p class="af-role">Senior Frontend Engineer</p>
+          <span class="bar"></span><span class="bar bar-s"></span>
+          <div class="af-iframe">
+            <p class="meta">embedded · job-boards.greenhouse.io</p>
+            <span class="ui-input"><span>First name</span></span>
+            <span class="ui-input"><span>Email</span></span>
+            <span class="af-fill">Fill with jlog</span>
+          </div>
+        </div>
+      </div>
+    </Chapter>
+
+    <FeatureEnd
+      rules={[
+        { head: 'Only empty fields.', body: 'What you typed is never overwritten.' },
+        { head: 'Never guessed.', body: 'Visa, pay and EEO come from your saved answers or stay empty.' },
+        { head: 'Never submitted.', body: 'jlog fills. You read, and you press submit.' },
+      ]}
+      cta={{ label: 'Get the extension', href: '/login', note: 'Free · Greenhouse, Lever and Ashby' }}
+      next={{ label: 'Job capture: every application, recorded', href: '/features/job-capture' }}
+    />
+  </div>
+</SiteLayout>
+
+<script>
+  import { play, wires } from '../../scripts/site-motion';
+  play();
+  wires();
+</script>
+
+<style>
+  /* ---------- Hero form ---------- */
+
+  .af-form {
+    max-width: 520px;
+    justify-self: center;
+    width: 100%;
+  }
+
+  .af-fields {
+    gap: 0.55rem;
+  }
+
+  .af-form .ui-input b,
+  .af-form .ui-input .src {
+    opacity: 0;
+    transition: opacity 250ms var(--ease) calc(400ms + var(--d) * 260ms);
+  }
+
+  .af-form .ui-input {
+    transition: border-color 250ms var(--ease) calc(400ms + var(--d) * 260ms),
+      background 250ms var(--ease) calc(400ms + var(--d) * 260ms);
+  }
+
+  .af-form.run .ui-input:not(.left) {
+    border-color: var(--ink);
+    background: var(--bg-2);
+  }
+
+  .af-form.run .ui-input b,
+  .af-form.run .ui-input .src {
+    opacity: 1;
+  }
+
+  .af-left {
+    font-size: 0.75rem;
+  }
+
+  .af-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.4rem;
+  }
+
+  .af-submit {
+    padding: 0.45rem 0.8rem;
+    border: 1px dashed var(--grey-2);
+    border-radius: 6px;
+    color: var(--grey);
+    font-size: 0.75rem;
+  }
+
+  .af-summary {
+    max-width: 300px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 400ms var(--ease) 3s,
+      transform 500ms var(--ease) 3s;
+  }
+
+  .af-form.run .af-summary {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ---------- 01 map ---------- */
+
+  .af-map {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+    gap: 4rem;
+    align-items: center;
+  }
+
+  .af-map ul {
+    list-style: none;
+  }
+
+  .af-p {
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  .af-p:last-child {
+    border-bottom: 0;
+  }
+
+  .af-p b {
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+
+  .af-target .ui-input span:first-child {
+    color: var(--ink-2);
+  }
+
+  .af-target .src {
+    color: var(--st-offer);
+  }
+
+  /* ---------- 02 sensitive ---------- */
+
+  .af-sensitive {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .af-saved dl > div {
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  .af-saved dl > div:last-child {
+    border-bottom: 0;
+  }
+
+  .af-saved dt {
+    font-size: 0.6875rem;
+    color: var(--grey);
+  }
+
+  .af-saved dd {
+    font-weight: 500;
+  }
+
+  .af-q {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .af-q li {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 10px;
+    background: var(--bg);
+    box-shadow: var(--shadow);
+    font-size: 0.8125rem;
+  }
+
+  .af-q-a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .af-q-a b {
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 300ms var(--ease) calc(300ms + var(--d) * 350ms);
+  }
+
+  .af-sensitive.run .af-q-a b {
+    opacity: 1;
+  }
+
+  .af-q li.never {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--line-2);
+  }
+
+  .af-q li.never .af-q-q {
+    color: var(--grey);
+  }
+
+  /* ---------- 03 never submits ---------- */
+
+  .af-end {
+    display: grid;
+    gap: 1rem;
+    justify-items: start;
+  }
+
+  .af-end .ui {
+    width: 100%;
+  }
+
+  .af-textarea {
+    min-height: 5rem;
+    align-items: flex-start;
+  }
+
+  .af-draft {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    padding: 0.1rem 0.4rem;
+    background: var(--bg);
+  }
+
+  .af-submit-big {
+    position: relative;
+    font-size: 0.875rem;
+    padding: 0.6rem 1.1rem;
+  }
+
+  .af-hand {
+    position: absolute;
+    left: calc(100% + 0.75rem);
+    top: 50%;
+    translate: 0 -50%;
+    white-space: nowrap;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--ink);
+  }
+
+  .af-hand::before {
+    content: '←';
+    margin-right: 0.4rem;
+  }
+
+  .af-summary-2 {
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 400ms var(--ease) 400ms,
+      transform 500ms var(--ease) 400ms;
+  }
+
+  .af-end.run .af-summary-2 {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ---------- 04 embedded ---------- */
+
+  .af-embed .ui-body {
+    gap: 0.5rem;
+  }
+
+  .af-co {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+
+  .af-role {
+    font-weight: 600;
+    font-size: 1.0625rem;
+    letter-spacing: -0.02em;
+  }
+
+  .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-3);
+  }
+
+  .bar-s {
+    width: 60%;
+  }
+
+  .af-iframe {
+    position: relative;
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    padding: 0.875rem;
+    border: 1px dashed var(--grey-2);
+    border-radius: 10px;
+  }
+
+  .af-fill {
+    justify-self: end;
+    margin-top: 0.25rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 0.75rem;
+    box-shadow: var(--shadow-float);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .af-fill {
+      animation: nudge 2.8s var(--ease) infinite;
+    }
+  }
+
+  @keyframes nudge {
+    0%,
+    70%,
+    100% {
+      transform: none;
+    }
+    80% {
+      transform: translateY(-3px);
+    }
+  }
+
+  @media (max-width: 720px) {
+    .af-map,
+    .af-sensitive {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
+    }
+
+    .af-hand {
+      position: static;
+      display: block;
+      translate: none;
+      margin-top: 0.35rem;
+    }
+  }
+</style>

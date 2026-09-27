@@ -8,12 +8,15 @@ interface Props {
   description?: string;
   /** Social card, resolved against `site` in astro.config.mjs. */
   ogImage?: string;
+  /** A class on <body>; marketing pages pass `site` for their own design system. */
+  bodyClass?: string;
 }
 
 const {
   title = 'jlog — Job Application Tracker',
   description = 'Track your job applications — open source, self-hostable.',
   ogImage = '/og.png',
+  bodyClass,
 } = Astro.props;
 
 /*
@@ -67,8 +70,9 @@ const ogImageUrl = site ? new URL(ogImage, site).href : undefined;
         (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     </script>
+    <slot name="head" />
   </head>
-  <body>
+  <body class={bodyClass}>
     <slot />
   </body>
 </html>

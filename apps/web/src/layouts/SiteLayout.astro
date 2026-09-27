@@ -1,0 +1,473 @@
+---
+/*
+ * Marketing pages: the site's own design system (styles/site.css), a nav with
+ * a Product menu, and a footer. Wraps Layout for the head, so canonical and
+ * social-card tags stay in one place.
+ *
+ * The Product menu lists only what exists. A feature with its own page links
+ * to it; the rest point at their section of the homepage until they get one.
+ */
+import geistMono from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url';
+import geist from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
+import '../styles/site.css';
+import Layout from './Layout.astro';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+
+const GITHUB_URL = 'https://github.com/brgv-code/jlog';
+
+const product = [
+  { href: '/features/tailored-cv', label: 'Tailored CV', note: 'every line has a source' },
+  { href: '/features/autofill', label: 'Autofill', note: 'fills forms, never submits' },
+  { href: '/features/job-capture', label: 'Job capture', note: 'from any board or page' },
+  { href: '/features/tracking', label: 'Tracking', note: 'saved to offer, in one list' },
+];
+
+const resources = [
+  { href: '/docs', label: 'Docs', note: 'using jlog, and self-hosting it' },
+  { href: GITHUB_URL, label: 'GitHub', note: 'the source, MIT licensed' },
+  { href: '/privacy', label: 'Privacy', note: 'what is stored, in plain words' },
+];
+
+const path = Astro.url.pathname.replace(/\/$/, '');
+---
+
+<Layout title={title} description={description} bodyClass="site">
+  <!--
+    Both faces are needed for the first paint. Fetched late, their swap
+    reflows text that is already laid out, which is most of the layout shift a
+    text-heavy page like the docs would otherwise have.
+  -->
+  <Fragment slot="head">
+    <link rel="preload" as="font" type="font/woff2" href={geist} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={geistMono} crossorigin />
+  </Fragment>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="nav">
+    <div class="wrap nav-row">
+      <a href="/" class="mark" aria-label="jlog home">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="currentColor"></rect>
+          <circle cx="20" cy="6.5" r="2.2" fill="#fff"></circle>
+          <path d="M20 12.5 V19.5 A4.25 4.25 0 0 1 11.5 19.5" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none"></path>
+        </svg>
+        <span>jlog</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main">
+        <details class="menu" data-menu>
+          <summary>Product</summary>
+          <ul class="menu-panel">
+            {
+              product.map((p) => (
+                <li>
+                  <a href={p.href} aria-current={path === p.href ? 'page' : undefined}>
+                    <span class="menu-label">{p.label}</span>
+                    <span class="menu-note">{p.note}</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </details>
+        <details class="menu" data-menu>
+          <summary>Resources</summary>
+          <ul class="menu-panel">
+            {
+              resources.map((r) => (
+                <li>
+                  <a href={r.href} {...(r.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                    <span class="menu-label">{r.label}</span>
+                    <span class="menu-note">{r.note}</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </details>
+        <a href="/#pricing">Pricing</a>
+      </nav>
+
+      <div class="nav-cta">
+        <a href="/login" class="signin">Sign in</a>
+        <a href="/login" class="btn btn-ink nav-btn">Get started</a>
+        <!-- Phones: one menu with everything the desktop nav spreads out. -->
+        <details class="mnav" data-menu>
+          <summary aria-label="Menu"><span></span><span></span></summary>
+          <div class="mnav-panel">
+            <p class="meta">Product</p>
+            <ul>
+              {
+                product.map((p) => (
+                  <li>
+                    <a href={p.href} aria-current={path === p.href ? 'page' : undefined}>
+                      <span class="menu-label">{p.label}</span>
+                      <span class="menu-note">{p.note}</span>
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+            <p class="meta">Resources</p>
+            <ul class="mnav-row">
+              <li><a href="/#pricing">Pricing</a></li>
+              {resources.map((r) => <li><a href={r.href}>{r.label}</a></li>)}
+            </ul>
+            <a href="/login" class="btn btn-line mnav-signin">Sign in</a>
+          </div>
+        </details>
+      </div>
+    </div>
+  </header>
+
+  <main id="content">
+    <slot />
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-row">
+      <p class="foot-line"><span class="foot-brand">jlog</span> Job applications, without the busywork.</p>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="/features/job-capture">Job capture</a>
+        <a href="/features/autofill">Autofill</a>
+        <a href="/features/tracking">Tracking</a>
+        <a href="/features/tailored-cv">Tailored CV</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="/docs">Docs</a>
+        <a href="/privacy">Privacy</a>
+        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href={`${GITHUB_URL}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">
+          MIT licence
+        </a>
+      </nav>
+    </div>
+  </footer>
+</Layout>
+
+<script>
+  // Menus close on outside click, on Escape, and when another one opens.
+  const menus = [...document.querySelectorAll<HTMLDetailsElement>('[data-menu]')];
+  for (const menu of menus) {
+    menu.addEventListener('toggle', () => {
+      if (menu.open) for (const other of menus) if (other !== menu) other.open = false;
+    });
+  }
+  document.addEventListener('click', (e) => {
+    for (const menu of menus) {
+      if (menu.open && !menu.contains(e.target as Node)) menu.open = false;
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    for (const menu of menus) {
+      if (menu.open) {
+        menu.open = false;
+        menu.querySelector('summary')?.focus();
+      }
+    }
+  });
+
+  // Reveal on scroll, once. Without the observer everything is simply shown.
+  const items = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in');
+            io.unobserve(entry.target);
+          }
+        }
+      },
+      { rootMargin: '0px 0px -10% 0px' },
+    );
+    for (const el of items) io.observe(el);
+  } else {
+    for (const el of items) el.classList.add('in');
+  }
+</script>
+
+<style>
+  .skip {
+    position: absolute;
+    left: -9999px;
+  }
+
+  .skip:focus {
+    left: 1rem;
+    top: 1rem;
+    z-index: 100;
+    background: var(--bg);
+    padding: 0.5rem 0.75rem;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgb(255 255 255 / 0.8);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-row {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    height: 64px;
+  }
+
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.0625rem;
+    letter-spacing: -0.03em;
+  }
+
+  .mark svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .nav-btn {
+    height: 2.25rem;
+    padding: 0 0.875rem;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: var(--t-small);
+  }
+
+  .nav-links > a,
+  .menu summary {
+    color: var(--ink-2);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .nav-links > a:hover,
+  .menu summary:hover {
+    color: var(--ink);
+  }
+
+  .menu {
+    position: relative;
+  }
+
+  .menu summary {
+    list-style: none;
+  }
+
+  .menu summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .menu summary::after {
+    content: '▾';
+    margin-left: 0.3rem;
+    font-size: 0.7em;
+    color: var(--grey);
+  }
+
+  .menu-panel {
+    position: absolute;
+    top: calc(100% + 14px);
+    left: -1rem;
+    width: 280px;
+    list-style: none;
+    padding: 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 16px 40px -24px rgb(23 21 15 / 0.4);
+  }
+
+  .menu-panel a {
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+
+  .menu-panel a:hover,
+  .menu-panel a[aria-current='page'] {
+    background: var(--bg-2);
+  }
+
+  .menu-label {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .menu-note {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--grey);
+  }
+
+  .nav-cta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    font-size: var(--t-small);
+  }
+
+  .signin {
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+
+  .foot {
+    border-top: 1px solid var(--line);
+    padding: 3rem 0;
+  }
+
+  .foot-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .foot-line {
+    color: var(--ink-2);
+    font-size: var(--t-small);
+  }
+
+  .foot-brand {
+    font-weight: 600;
+    color: var(--ink);
+    margin-right: 0.75rem;
+    letter-spacing: -0.03em;
+  }
+
+  .foot-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    font-size: var(--t-small);
+  }
+
+  .foot-links a {
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+
+  .foot-links a:hover {
+    color: var(--ink);
+  }
+
+  .mnav {
+    display: none;
+  }
+
+  @media (max-width: 760px) {
+    .nav-row {
+      gap: 0.75rem;
+      height: 56px;
+    }
+
+    .nav-links,
+    .signin {
+      display: none;
+    }
+
+    .mnav {
+      display: block;
+    }
+
+    .mnav summary {
+      list-style: none;
+      display: grid;
+      place-content: center;
+      gap: 5px;
+      width: 2.25rem;
+      height: 2.25rem;
+      border: 1px solid var(--line-2);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .mnav summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .mnav summary span {
+      display: block;
+      width: 14px;
+      height: 1.5px;
+      background: var(--ink);
+      transition: transform 200ms var(--ease);
+    }
+
+    .mnav[open] summary span:first-child {
+      transform: translateY(3.25px) rotate(45deg);
+    }
+
+    .mnav[open] summary span:last-child {
+      transform: translateY(-3.25px) rotate(-45deg);
+    }
+
+    /* Full width under the bar, like a sheet. */
+    .mnav-panel {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: 56px;
+      max-height: calc(100dvh - 56px);
+      overflow-y: auto;
+      display: grid;
+      gap: 0.5rem;
+      padding: 1rem var(--gutter) 1.5rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 24px 40px -24px rgb(0 0 0 / 0.25);
+    }
+
+    .mnav-panel ul {
+      list-style: none;
+      display: grid;
+    }
+
+    .mnav-panel li a {
+      display: grid;
+      gap: 0.1rem;
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--line);
+      text-decoration: none;
+    }
+
+    .mnav-panel .meta {
+      margin-top: 0.75rem;
+    }
+
+    .mnav-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 1rem;
+    }
+
+    .mnav-row a {
+      font-weight: 500;
+    }
+
+    .mnav-signin {
+      justify-content: center;
+      margin-top: 1rem;
+    }
+  }
+</style>

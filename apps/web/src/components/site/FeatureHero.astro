@@ -1,0 +1,29 @@
+---
+/*
+ * The top of a feature page: what it is on the left, the feature itself
+ * working on the right (the `visual` slot). Stacks on narrow screens with the
+ * visual second, so the claim is read before the demo plays.
+ */
+interface Props {
+  eyebrow: string;
+  lead: string;
+  cta?: { label: string; href: string };
+}
+
+const { eyebrow, lead, cta = { label: 'Get started for free', href: '/login' } } = Astro.props;
+---
+
+<section class="row fp-hero">
+  <div class="fp-copy">
+    <p class="meta fp-eyebrow">{eyebrow}</p>
+    <h1 class="display fp-title"><slot name="title" /></h1>
+    <p class="lead fp-lead">{lead}</p>
+    <div class="fp-cta">
+      <a class="btn btn-ink" href={cta.href}>{cta.label}</a>
+      <a class="btn btn-line" href="#how">See how it works</a>
+    </div>
+  </div>
+  <div class="fp-visual reveal">
+    <slot name="visual" />
+  </div>
+</section>

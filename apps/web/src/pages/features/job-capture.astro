@@ -1,0 +1,497 @@
+---
+/*
+ * /features/job-capture. Three ways in, each what the code does:
+ *
+ * - six boards are watched by content scripts (apps/extension/src/content),
+ *   which record company, role and link when an application is sent;
+ * - anywhere else, the popup's "Extract with AI" sends the page to the model
+ *   the user configured (routes/llm.ts), which returns company, role and
+ *   location; the user confirms them, and the description, before saving;
+ * - anything else is added by hand (AddApplicationDialog).
+ */
+import Chapter from '../../components/site/Chapter.astro';
+import FeatureEnd from '../../components/site/FeatureEnd.astro';
+import FeatureHero from '../../components/site/FeatureHero.astro';
+import { APPLICATIONS, STATUS_LABEL, shortRole } from '../../data/demo';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+
+const BOARDS = [
+  { name: 'LinkedIn', host: 'linkedin.com/jobs' },
+  { name: 'Greenhouse', host: 'boards.greenhouse.io' },
+  { name: 'Lever', host: 'jobs.lever.co' },
+  { name: 'Ashby', host: 'jobs.ashbyhq.com' },
+  { name: 'Wellfound', host: 'wellfound.com/jobs' },
+  { name: 'YC Jobs', host: 'workatastartup.com' },
+];
+
+const list = APPLICATIONS.slice(1, 5);
+---
+
+<SiteLayout
+  title="Job application capture from LinkedIn, Greenhouse and Lever · jlog"
+  description="jlog records the jobs you apply to on LinkedIn, Greenhouse, Lever, Ashby, Wellfound and YC as you apply. Anywhere else, one click reads the posting. No spreadsheet."
+>
+  <div class="rail">
+    <FeatureHero
+      eyebrow="Job capture · Free"
+      lead="Apply the way you already do. On six boards jlog notices the application and writes the row. Anywhere else, one click reads the posting. The spreadsheet stays closed."
+    >
+      <Fragment slot="title">Apply once.<br /><span class="dim">It is already written down.</span></Fragment>
+
+      <div slot="visual" class="jc-hero" data-play="8000" aria-label="Ada applies to Fabrikam on Greenhouse, and the application appears at the top of her jlog list">
+        <div class="ui jc-page">
+          <p class="frame-bar">boards.greenhouse.io/fabrikam</p>
+          <div class="ui-body">
+            <p class="jc-co">Fabrikam</p>
+            <p class="jc-role">Senior Frontend Engineer, Payments</p>
+            <p class="jc-sub">Berlin or remote (EU)</p>
+            <div class="jc-sent">
+              <span class="jc-check">✓</span>
+              <span>Your application has been submitted</span>
+            </div>
+          </div>
+        </div>
+        <div class="jc-wire" aria-hidden="true"><span></span></div>
+        <div class="ui jc-list">
+          <p class="frame-bar">jlog · Applications</p>
+          <ul class="ui-body">
+            <li class="jc-new">
+              <span class="t">F</span>
+              <span class="jc-r"><b>Fabrikam</b><span>Senior Frontend Engineer, Payments</span></span>
+              <span class="pill pill-applied">Applied</span>
+            </li>
+            {
+              list.map((a) => (
+                <li>
+                  <span class="t">{a.co[0]}</span>
+                  <span class="jc-r"><b>{a.co}</b><span>{shortRole(a.role)}</span></span>
+                  <span class={`pill pill-${a.st}`}>{STATUS_LABEL[a.st]}</span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </div>
+    </FeatureHero>
+
+    <Chapter n="01" label="Six boards, automatically" id="how">
+      <Fragment slot="title">It notices<br /><span class="dim">when you apply.</span></Fragment>
+      <p>
+        On LinkedIn, Greenhouse, Lever, Ashby, Wellfound and YC's job board the extension waits
+        for the moment an application is sent. Then it records the company, the role and the
+        link, dated today, with status Applied.
+      </p>
+      <p><strong>That is all it records there.</strong> It does not read the rest of the page.</p>
+      <div slot="visual" class="jc-boards" data-play>
+        <ul class="jc-grid">
+          {
+            BOARDS.map((b, i) => (
+              <li style={`--d:${i}`}>
+                <b>{b.name}</b>
+                <span class="meta">{b.host}</span>
+                <span class="jc-tick">saved as you apply</span>
+              </li>
+            ))
+          }
+        </ul>
+        <pre class="ui jc-record" aria-label="The record jlog writes"><span class="c">{'// the row, and nothing more'}</span>
+{'{'}
+  company: <b>"Fabrikam"</b>,
+  role:    <b>"Senior Frontend Engineer, Payments"</b>,
+  link:    <b>"boards.greenhouse.io/fabrikam/…"</b>,
+  source:  <b>"greenhouse"</b>,
+  status:  <b>"applied"</b>,
+  date:    <b>"2026-09-27"</b>
+{'}'}</pre>
+      </div>
+    </Chapter>
+
+    <Chapter n="02" label="Anywhere else, one click" flip tint>
+      <Fragment slot="title">Any posting,<br /><span class="dim">read in one click.</span></Fragment>
+      <p>
+        On a careers page or any other site, open the extension and press <strong>Extract with
+        AI</strong>. The page goes to the model you configured, and comes back as company, role
+        and location.
+      </p>
+      <p>
+        You see the result before anything is saved, fix what it got wrong, and keep the
+        description with the application.
+      </p>
+      <div slot="visual" class="wired jc-extract" data-wired>
+        <svg class="wires" aria-hidden="true"></svg>
+        <div class="ui jc-raw">
+          <p class="frame-bar">tailspin.dev/jobs/frontend</p>
+          <div class="ui-body jc-raw-body">
+            <p><mark data-to="x-co">Tailspin</mark> is hiring</p>
+            <p class="jc-h"><mark data-to="x-role">Senior Frontend Developer</mark></p>
+            <p class="jc-muted">
+              Join the team building our booking flow. You will work across React and TypeScript,
+              pair with design, and ship every week. <mark data-to="x-loc">Remote within Germany</mark>, with a team week in Hamburg each quarter.
+            </p>
+            <span class="bar"></span><span class="bar"></span><span class="bar bar-s"></span>
+          </div>
+        </div>
+        <div class="ui jc-confirm">
+          <p class="frame-bar">jlog · confirm</p>
+          <div class="ui-body">
+            <label class="ui-field"><span>Company</span><span class="ui-input" data-id="x-co"><b>Tailspin</b></span></label>
+            <label class="ui-field"><span>Role</span><span class="ui-input" data-id="x-role"><b>Senior Frontend Developer</b></span></label>
+            <label class="ui-field"><span>Location</span><span class="ui-input" data-id="x-loc"><b>Remote within Germany</b></span></label>
+            <span class="jc-save">Save application</span>
+          </div>
+        </div>
+      </div>
+    </Chapter>
+
+    <Chapter n="03" label="Everything else, by hand">
+      <Fragment slot="title">A referral, a call,<br /><span class="dim">a coffee chat.</span></Fragment>
+      <p>
+        Some applications never touch a job board: a friend passes your CV on, a recruiter calls.
+        Add them in the app with the same fields, so the list is the whole search and not only
+        the part that happened online.
+      </p>
+      <div slot="visual" class="ui jc-manual">
+        <p class="frame-bar">jlog · Add application</p>
+        <div class="ui-body jc-manual-body">
+          <label class="ui-field"><span>Company</span><span class="ui-input"><b>Contoso</b></span></label>
+          <label class="ui-field"><span>Role</span><span class="ui-input"><b>Senior Frontend Engineer, Design Systems</b></span></label>
+          <label class="ui-field"><span>Status</span><span class="ui-input"><b>Applied</b><span class="src">▾</span></span></label>
+          <label class="ui-field"><span>Applied on</span><span class="ui-input"><b>2 Sep 2026</b></span></label>
+          <label class="ui-field jc-wide"><span>Notes</span><span class="ui-input jc-notes"><b>Referred by a former colleague from Ledgerline.</b></span></label>
+        </div>
+      </div>
+    </Chapter>
+
+    <FeatureEnd
+      rules={[
+        { head: 'Only the row.', body: 'On the six boards: company, role, link. Nothing else from the page.' },
+        { head: 'Only when you ask.', body: 'Any other page is read when you press Extract, not before.' },
+        { head: 'Always yours to fix.', body: 'Every field can be edited, and nothing is sent to an employer.' },
+      ]}
+      cta={{ label: 'Get the extension', href: '/login', note: 'Free · six boards, any page' }}
+      next={{ label: 'Tracking: saved to offer, in one list', href: '/features/tracking' }}
+    />
+  </div>
+</SiteLayout>
+
+<script>
+  import { play, wires } from '../../scripts/site-motion';
+  play();
+  wires();
+</script>
+
+<style>
+  /* ---------- Hero ---------- */
+
+  .jc-hero {
+    display: grid;
+    gap: 0;
+    justify-items: center;
+    max-width: 500px;
+    width: 100%;
+    justify-self: center;
+  }
+
+  .jc-hero .ui {
+    width: 100%;
+  }
+
+  .jc-co {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+
+  .jc-role {
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .jc-sub {
+    color: var(--grey);
+    font-size: 0.75rem;
+  }
+
+  .jc-sent {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    background: rgb(21 128 61 / 0.08);
+    color: #166534;
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 400ms var(--ease) 600ms;
+  }
+
+  .jc-check {
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    background: #15803d;
+    color: #fff;
+    font-size: 0.625rem;
+  }
+
+  .jc-wire {
+    position: relative;
+    width: 1px;
+    height: 48px;
+    background: var(--line-2);
+  }
+
+  .jc-wire span {
+    position: absolute;
+    left: -2px;
+    top: 0;
+    width: 5px;
+    height: 5px;
+    background: var(--ink);
+    opacity: 0;
+  }
+
+  .jc-list ul {
+    list-style: none;
+    gap: 0;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .jc-list li {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr auto;
+    gap: 0.625rem;
+    align-items: center;
+    padding: 0.45rem 0.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .jc-list li:last-child {
+    border-bottom: 0;
+  }
+
+  .t {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+    background: var(--bg-3);
+    font-weight: 600;
+    font-size: 0.6875rem;
+  }
+
+  .jc-r {
+    display: grid;
+    line-height: 1.3;
+    min-width: 0;
+  }
+
+  .jc-r b {
+    font-weight: 600;
+  }
+
+  .jc-r span {
+    color: var(--grey);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .jc-new {
+    background: var(--bg-2);
+    border-radius: 6px;
+    opacity: 0;
+    transition: opacity 400ms var(--ease) 1.9s;
+  }
+
+  .jc-list li:not(.jc-new) {
+    transform: translateY(-2.4rem);
+    transition: transform 600ms var(--ease) 1.7s;
+  }
+
+  .jc-hero.run .jc-sent,
+  .jc-hero.run .jc-new {
+    opacity: 1;
+  }
+
+  .jc-hero.run .jc-list li:not(.jc-new) {
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .jc-hero.run .jc-wire span {
+      animation: drop 700ms linear 1s both;
+    }
+  }
+
+  @keyframes drop {
+    0% {
+      opacity: 1;
+      top: 0;
+    }
+    100% {
+      opacity: 1;
+      top: 100%;
+    }
+  }
+
+  /* ---------- 01 boards ---------- */
+
+  .jc-boards {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .jc-grid {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .jc-grid li {
+    display: grid;
+    gap: 0.15rem;
+    padding: 0.7rem 0.8rem;
+    border-radius: 10px;
+    background: var(--bg);
+    box-shadow: var(--shadow);
+  }
+
+  .jc-grid .meta {
+    text-transform: none;
+    font-size: 0.625rem;
+    overflow-wrap: anywhere;
+  }
+
+  .jc-tick {
+    margin-top: 0.35rem;
+    font-size: 0.6875rem;
+    color: var(--st-offer);
+    opacity: 0;
+    transition: opacity 300ms var(--ease) calc(200ms + var(--d) * 150ms);
+  }
+
+  .jc-tick::before {
+    content: '✓ ';
+  }
+
+  .jc-boards.run .jc-tick {
+    opacity: 1;
+  }
+
+  .jc-record {
+    padding: 1rem 1.25rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: var(--ink-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .jc-record b {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .jc-record .c {
+    color: var(--grey);
+  }
+
+  /* ---------- 02 extract ---------- */
+
+  .jc-extract {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: 3.5rem;
+    align-items: center;
+  }
+
+  .jc-raw-body {
+    font-size: 0.8125rem;
+    line-height: 1.55;
+  }
+
+  .jc-raw mark {
+    background: rgb(10 114 239 / 0.1);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 0.15rem;
+  }
+
+  .jc-h {
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  .jc-muted {
+    color: var(--ink-2);
+  }
+
+  .jc-save {
+    justify-self: start;
+    margin-top: 0.3rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 0.75rem;
+  }
+
+  .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-3);
+  }
+
+  .bar-s {
+    width: 60%;
+  }
+
+  /* ---------- 03 manual ---------- */
+
+  .jc-manual {
+    max-width: 480px;
+    width: 100%;
+    justify-self: center;
+  }
+
+  .jc-manual-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem 0.75rem;
+  }
+
+  .jc-manual-body .ui-field:nth-child(2),
+  .jc-wide {
+    grid-column: 1 / -1;
+  }
+
+  .jc-notes b {
+    white-space: normal;
+  }
+
+  @media (max-width: 720px) {
+    .jc-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .jc-extract {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
+    }
+
+    .jc-record {
+      font-size: 0.6875rem;
+      padding: 0.875rem 1rem;
+    }
+  }
+</style>

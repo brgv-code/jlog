@@ -160,3 +160,59 @@ popover (`compact`) and Settings → Appearance.
 - Spacing comes from `--space-*`. If the step you want is missing, add it to the scale
   rather than typing a pixel value — an undefined `var()` fails silently and the
   declaration is dropped.
+
+## The public site
+
+Marketing pages have their own system, `src/styles/site.css`, applied through
+`SiteLayout.astro` (`<body class="site">`), so the signed-in app is not
+repainted by it. The register is Vercel, Linear and Attio: crisp and
+monochrome. Pure white, near-black, a grey ramp, hairline rules and a visible
+page grid (`.rail` columns and `.row` sections, with "+" marks where lines
+cross). Headlines are Geist in two tones, the claim in ink and the rest in
+grey (`.dim`); mono is for labels. Colour appears only inside the product
+(application statuses) and in traces (`--signal`).
+
+- Primitives: `.display` `.h2` `.h3` `.lead` `.body` `.meta` (type), `.rail`
+  `.row` `.kicker` (structure), `.btn-ink` `.btn-line` `.tag` `.card` `.sheet`
+  `.frame` `.pill-*` (UI).
+- Motion shows how the product works, never decorates. The vocabulary is lines
+  and arrows drawn like a schematic, on the page grid:
+  - intake wiring: every kind of source (job boards, company sites, any job
+    page, referrals), each marked with how it arrives (auto, one click, by
+    hand), wired down a shared bus into jlog, with pulses on the wires;
+  - the exploded 3D stack, in its own section after the features (the hero
+    is the intake wiring alone, one idea above the fold); it separates on
+    scroll with arrows to each layer, and its top layer, the CV, leads into
+    the tailored-CV trace
+    (anchors sit on each layer's visible front edge, so an arrow can only
+    land on its own layer);
+  - "How it works", pinned while you scroll: a step index with an active bar, a
+    frame that plays each step, and crossfading captions;
+  - each feature cell opens with a small loop of its real UI (a capture
+    toast, fields typing in, a status pill cycling, "gone quiet" pings);
+  - the pricing receipt itemises what a search costs, line by line;
+  - the dark panel, which opens from an inset rounded card to full width,
+    with the self-hosting architecture wired like the hero and a terminal
+    that types itself;
+  - the closer, a list of applications that keeps arriving;
+  - the tailored-CV board, whose wires join a line, its fact and its
+    requirement.
+  Reference sites are inspiration for principles, never a source of motifs: a
+  signature element of another site (its hero device, its illustration style)
+  is not reused.
+  Reduced motion gets every one of these in its finished, still state.
+- Feature pages (`/features/*`) share `components/site/FeatureHero`,
+  `Chapter` and `FeatureEnd`, and `scripts/site-motion.ts`: `[data-play]`
+  starts (and with a number, replays) a CSS sequence when in view,
+  `[data-wired]` draws wires with pulses from `[data-to]` to `[data-id]`.
+- Docs live in `src/pages/docs` as Markdown on `layouts/DocsLayout.astro`
+  (section list, prose, "On this page", previous and next). Their order is
+  `src/data/docs.ts`; a new page is added there once and appears everywhere.
+  Every statement in them is checked against the code, like the rest of the
+  site, and error messages are quoted exactly as the app shows them.
+- Demo data comes from `src/data/demo.ts`: one person, Ada Lovelace, a senior
+  frontend engineer in Berlin, and one search of senior frontend roles. A
+  demo never shows her applying to unrelated roles, or to an employer on her
+  own CV.
+- Every claim a page makes has to be what the code does. The tailored-CV page
+  says posting links are quotes checked to exist, and no more, until BRG-228.

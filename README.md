@@ -36,7 +36,7 @@ jlog is an open-source job tracker built on Cloudflare's edge stack. Apply to a 
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/brgv/jlog
+git clone https://github.com/brgv-code/jlog
 cd jlog
 pnpm install
 ```
@@ -63,10 +63,12 @@ The file's comments cover the other sign-in methods — see **Signing in** below
 
 ```bash
 cd apps/api
-wrangler d1 create jlog          # copy the database_id into wrangler.toml
-wrangler d1 execute jlog --local --file=../../packages/db/migrations/0000_initial.sql
+pnpm exec wrangler d1 migrations apply jlog --local
 cd ../..
 ```
+
+This creates a local D1 database and runs every migration in `packages/db/migrations`.
+Run it again after pulling new migrations.
 
 ### 4. Configure the web app
 
@@ -131,10 +133,11 @@ The API is a Cloudflare Worker and the web app is a Cloudflare Pages site. You w
 
 - A Cloudflare account, and `wrangler login`
 - A D1 database (`wrangler d1 create jlog`), with its id in `apps/api/wrangler.toml`
-- The migrations applied — **from `apps/api`**, because the path is relative to it:
+- An R2 bucket for CV files (`wrangler r2 bucket create jlog-cv-files`)
+- The migrations applied, **from `apps/api`**:
   ```bash
   cd apps/api
-  wrangler d1 execute jlog --remote --file=../../packages/db/migrations/0000_initial.sql
+  pnpm exec wrangler d1 migrations apply jlog --remote
   ```
 - Secrets set with `wrangler secret put` — the same names as `apps/api/.dev.vars.example`
 - `PUBLIC_API_URL` set for the web build, pointing at the deployed Worker
@@ -251,6 +254,9 @@ jlog/
 
 ## Docs
 
+- **[User and self-hosting docs](https://jlog.ai/docs)**, also in this repo under
+  [`apps/web/src/pages/docs`](apps/web/src/pages/docs): using every feature, AI providers,
+  and a step-by-step deploy with the full configuration reference.
 - [Design system](apps/web/DESIGN.md) — the rules, the palette, and why primary is not accent.
   Rendered live, with every animation, at `/designsystem`.
 - [Store listing](apps/extension/STORE_LISTING.md) — the Chrome Web Store copy, permission

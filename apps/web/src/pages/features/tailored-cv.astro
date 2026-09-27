@@ -1,0 +1,1108 @@
+---
+/*
+ * /features/tailored-cv: the flagship feature page, and the first page built
+ * to the site's "career infrastructure" direction (styles/site.css).
+ *
+ * The page tells one story in five chapters: your CV becomes facts, a posting
+ * becomes requirements, jlog picks the facts the posting asks for, every line
+ * traces back, nothing is invented. Every claim on it is what the code does:
+ *
+ * - Lines are stored facts or a wording already sent (jlog-pro agent.ts picks
+ *   ids and has no field to write prose in).
+ * - The CV-side link is a lookup: the highlighted passage is where that fact
+ *   was read from (GroundedCvView, cv.spans).
+ * - The posting-side link is a quote the model chose, checked to be present in
+ *   the posting (quote.ts). It is described as exactly that and nothing more;
+ *   a relevance check is BRG-228's job, and this page should say more once it
+ *   lands.
+ *
+ * The sample person and companies are invented: Ada Lovelace, Ledgerline,
+ * Brightwave, Fabrikam, Contoso.
+ */
+import SiteLayout from '../../layouts/SiteLayout.astro';
+
+type Fact = {
+  id: string;
+  line: number;
+  role: 'ledgerline' | 'brightwave';
+  text: string;
+};
+
+/* The CV as it was imported, one entry per line, numbered as the importer reads it. */
+const cvLines: {
+  n: number;
+  text: string;
+  kind?: 'name' | 'head' | 'role' | 'fact';
+  fact?: string;
+}[] = [
+  { n: 1, text: 'Ada Lovelace', kind: 'name' },
+  { n: 2, text: 'Frontend engineer · Berlin · ada.lovelace@example.com' },
+  { n: 3, text: '' },
+  { n: 4, text: 'EXPERIENCE', kind: 'head' },
+  { n: 5, text: 'Ledgerline, Senior Frontend Engineer, 2022 to now', kind: 'role' },
+  { n: 6, text: 'Frontend for the payouts product, a team of six.' },
+  {
+    n: 7,
+    text: 'Led the move of the checkout from jQuery to React without a feature freeze.',
+    kind: 'fact',
+    fact: 'F1',
+  },
+  {
+    n: 8,
+    text: 'Cut p95 page load from 3.1s to 1.2s with code-splitting and image budgets.',
+    kind: 'fact',
+    fact: 'F2',
+  },
+  {
+    n: 9,
+    text: 'Built the design system five product teams ship with (42 components).',
+    kind: 'fact',
+    fact: 'F3',
+  },
+  {
+    n: 10,
+    text: 'Mentored three junior engineers through their first production launches.',
+    kind: 'fact',
+    fact: 'F4',
+  },
+  { n: 11, text: '' },
+  { n: 12, text: 'Brightwave, Frontend Engineer, 2019 to 2022', kind: 'role' },
+  { n: 13, text: 'Customer dashboard and onboarding.' },
+  {
+    n: 14,
+    text: 'Fixed 120 accessibility issues in one quarter and wrote the WCAG checklist.',
+    kind: 'fact',
+    fact: 'F5',
+  },
+  {
+    n: 15,
+    text: 'Co-organised the Berlin frontend meetup, around 60 people a month.',
+    kind: 'fact',
+    fact: 'F6',
+  },
+];
+
+const facts: Fact[] = cvLines
+  .filter((l) => l.kind === 'fact')
+  .map((l) => ({
+    id: l.fact as string,
+    line: l.n,
+    role: l.n < 12 ? 'ledgerline' : 'brightwave',
+    text: l.text,
+  }));
+
+/* What the posting asks for, numbered in the order the posting asks it. */
+const requirements = [
+  { id: 'R1', text: 'You have led a large frontend migration without stopping feature work.' },
+  { id: 'R2', text: 'You treat performance as a feature, and have made a slow product fast.' },
+  { id: 'R3', text: 'You have built or owned a component library used across teams.' },
+  { id: 'R4', text: 'You care about accessibility and can show your work.' },
+];
+
+/*
+ * The tailored CV: which fact, in which wording, answering which requirement.
+ * F3 goes out in a wording Ada already sent to Contoso, which is the other
+ * thing a line is allowed to be. F4 and F6 are left out: nothing asked.
+ */
+const chosen = [
+  { fact: 'F1', req: 'R1', text: facts[0]?.text ?? '' },
+  { fact: 'F2', req: 'R2', text: facts[1]?.text ?? '' },
+  {
+    fact: 'F3',
+    req: 'R3',
+    text: 'Owned the component library five product teams build on.',
+    wording: 'wording you sent to Contoso, March',
+  },
+  { fact: 'F5', req: 'R4', text: facts[4]?.text ?? '' },
+];
+
+const lineOf = (id: string) => facts.find((f) => f.id === id)?.line ?? 0;
+const chosenIds = new Set(chosen.map((c) => c.fact));
+---
+
+<SiteLayout
+  title="Tailored CV that never invents experience · jlog"
+  description="jlog builds a tailored CV (résumé) for each job from sentences you already wrote. Every line links back to its source in your own CV. Nothing is invented."
+>
+  <div class="rail">
+  <!-- ─────────────── Hero ─────────────── -->
+  <section class="row hero">
+    <div class="hero-copy">
+      <p class="meta">Tailored CV · Pro</p>
+      <h1 class="display">
+        Your CV shouldn't start from <span class="dim">scratch</span>.
+      </h1>
+      <p class="lead">
+        jlog builds a CV for each posting out of sentences you already wrote, and shows you
+        where every one of them came from.
+      </p>
+      <div class="cta">
+        <a class="btn btn-ink" href="/login">Create your first tailored CV →</a>
+        <a class="btn btn-line" href="#how">See how it works</a>
+      </div>
+    </div>
+
+    <!--
+      The CV is the hero. A sheet of paper with each line's source in the
+      margin, which is the whole claim of this page in one picture.
+    -->
+    <figure class="hero-cv reveal" aria-label="A tailored CV for Fabrikam, with each line's source in the margin">
+      <div class="sheet cv">
+        <header class="cv-head">
+          <p class="cv-name">Ada Lovelace</p>
+          <p class="cv-sub">Senior Frontend Engineer · for Fabrikam, Payments</p>
+        </header>
+        <p class="cv-section">Experience</p>
+        <p class="cv-role">Ledgerline <span>Senior Frontend Engineer · 2022 to now</span></p>
+        <ul class="cv-lines">
+          {
+            chosen.slice(0, 3).map((c) => (
+              <li>
+                <span class="cv-text">{c.text}</span>
+                <span class={c.wording ? 'tag' : 'tag tag-signal'}>
+                  {c.wording ? 'earlier wording' : `your CV · line ${lineOf(c.fact)}`}
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="cv-role">Brightwave <span>Frontend Engineer · 2019 to 2022</span></p>
+        <ul class="cv-lines">
+          {
+            chosen.slice(3).map((c) => (
+              <li>
+                <span class="cv-text">{c.text}</span>
+                <span class="tag tag-signal">your CV · line {lineOf(c.fact)}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+      <figcaption class="meta hero-note">Every line has a source.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ─────────────── 01 Facts ─────────────── -->
+  <section class="row" id="how">
+    <div class="wrap">
+      <div class="kicker reveal">
+        <span class="kicker-n">01</span>
+        <span class="meta">Your history</span>
+      </div>
+      <div class="split">
+        <div class="reveal">
+          <h2 class="h2">jlog reads your CV as <span class="dim">facts</span>.</h2>
+          <p class="body">
+            Import the CV you already have. jlog breaks it into single claims, one per line, and
+            shows you the list before anything is stored. You tick what is true. What you leave
+            unticked never exists as far as jlog is concerned.
+          </p>
+        </div>
+        <div class="facts-pair reveal">
+          <div class="sheet raw" aria-label="The imported CV, line by line">
+            <p class="meta raw-label">ada-lovelace-cv.pdf</p>
+            <ol class="raw-lines">
+              {
+                cvLines.map((l) => (
+                  <li class={l.kind ? `raw-${l.kind}` : undefined} data-fact={l.fact}>
+                    <span class="ln">{String(l.n).padStart(2, '0')}</span>
+                    <span>{l.kind === 'fact' ? <mark class="hl">{l.text}</mark> : l.text}</span>
+                  </li>
+                ))
+              }
+            </ol>
+          </div>
+          <ul class="fact-list" aria-label="Facts read out of it">
+            {
+              facts.map((f) => (
+                <li class={f.id === 'F6' ? 'fact off' : 'fact'}>
+                  <span class="check" aria-hidden="true">{f.id === 'F6' ? '' : '✓'}</span>
+                  <span class="fact-body">
+                    <span class="fact-text">{f.text}</span>
+                    <span class="meta">
+                      {f.id} · line {String(f.line).padStart(2, '0')}
+                      {f.id === 'F6' ? ' · left unticked' : ''}
+                    </span>
+                  </span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 02 The posting ─────────────── -->
+  <section class="row">
+    <div class="wrap">
+      <div class="kicker reveal">
+        <span class="kicker-n">02</span>
+        <span class="meta">The posting</span>
+      </div>
+      <div class="split split-flip">
+        <div class="reveal">
+          <h2 class="h2">Give it the job you want.</h2>
+          <p class="body">
+            The posting comes from the application you already saved, captured from the job
+            board or pasted in. The model reads it as written: what it asks for, and in what
+            order.
+          </p>
+        </div>
+        <div class="frame posting reveal" aria-label="The job posting">
+          <p class="frame-bar">fabrikam.com/careers/senior-frontend-engineer</p>
+          <div class="posting-body">
+            <p class="posting-co">Fabrikam</p>
+            <p class="posting-title">Senior Frontend Engineer, Payments</p>
+            <p class="posting-meta">Berlin or remote (EU) · Full time</p>
+            <p class="posting-p">
+              We move money for 40,000 small businesses and the checkout is where it happens.
+            </p>
+            <p class="posting-h">What we're looking for</p>
+            <ul class="posting-reqs">
+              {
+                requirements.map((r) => (
+                  <li>
+                    <span class="req-id">{r.id}</span>
+                    <span>{r.text}</span>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 03 Selection ─────────────── -->
+  <section class="row chapter-wide">
+    <div class="wrap">
+      <div class="kicker reveal">
+        <span class="kicker-n">03</span>
+        <span class="meta">Selection</span>
+      </div>
+      <div class="reveal">
+        <h2 class="h2">It picks what the posting <span class="dim">asks for</span>.</h2>
+        <p class="body">
+          The model reads the posting and your facts, and chooses which facts belong on this CV
+          and in what order. It chooses. It does not write. Point at any line to see what
+          it answers and where it came from.
+        </p>
+      </div>
+
+      <div class="board reveal" data-board>
+        <svg class="wires" aria-hidden="true" data-wires></svg>
+
+        <div class="col">
+          <p class="meta col-h">The posting asks</p>
+          {
+            requirements.map((r) => (
+              <button type="button" class="node node-req" data-node={r.id} data-links={chosen.filter((c) => c.req === r.id).map((c) => `${c.fact} L-${c.fact}`).join(' ')}>
+                <span class="req-id">{r.id}</span>
+                <span>{r.text}</span>
+              </button>
+            ))
+          }
+        </div>
+
+        <div class="col">
+          <p class="meta col-h">Your facts</p>
+          {
+            facts.map((f) => (
+              <button
+                type="button"
+                class={chosenIds.has(f.id) ? 'node node-fact' : 'node node-fact node-unused'}
+                data-node={f.id}
+                data-links={chosen.filter((c) => c.fact === f.id).map((c) => `${c.req} L-${f.id}`).join(' ')}
+              >
+                <span class="meta">{f.id} · line {String(f.line).padStart(2, '0')}</span>
+                <span>{f.text}</span>
+                {!chosenIds.has(f.id) && <span class="meta unused-note">not asked for</span>}
+              </button>
+            ))
+          }
+        </div>
+
+        <div class="col">
+          <p class="meta col-h">Your tailored CV</p>
+          <div class="sheet board-cv">
+            {
+              chosen.map((c) => (
+                <button type="button" class="node node-line" data-node={`L-${c.fact}`} data-links={`${c.fact} ${c.req}`}>
+                  <span>{c.text}</span>
+                  <span class="line-src">
+                    <span class="tag">{c.req}</span>
+                    <span class={c.wording ? 'tag' : 'tag tag-signal'}>
+                      {c.wording ?? `line ${lineOf(c.fact)}`}
+                    </span>
+                  </span>
+                </button>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+      <p class="meta board-note reveal">
+        Two facts stay home: nothing in this posting asks for mentoring or meetups.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─────────────── 04 Trace ─────────────── -->
+  <section class="row">
+    <div class="wrap">
+      <div class="kicker reveal">
+        <span class="kicker-n">04</span>
+        <span class="meta">Provenance</span>
+      </div>
+      <div class="split">
+        <div class="reveal">
+          <h2 class="h2">Every line can be traced back.</h2>
+          <p class="body">
+            Pick a line of the finished CV and the passage it came from lights up in your own
+            document, with everything around it dimmed. If a line was sent before in a different
+            wording, jlog names the application it was written for.
+          </p>
+        </div>
+        <div class="trace reveal">
+          <div class="sheet trace-line">
+            <p class="meta">Tailored CV · Fabrikam</p>
+            <p class="trace-text">{chosen[1]?.text}</p>
+          </div>
+          <div class="trace-arrow" aria-hidden="true"><span></span></div>
+          <div class="sheet trace-source">
+            <p class="meta">ada-lovelace-cv.pdf</p>
+            <ol class="raw-lines raw-lines-tight">
+              {
+                cvLines.slice(4, 10).map((l) => (
+                  <li class={l.n === lineOf('F2') ? 'hit' : 'dim'}>
+                    <span class="ln">{String(l.n).padStart(2, '0')}</span>
+                    <span>{l.text}</span>
+                  </li>
+                ))
+              }
+            </ol>
+          </div>
+          <dl class="record">
+            <div><dt class="meta">Line</dt><dd>2 of 4</dd></div>
+            <div><dt class="meta">Source</dt><dd>Your CV, line {String(lineOf('F2')).padStart(2, '0')}, word for word</dd></div>
+            <div><dt class="meta">Answers</dt><dd>R2, quoted from the posting and checked to be in it</dd></div>
+            <div><dt class="meta">Written by the model</dt><dd>Nothing</dd></div>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────── 05 Nothing invented ─────────────── -->
+  <section class="row finale">
+    <div class="wrap">
+      <div class="kicker reveal">
+        <span class="kicker-n">05</span>
+        <span class="meta">The rule</span>
+      </div>
+      <h2 class="display finale-title reveal">Nothing <span class="dim">invented</span>.</h2>
+      <ol class="rules reveal">
+        <li>
+          <span class="meta">i</span>
+          <p><strong>The model chooses, it does not write.</strong> It returns fact ids and an order. There is no field in its answer where a new sentence could travel.</p>
+        </li>
+        <li>
+          <span class="meta">ii</span>
+          <p><strong>No line without a source.</strong> A line that cannot be traced to your CV or to something you sent before cannot reach the page.</p>
+        </li>
+        <li>
+          <span class="meta">iii</span>
+          <p><strong>Shorter beats padded.</strong> When few of your facts fit a posting, the CV comes out shorter. A CV that quietly embellishes is worse than no CV: you find out in the interview.</p>
+        </li>
+      </ol>
+      <div class="finale-cta reveal">
+        <a class="btn btn-ink" href="/login">Create your first tailored CV →</a>
+        <p class="meta">Pro · €9 a month · with your own AI key, billed by your provider at cost</p>
+      </div>
+      <nav class="next reveal" aria-label="More of jlog">
+        <a href="/features/autofill"><span class="meta">Next</span> Autofill: forms filled, never submitted →</a>
+      </nav>
+    </div>
+  </section>
+  </div>
+</SiteLayout>
+
+<script>
+  /*
+   * Chapter 03's board. Hovering or focusing a node lights it and everything it
+   * links to, and draws the wires between columns. Without the script the board
+   * still reads: each CV line carries its requirement and source as tags.
+   */
+  const board = document.querySelector<HTMLElement>('[data-board]');
+  const svg = board?.querySelector<SVGSVGElement>('[data-wires]');
+
+  if (board && svg) {
+    const nodes = new Map<string, HTMLElement>();
+    for (const el of board.querySelectorAll<HTMLElement>('[data-node]')) {
+      nodes.set(el.dataset.node as string, el);
+    }
+
+    // Every wire is a pair: requirement → fact, fact → line.
+    const pairs: [string, string][] = [];
+    for (const el of board.querySelectorAll<HTMLElement>('.node-line')) {
+      const [fact, req] = (el.dataset.links ?? '').split(' ');
+      if (fact && req) {
+        pairs.push([req, fact]);
+        pairs.push([fact, el.dataset.node as string]);
+      }
+    }
+
+    const NS = 'http://www.w3.org/2000/svg';
+
+    function draw(lit: Set<string>) {
+      if (!board || !svg) return;
+      const box = board.getBoundingClientRect();
+      svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+      svg.replaceChildren();
+      // Columns stack on narrow screens; wires would cross the text, so they go.
+      if (window.innerWidth < 900) return;
+      for (const [a, b] of pairs) {
+        const from = nodes.get(a)?.getBoundingClientRect();
+        const to = nodes.get(b)?.getBoundingClientRect();
+        if (!from || !to) continue;
+        const x1 = from.right - box.left;
+        const y1 = from.top + from.height / 2 - box.top;
+        const x2 = to.left - box.left;
+        const y2 = to.top + to.height / 2 - box.top;
+        const mid = (x1 + x2) / 2;
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`);
+        const on = lit.size === 0 || (lit.has(a) && lit.has(b));
+        path.setAttribute('class', on && lit.size > 0 ? 'wire wire-on' : on ? 'wire' : 'wire wire-off');
+        svg.appendChild(path);
+      }
+    }
+
+    function related(id: string): Set<string> {
+      const set = new Set<string>([id]);
+      // Walk the links twice: a requirement reaches its fact, the fact its line.
+      for (let i = 0; i < 2; i++) {
+        for (const key of [...set]) {
+          const links = nodes.get(key)?.dataset.links ?? '';
+          for (const l of links.split(' ').filter(Boolean)) set.add(l);
+        }
+      }
+      return set;
+    }
+
+    function light(id: string | null) {
+      const set = id ? related(id) : new Set<string>();
+      board?.classList.toggle('lit', set.size > 0);
+      for (const [key, el] of nodes) el.classList.toggle('on', set.has(key));
+      draw(set);
+    }
+
+    for (const [key, el] of nodes) {
+      el.addEventListener('mouseenter', () => light(key));
+      el.addEventListener('focus', () => light(key));
+      el.addEventListener('mouseleave', () => light(null));
+      el.addEventListener('blur', () => light(null));
+    }
+
+    let frame = 0;
+    const redraw = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => draw(new Set()));
+    };
+    window.addEventListener('resize', redraw);
+    // Fonts change line heights; draw again once they have loaded.
+    document.fonts?.ready.then(redraw);
+    draw(new Set());
+  }
+</script>
+
+<style>
+  .row > .wrap {
+    max-width: none;
+    padding: 0;
+  }
+
+  /* ---------- Hero ---------- */
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: center;
+    padding-top: clamp(3rem, 8vw, 7rem);
+    padding-bottom: clamp(4rem, 8vw, 7rem);
+  }
+
+  .hero-copy .meta {
+    margin-bottom: 1.5rem;
+  }
+
+  .hero-copy .lead {
+    margin-top: 2rem;
+  }
+
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2.5rem;
+  }
+
+  .hero-cv {
+    position: relative;
+  }
+
+  .cv {
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+
+  .cv-head {
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .cv-name {
+    font-family: var(--sans);
+    font-size: 2.25rem;
+    line-height: 1;
+  }
+
+  .cv-sub {
+    font-size: var(--t-small);
+    color: var(--grey);
+    margin-top: 0.35rem;
+  }
+
+  .cv-section {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-bottom: 0.75rem;
+  }
+
+  .cv-role {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    margin-top: 0.75rem;
+  }
+
+  .cv-role span {
+    font-weight: 400;
+    color: var(--grey);
+    font-size: var(--t-small);
+    margin-left: 0.4rem;
+  }
+
+  .cv-lines {
+    list-style: none;
+    margin-top: 0.35rem;
+  }
+
+  .cv-lines li {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .cv-lines li:last-child {
+    border-bottom: none;
+  }
+
+  .cv-lines .tag {
+    margin-top: 0.1rem;
+  }
+
+  .hero-note {
+    text-align: right;
+    margin-top: 1.25rem;
+  }
+
+  /* ---------- Chapters ---------- */
+
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: start;
+  }
+
+  .split .h2 + .body {
+    margin-top: 1.5rem;
+  }
+
+  .chapter-wide .h2 + .body {
+    margin-top: 1.5rem;
+  }
+
+  /* 01: the raw CV next to the facts read out of it */
+
+  .facts-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .raw {
+    padding: 1.25rem;
+  }
+
+  .raw-label {
+    margin-bottom: 0.75rem;
+  }
+
+  .raw-lines {
+    list-style: none;
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .raw-lines li {
+    display: grid;
+    grid-template-columns: 1.75rem 1fr;
+    min-height: 1.1rem;
+    color: var(--ink-2);
+  }
+
+  .raw-lines .ln {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    color: var(--grey);
+    padding-top: 0.1rem;
+  }
+
+  .raw-name {
+    font-family: var(--sans);
+    font-size: 1.1rem !important;
+  }
+
+  .raw-head,
+  .raw-role {
+    font-weight: 600;
+    color: var(--ink) !important;
+  }
+
+  .hl {
+    color: inherit;
+    background: linear-gradient(transparent 55%, rgb(10 114 239 / 0.08) 55%);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .fact-list {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .fact {
+    display: grid;
+    grid-template-columns: 1.25rem 1fr;
+    gap: 0.625rem;
+    padding: 0.75rem 0.875rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: var(--t-small);
+    line-height: 1.45;
+  }
+
+  .fact-body {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .check {
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 1px solid var(--signal);
+    background: var(--signal);
+    color: var(--bg);
+    border-radius: 3px;
+    font-size: 0.7rem;
+    margin-top: 0.1rem;
+  }
+
+  .fact.off {
+    background: transparent;
+    color: var(--grey);
+  }
+
+  .fact.off .check {
+    background: transparent;
+    border-color: var(--line-2);
+  }
+
+  /* 02: the posting, in a browser frame */
+
+  .split-flip > :first-child {
+    order: 2;
+  }
+
+  .posting-body {
+    padding: clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .posting-co {
+    font-family: var(--mono);
+    font-size: var(--t-meta);
+    color: var(--grey);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .posting-title {
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 0.25rem;
+  }
+
+  .posting-meta {
+    color: var(--grey);
+    font-size: var(--t-small);
+    margin-top: 0.25rem;
+  }
+
+  .posting-p {
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+    margin-top: 1.25rem;
+  }
+
+  .posting-h {
+    font-weight: 600;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .posting-reqs {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .posting-reqs li {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    color: var(--ink-2);
+  }
+
+  .req-id {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--signal);
+    border: 1px solid var(--signal);
+    border-radius: 4px;
+    height: 1.35rem;
+    display: grid;
+    place-items: center;
+    background: rgb(10 114 239 / 0.08);
+  }
+
+  /* 03: the board */
+
+  .board {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(2rem, 6vw, 6rem);
+    margin-top: 3rem;
+  }
+
+  .wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .wires :global(.wire) {
+    fill: none;
+    stroke: var(--line-2);
+    stroke-width: 1.25;
+    transition:
+      stroke 200ms var(--ease),
+      opacity 200ms var(--ease);
+  }
+
+  .wires :global(.wire-on) {
+    stroke: var(--signal);
+    stroke-width: 1.75;
+  }
+
+  .wires :global(.wire-off) {
+    opacity: 0.15;
+  }
+
+  .col {
+    display: grid;
+    gap: 0.625rem;
+    align-content: start;
+    position: relative;
+  }
+
+  .col-h {
+    margin-bottom: 0.25rem;
+  }
+
+  .node {
+    all: unset;
+    box-sizing: border-box;
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.75rem 0.875rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: var(--t-small);
+    line-height: 1.45;
+    color: var(--ink);
+    cursor: default;
+    transition:
+      opacity 200ms var(--ease),
+      border-color 200ms var(--ease),
+      box-shadow 200ms var(--ease);
+  }
+
+  .node-req {
+    grid-template-columns: 2.25rem 1fr;
+    align-items: start;
+  }
+
+  .node-unused {
+    background: transparent;
+    color: var(--grey);
+    border-style: dashed;
+  }
+
+  .unused-note {
+    color: var(--grey);
+  }
+
+  .board.lit .node:not(.on) {
+    opacity: 0.35;
+  }
+
+  .node.on {
+    border-color: var(--signal);
+    box-shadow: 0 0 0 3px rgb(10 114 239 / 0.08);
+  }
+
+  .node:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
+
+  .board-cv {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  .board-cv .node {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .board-cv .node.on {
+    background: var(--bg);
+  }
+
+  .line-src {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .board-note {
+    margin-top: 2rem;
+  }
+
+  /* 04: one line, traced to its passage */
+
+  .trace {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .trace-line,
+  .trace-source {
+    padding: 1.25rem;
+  }
+
+  .trace-text {
+    font-size: 1.125rem;
+    margin-top: 0.5rem;
+    line-height: 1.4;
+  }
+
+  .trace-arrow {
+    display: grid;
+    place-items: center;
+    height: 2rem;
+  }
+
+  .trace-arrow span {
+    width: 1px;
+    height: 100%;
+    background: var(--signal);
+    position: relative;
+  }
+
+  .trace-arrow span::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: -4px;
+    border: 4.5px solid transparent;
+    border-top-color: var(--signal);
+    border-bottom: 0;
+  }
+
+  .raw-lines-tight {
+    margin-top: 0.75rem;
+  }
+
+  .raw-lines .hit span:last-child {
+    background: rgb(10 114 239 / 0.08);
+    color: var(--signal);
+    outline: 1px solid var(--signal);
+    outline-offset: 1px;
+  }
+
+  .raw-lines .dim {
+    opacity: 0.4;
+  }
+
+  .record {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.5rem;
+    margin-top: 0.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .record dd {
+    font-size: var(--t-small);
+    margin-top: 0.25rem;
+  }
+
+  /* 05: the rule */
+
+  .finale-title {
+    margin-bottom: clamp(2.5rem, 6vw, 4.5rem);
+  }
+
+  .rules {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(1.5rem, 4vw, 3rem);
+    border-top: 1px solid var(--ink);
+    padding-top: 1.5rem;
+  }
+
+  .rules li {
+    display: grid;
+    gap: 0.75rem;
+    align-content: start;
+  }
+
+  .rules p {
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+  }
+
+  .rules strong {
+    color: var(--ink);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .finale-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: clamp(3rem, 6vw, 5rem);
+  }
+
+  .next {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .next a {
+    display: inline-flex;
+    gap: 1rem;
+    align-items: baseline;
+    font-family: var(--sans);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    text-decoration: none;
+  }
+
+  .next a:hover {
+    color: var(--signal);
+  }
+
+  /* ---------- Narrow screens ---------- */
+
+  @media (max-width: 900px) {
+    .hero,
+    .split,
+    .board,
+    .rules {
+      grid-template-columns: 1fr;
+    }
+
+    .split-flip > :first-child {
+      order: 0;
+    }
+
+    .board {
+      gap: 2rem;
+    }
+
+  }
+
+  @media (max-width: 640px) {
+    .facts-pair {
+      grid-template-columns: 1fr;
+    }
+
+    .cv-lines li {
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .record {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wires :global(.wire),
+    .node {
+      transition: none;
+    }
+  }
+</style>

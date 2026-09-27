@@ -1,0 +1,33 @@
+---
+/* The end of a feature page: its rules in one line each, a CTA, and the next page. */
+interface Props {
+  rules: { head: string; body: string }[];
+  cta: { label: string; href: string; note?: string };
+  next: { label: string; href: string };
+}
+
+const { rules, cta, next } = Astro.props;
+const numerals = ['i', 'ii', 'iii', 'iv', 'v'];
+---
+
+<section class="row fp-end">
+  <ol class="fp-rules reveal">
+    {
+      rules.map((r, i) => (
+        <li>
+          <span class="meta">{numerals[i]}</span>
+          <p>
+            <strong>{r.head}</strong> {r.body}
+          </p>
+        </li>
+      ))
+    }
+  </ol>
+  <div class="fp-end-cta reveal">
+    <a class="btn btn-ink" href={cta.href}>{cta.label}</a>
+    {cta.note && <p class="meta">{cta.note}</p>}
+  </div>
+  <nav class="fp-next reveal" aria-label="More of jlog">
+    <a href={next.href}><span class="meta">Next</span> {next.label} <span aria-hidden="true">→</span></a>
+  </nav>
+</section>

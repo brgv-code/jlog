@@ -1,0 +1,107 @@
+---
+/*
+ * /docs: what jlog is, in two paragraphs, then a card per section. The cards
+ * are built from the same list as the sidebar, so they cannot drift from it.
+ */
+import { DOCS } from '../../data/docs';
+import DocsLayout from '../../layouts/DocsLayout.astro';
+
+const blurbs: Record<string, string> = {
+  'Getting started': 'Sign in, install the extension, and save your first application.',
+  'Using jlog': 'Capture, autofill, tracking, your CV, and the Pro documents built from it.',
+  Settings: 'Your AI provider, the answers autofill may use, and your plan.',
+  'Self-hosting': 'Run jlog on your own Cloudflare account, locally or in production.',
+  Reference: 'What is stored and where, and what to do when something does not work.',
+};
+
+const headings = [
+  { depth: 2, slug: 'what-jlog-is', text: 'What jlog is' },
+  { depth: 2, slug: 'sections', text: 'Sections' },
+  { depth: 2, slug: 'two-ways-to-run-it', text: 'Two ways to run it' },
+];
+---
+
+<DocsLayout
+  title="Documentation"
+  description="How to use jlog, and how to run it yourself."
+  headings={headings}
+>
+  <h2 id="what-jlog-is">What jlog is</h2>
+  <p>
+    jlog is an open-source job application tracker with a Chrome extension. It records the
+    applications you make on six job boards as you make them, reads any other posting in one click,
+    fills the standard fields of Greenhouse, Lever and Ashby forms from your profile, and keeps every
+    application in one list from saved to offer.
+  </p>
+  <p>
+    On Pro it also builds a CV for each posting out of sentences you already wrote, and drafts
+    answers to open questions from your real experience, each with the sources it used.
+  </p>
+
+  <h2 id="sections">Sections</h2>
+  <div class="cards">
+    {
+      DOCS.map((g) => (
+        <a class="card-link" href={g.pages[0]?.href === '/docs' ? g.pages[1]?.href : g.pages[0]?.href}>
+          <span class="meta">{g.title}</span>
+          <span class="card-blurb">{blurbs[g.title]}</span>
+          <span class="card-pages">{g.pages.filter((p) => p.href !== '/docs').map((p) => p.title).join(' · ')}</span>
+        </a>
+      ))
+    }
+  </div>
+
+  <h2 id="two-ways-to-run-it">Two ways to run it</h2>
+  <p>
+    <strong>Hosted.</strong> Sign in, add the Chrome extension, and you are done. Free covers capture, autofill and tracking; Pro adds tailored documents. Start
+    with the <a href="/docs/quick-start">quick start</a>.
+  </p>
+  <p>
+    <strong>Self-hosted.</strong> jlog is MIT licensed and runs on Cloudflare's free tier: a
+    Worker, a D1 database, an R2 bucket and a Pages site. See
+    <a href="/docs/self-hosting">self-hosting</a>.
+  </p>
+</DocsLayout>
+
+<style>
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .cards a.card-link {
+    display: grid;
+    gap: 0.375rem;
+    align-content: start;
+    padding: 1rem 1.125rem;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--ink-2);
+    transition: border-color 150ms var(--ease), background 150ms var(--ease);
+  }
+
+  .cards a.card-link:hover {
+    border-color: var(--grey-2);
+    background: var(--bg-2);
+  }
+
+  .card-blurb {
+    color: var(--ink);
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .card-pages {
+    font-size: 0.8125rem;
+    color: var(--grey);
+  }
+
+  @media (max-width: 640px) {
+    .cards {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

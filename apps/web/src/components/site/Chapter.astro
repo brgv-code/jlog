@@ -1,0 +1,27 @@
+---
+/*
+ * One chapter of a feature page: number, label, a two-tone heading and a
+ * short body on one side, the thing it describes on the other. `flip` puts the
+ * visual first on wide screens so consecutive chapters alternate.
+ */
+interface Props {
+  n: string;
+  label: string;
+  id?: string;
+  flip?: boolean;
+  tint?: boolean;
+}
+
+const { n, label, id, flip = false, tint = false } = Astro.props;
+---
+
+<section class:list={['row', 'chapter', { 'chapter-flip': flip, 'chapter-tint': tint }]} id={id}>
+  <div class="chapter-copy reveal">
+    <div class="kicker"><span class="kicker-n">{n}</span><span class="meta">{label}</span></div>
+    <h2 class="h2"><slot name="title" /></h2>
+    <div class="chapter-body"><slot /></div>
+  </div>
+  <div class="chapter-visual reveal">
+    <slot name="visual" />
+  </div>
+</section>
