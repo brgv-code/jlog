@@ -23,7 +23,7 @@ import { defineConfig } from 'astro/config';
  * missing canonical is harmless where a wrong one is not.
  *
  * Which does mean every deployment that wants social cards has to set it,
- * jlog.bhargav.dev included.
+ * jlog.ai included.
  */
 const site = process.env.PUBLIC_SITE_URL;
 
