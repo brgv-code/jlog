@@ -118,7 +118,7 @@ does *for the user*, not what the code does with it.
 > page you asked to extract. Without it the extension would have no way to see
 > the posting you are trying to save.
 
-### Host permission — `https://jlog-api.bhargav.dev/*`
+### Host permission — `https://api.jlog.ai/*`
 
 > jlog's own API. This is where your tracked applications are saved. It is the
 > only server the extension ever contacts.
@@ -191,9 +191,11 @@ Then tick all three certifications: data is not sold, not used for anything
 unrelated to the single purpose above, and not used for creditworthiness or
 lending.
 
-**Privacy policy URL:** `https://jlog.bhargav.dev/privacy/`
+**Privacy policy URL:** `https://jlog.ai/privacy/`
 (with the trailing slash — without it the URL redirects, and it is better not to
 hand a reviewer a redirect).
+
+**Support email:** `support@jlog.ai`, the same address the privacy policy gives.
 
 ---
 
