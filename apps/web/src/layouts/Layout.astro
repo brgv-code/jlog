@@ -35,7 +35,16 @@ const ogImageUrl = site ? new URL(ogImage, site).href : undefined;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     {canonical && <link rel="canonical" href={canonical} />}
+    <!--
+      The SVG is the mark every current browser uses. Keep XML comments out of
+      that file: a double hyphen inside one (a CSS variable name, say) makes the
+      SVG malformed, and the browser then shows no icon at all. The .ico is what
+      browsers fetch on their own and what bookmarks use; the 180px PNG is the
+      iOS home screen icon.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>{title}</title>
 
     <!--
