@@ -8,8 +8,3 @@ allowBuilds:
   protobufjs: false
   sharp: true
   workerd: true
-overrides:
-  # sitemap@8 (under @astrojs/sitemap) pins @types/node@17. A second, older
-  # copy of Node's types in apps/web makes setInterval and clearInterval
-  # disagree about the timer type, so keep it on the version the repo uses.
-  'sitemap>@types/node': ^22.0.0
