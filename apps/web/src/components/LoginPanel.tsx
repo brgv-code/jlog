@@ -86,11 +86,28 @@ export default function LoginPanel() {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
+  // Who this browser is already signed in as, if anyone. The site's "Sign in"
+  // link always lands here, so without this a signed-in person opening jlog in
+  // a new tab saw the sign-in form and reasonably concluded they were signed out.
+  const [signedInAs, setSignedInAs] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+  // Held until the session check answers, so a signed-in visitor does not see
+  // the sign-in buttons flash up first.
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     // A failed round trip lands back here carrying its reason.
     const reason = new URLSearchParams(window.location.search).get('error');
     setError(friendlyError(reason));
+
+    apiFetch('/api/auth/me')
+      .then(async (res) => {
+        if (!res.ok) return;
+        const body = (await res.json()) as { user?: { email?: string | null } };
+        if (body.user?.email) setSignedInAs(body.user.email);
+      })
+      .catch(() => {})
+      .finally(() => setSessionChecked(true));
 
     apiFetch('/api/auth/providers')
       .then(async (res) => {
@@ -190,10 +207,67 @@ export default function LoginPanel() {
       ? status.providers
       : { github: true, google: false, apple: false, email: false };
 
-  if (status.state === 'loading') {
+  if (status.state === 'loading' || !sessionChecked) {
     return (
       <div style={{ ...card, color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
         Loading sign-in options…
+      </div>
+    );
+  }
+
+  /**
+   * Switching accounts has to end this session first. Signing in again on top
+   * of it is not enough: GitHub and Google remember who is signed in with them,
+   * so the same button quietly returns the same account.
+   */
+  async function useAnotherAccount() {
+    setSigningOut(true);
+    try {
+      await apiFetch('/api/auth/sign-out', { method: 'POST' });
+      setSignedInAs(null);
+    } catch {
+      setError('Could not sign out. Check your connection and try again.');
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
+  if (signedInAs) {
+    return (
+      <div style={card}>
+        <h1 style={headingStyle}>You're signed in</h1>
+        <p style={subheadingStyle}>
+          This browser is signed in as{' '}
+          <strong style={{ color: 'var(--color-text-primary)' }}>{signedInAs}</strong>.
+        </p>
+        {error && (
+          <p role="alert" style={{ color: 'var(--color-danger)', fontSize: 'var(--text-sm)' }}>
+            {error}
+          </p>
+        )}
+        <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+          <a href="/dashboard" style={{ ...primaryButton, textDecoration: 'none' }}>
+            Continue to jlog
+          </a>
+          <button
+            type="button"
+            style={providerButton}
+            disabled={signingOut}
+            onClick={useAnotherAccount}
+          >
+            {signingOut ? 'Signing out…' : 'Use a different account'}
+          </button>
+        </div>
+        <p
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: 'var(--color-text-secondary)',
+            marginTop: 'var(--space-6)',
+          }}
+        >
+          To switch to another GitHub or Google account, sign out of it on GitHub or Google too, or
+          they will sign you straight back in as the same one.
+        </p>
       </div>
     );
   }
