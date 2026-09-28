@@ -1,0 +1,253 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+/*
+ * The terms for the hosted instance at jlog.ai. Plain words, the same register
+ * as /privacy, and nothing the product does not actually do: it never submits
+ * a form, keys are the user's own, Pro is billed monthly through Stripe.
+ *
+ * Not legal advice, and not yet reviewed by a lawyer. Before relying on it,
+ * have someone qualified check the withdrawal and liability sections against
+ * the law named below.
+ */
+const lastUpdated = '27 September 2026';
+const contactEmail = 'support@jlog.ai';
+
+// Who operates the service, and which law governs it.
+const operator = 'Bhargav Venkatesh Babu';
+const governingLaw = 'Germany';
+---
+
+<Layout title="Terms of service — jlog" description="The terms for using jlog at jlog.ai: your account, your AI provider key, the Pro plan, and what jlog does and does not do for you.">
+  <main class="prose">
+    <p class="back"><a href="/">← jlog</a></p>
+
+    <h1>Terms of service</h1>
+    <p class="updated">Last updated: {lastUpdated}</p>
+
+    <p class="lede">
+      These are the rules for using jlog at jlog.ai. They are short on purpose. Where they touch
+      your data, the <a href="/privacy">privacy policy</a> has the detail.
+    </p>
+
+    <h2>Who these cover</h2>
+    <p>
+      These terms are between you and {operator}, who runs the hosted service at
+      <strong>jlog.ai</strong> ("jlog", "we"). By creating an account or using the Chrome
+      extension with it, you agree to them.
+    </p>
+    <p>
+      jlog's source code is MIT licensed. If you run your own copy, the licence governs the code and
+      these terms do not apply to your instance.
+    </p>
+
+    <h2>What jlog is</h2>
+    <p>
+      jlog records the job applications you make, fills in standard fields of application forms from
+      your profile, keeps your applications in one list, and on the Pro plan builds CVs and drafts
+      answers from facts you imported. It is an early product. Features will change, and some will
+      have rough edges; the <a href="/docs">documentation</a> describes what each one does today.
+    </p>
+
+    <h2>Your account</h2>
+    <ul>
+      <li>One account is for one person. Keep your sign-in method secure.</li>
+      <li>
+        Extension keys act on your account. Anyone holding one can add applications as you, so revoke
+        a key in Settings if it leaves your machine.
+      </li>
+      <li>You must be old enough to agree to these terms where you live, and at least 16.</li>
+    </ul>
+
+    <h2>Your AI provider key</h2>
+    <p>
+      Features that use a model (reading a posting with Extract, reading a CV, tailored CVs and
+      drafted answers) run on the provider and key you add in Settings. Your use of that provider is
+      between you and them: their terms apply, and they bill you for usage. jlog stores your key
+      encrypted, uses it only for requests you make, and never marks usage up. Only your own account
+      can use your key.
+    </p>
+
+    <h2>You stay in control of what you send</h2>
+    <ul>
+      <li>
+        <strong>jlog never submits an application.</strong> Autofill fills fields; you read the form
+        and press submit yourself.
+      </li>
+      <li>
+        <strong>Check what goes out under your name.</strong> Filled fields, tailored CVs and drafted
+        answers are built from what you gave jlog, but they can still be wrong or out of date. You are
+        responsible for what you send to an employer.
+      </li>
+      <li>
+        <strong>jlog does not find you a job.</strong> It records, fills and drafts. It makes no promise
+        about interviews, offers or how any employer will read what you send.
+      </li>
+    </ul>
+
+    <h2>Your content</h2>
+    <p>
+      What you put into jlog, such as applications, notes, your CV and saved answers, stays yours. You
+      give us permission to store and process it only to run the service for you, as the
+      <a href="/privacy">privacy policy</a> describes. We do not sell it or use it to train models.
+    </p>
+
+    <h2>Using it fairly</h2>
+    <p>Please do not:</p>
+    <ul>
+      <li>use jlog to send false or misleading information to employers;</li>
+      <li>use it to apply in bulk or automatically, or to break a job board's own terms;</li>
+      <li>try to access other people's accounts or data, or get around the limits of your plan;</li>
+      <li>overload, probe or disrupt the service, or use it for anything unlawful.</li>
+    </ul>
+    <p>
+      jlog is not affiliated with LinkedIn, Greenhouse, Lever, Ashby, Wellfound, Y Combinator or any
+      other site it works with, and their terms still apply to your use of them.
+    </p>
+
+    <h2>The Pro plan</h2>
+    <ul>
+      <li>Pro costs €9 a month, billed monthly in advance through Stripe, and renews each month.</li>
+      <li>
+        Cancel any time from Settings, through Manage billing. Pro stays active until the end of the
+        period you paid for, and is not billed again.
+      </li>
+      <li>
+        If you are a consumer in the EU or the UK, you can withdraw within 14 days of subscribing by
+        emailing us. We refund the payment, less a proportionate amount for the days you already used.
+      </li>
+      <li>
+        Beyond that, payments are not refunded for part of a month, except where the law requires it.
+      </li>
+      <li>
+        If the price changes, we tell you at least 30 days before, and the new price applies from your
+        next period. You can cancel before then.
+      </li>
+      <li>Model usage is billed by your AI provider, not by jlog.</li>
+    </ul>
+
+    <h2>Availability and changes</h2>
+    <p>
+      We work to keep jlog running, but it is provided as it is, without a promise that it will always
+      be available or free of errors. We may change or remove features. If we ever shut the hosted
+      service down, we will tell you at least 30 days in advance, so you can take your data out.
+    </p>
+
+    <h2>Ending your use</h2>
+    <p>
+      You can stop at any time and delete your account from Settings, which deletes your data as the
+      privacy policy describes and cancels a Pro subscription. We may suspend or close an account that
+      breaks these terms, and will tell you why unless the law or safety prevents it.
+    </p>
+
+    <h2>Liability</h2>
+    <p>
+      To the extent the law allows, jlog is not liable for indirect losses, lost opportunities or lost
+      data, and our total liability to you is limited to what you paid us in the twelve months before
+      the claim. Nothing in these terms limits liability that cannot be limited by law, such as for
+      intent, gross negligence, or injury to life, body or health, and nothing takes away rights you
+      have as a consumer.
+    </p>
+
+    <h2>Changes to these terms</h2>
+    <p>
+      When these terms change in a way that matters, we will tell you by email or in the app before the
+      change applies. The date at the top always shows the current version.
+    </p>
+
+    <h2>Law</h2>
+    <p>
+      These terms are governed by the law of {governingLaw}. If you are a consumer, you also keep the
+      protection of the mandatory law of the country you live in.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions about these terms: <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
+    </p>
+  </main>
+</Layout>
+
+<style>
+  .prose {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: var(--space-12) var(--space-6) var(--space-16);
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    line-height: 1.7;
+  }
+
+  .back {
+    margin-bottom: var(--space-8);
+    font-size: var(--text-sm);
+  }
+
+  .back a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .back a:hover {
+    color: var(--color-text-primary);
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--space-2);
+  }
+
+  .updated {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-8);
+  }
+
+  .lede {
+    font-size: var(--text-lg);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-10);
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-top: var(--space-10);
+    margin-bottom: var(--space-3);
+  }
+
+  h3 {
+    font-size: var(--text-base);
+    font-weight: 650;
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-2);
+  }
+
+  p {
+    margin-bottom: var(--space-4);
+  }
+
+  ul {
+    margin: 0 0 var(--space-4) var(--space-6);
+  }
+
+  li {
+    margin-bottom: var(--space-3);
+  }
+
+  code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.1em 0.35em;
+  }
+
+  a {
+    color: var(--color-primary);
+  }
+</style>
