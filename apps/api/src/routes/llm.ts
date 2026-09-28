@@ -4,6 +4,7 @@ import { HttpError, LLMError, extractSchema, llmConfigSchema } from '@jlog/share
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
+import { cfAccessHeadersFor } from '../lib/cfAccess';
 import { decrypt, encrypt } from '../lib/encryption';
 import { requireSession } from '../lib/session';
 
@@ -131,13 +132,7 @@ extractRouter.post('/', async (c) => {
     );
   }
 
-  const cfAccessHeaders =
-    c.env.CF_ACCESS_CLIENT_ID && c.env.CF_ACCESS_CLIENT_SECRET
-      ? {
-          'CF-Access-Client-Id': c.env.CF_ACCESS_CLIENT_ID,
-          'CF-Access-Client-Secret': c.env.CF_ACCESS_CLIENT_SECRET,
-        }
-      : undefined;
+  const cfAccessHeaders = cfAccessHeadersFor(c.env, row.ollamaUrl);
 
   const config = {
     provider: row.provider,

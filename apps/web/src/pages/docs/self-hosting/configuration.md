@@ -38,7 +38,8 @@ All optional and independent. See [sign-in methods](/docs/self-hosting/sign-in).
 
 | Variable | What it is |
 |---|---|
-| `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | A Cloudflare Access service token, sent with requests to an Ollama server you have put behind Access. |
+| `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | A Cloudflare Access service token for an Ollama server you have put behind Access. |
+| `CF_ACCESS_HOST` | The hostname of that Ollama server, for example `ollama.example.com`. The token is sent only to this host, over https. Without it the token is never sent, so a user's own Ollama URL can never receive it. |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | Tracing of model calls in [Langfuse](https://langfuse.com). Unset, tracing is skipped. |
 | `LANGFUSE_BASE_URL` | Your Langfuse host, by default `https://cloud.langfuse.com`. |
 | `LANGFUSE_TRACING_ENVIRONMENT` | Keeps one deployment's traces apart from another's in the same project. |
