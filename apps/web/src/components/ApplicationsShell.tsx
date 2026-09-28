@@ -3,6 +3,7 @@ import { APPLICATION_STATUSES } from '@jlog/shared';
 import { BriefcaseIcon, PlusIcon, SearchIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { usePageTitle } from '../lib/usePageTitle';
 import { Sidebar } from './Sidebar';
 import { AddApplicationDialog } from './applications/AddApplicationDialog';
 import { ApplicationDetail } from './applications/ApplicationDetail';
@@ -154,6 +155,24 @@ export default function ApplicationsShell() {
   useEffect(() => {
     if (auth.status === 'authenticated') fetchPage(null);
   }, [auth.status, fetchPage]);
+
+  // The tab names what is on screen: the open application, otherwise the list
+  // as filtered, with its count. Held until the first page arrives so the
+  // count never reads 0 while loading.
+  const selected = selectedId ? applications.find((a) => a.id === selectedId) : undefined;
+  const listName =
+    view === 'ghosted'
+      ? 'Ghosted'
+      : statusFilter === 'all'
+        ? 'Applications'
+        : (STATUS_TABS.find((t) => t.value === statusFilter)?.label ?? 'Applications');
+  usePageTitle(
+    selected
+      ? `${selected.company}, ${selected.role}`
+      : loadingApps
+        ? null
+        : `${listName} (${total.toLocaleString()})`,
+  );
 
   async function handleSignOut() {
     await apiFetch('/api/auth/sign-out', { method: 'POST' });
