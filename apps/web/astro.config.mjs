@@ -1,6 +1,8 @@
 import react from '@astrojs/react';
+import sitemap from '@astrojs/sitemap';
 import tailwind from '@astrojs/tailwind';
 import { defineConfig } from 'astro/config';
+import { isAppRoute } from './src/data/appRoutes.mjs';
 
 /*
  * The public origin, used for canonical links and absolute social-card URLs
@@ -29,7 +31,12 @@ const site = process.env.PUBLIC_SITE_URL;
 
 export default defineConfig({
   site,
-  integrations: [react(), tailwind()],
+  // The sitemap needs absolute URLs, so it is only written when `site` is set.
+  integrations: [
+    react(),
+    tailwind(),
+    ...(site ? [sitemap({ filter: (page) => !isAppRoute(page) })] : []),
+  ],
   output: 'static',
   server: { port: 4321 },
 });
