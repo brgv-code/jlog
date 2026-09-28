@@ -86,9 +86,11 @@ export interface Env {
   COOKIE_DOMAIN: string;
   // The jlog Chrome extension's ID — CORS only trusts this one, not any chrome-extension:// origin.
   EXTENSION_ID: string;
-  // Optional: Cloudflare Access service token for protecting a tunnelled Ollama instance
+  // Optional: Cloudflare Access service token for protecting a tunnelled Ollama instance.
+  // Sent only to CF_ACCESS_HOST (see lib/cfAccess.ts), never to a user's own Ollama URL.
   CF_ACCESS_CLIENT_ID?: string;
   CF_ACCESS_CLIENT_SECRET?: string;
+  CF_ACCESS_HOST?: string;
   // Optional: Langfuse tracing for LLM extraction calls. Unset in an environment
   // (e.g. a contributor's local .dev.vars) means tracing is simply skipped.
   LANGFUSE_PUBLIC_KEY?: string;

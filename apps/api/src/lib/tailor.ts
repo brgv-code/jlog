@@ -4,6 +4,7 @@ import type { TailorJson, TailorRequest } from '@jlog/pro';
 import { eq } from 'drizzle-orm';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../index';
+import { cfAccessHeadersFor } from './cfAccess';
 import { decrypt } from './encryption';
 
 type AppContext = { Bindings: Env; Variables: Variables };
@@ -43,13 +44,7 @@ export async function makeJsonCaller(
     return null;
   }
 
-  const cfAccessHeaders =
-    c.env.CF_ACCESS_CLIENT_ID && c.env.CF_ACCESS_CLIENT_SECRET
-      ? {
-          'CF-Access-Client-Id': c.env.CF_ACCESS_CLIENT_ID,
-          'CF-Access-Client-Secret': c.env.CF_ACCESS_CLIENT_SECRET,
-        }
-      : undefined;
+  const cfAccessHeaders = cfAccessHeadersFor(c.env, row.ollamaUrl);
 
   const config = {
     provider: row.provider,
