@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../index';
 import { cfAccessHeadersFor } from './cfAccess';
+import { isDemoUser } from './demo/account';
+import { demoJsonCaller } from './demo/model';
 import { decrypt } from './encryption';
 
 type AppContext = { Bindings: Env; Variables: Variables };
@@ -28,6 +30,11 @@ export async function makeJsonCaller(
 ): Promise<TailorJson | null> {
   const session = c.var.session;
   if (!session) return null;
+
+  // A demo account has no provider. It gets the deterministic stand-in, which
+  // answers the same prompts in the same shapes, so everything downstream (the
+  // pro package's checks, the render gate, the compile) runs for real.
+  if (await isDemoUser(c.env.DB, session.userId)) return demoJsonCaller;
 
   const db = createDb(c.env.DB);
   const [row] = await db.select().from(llmConfigs).where(eq(llmConfigs.userId, session.userId));

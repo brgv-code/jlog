@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { resolvedProviders } from '../lib/auth';
+import { isDemoEmail, isDemoEnabled } from '../lib/demo/account';
 import { isInviteOnly } from '../lib/invites';
 
 /**
@@ -26,6 +27,8 @@ router.get('/providers', async (c) =>
     providers: await resolvedProviders(c.env),
     // Whether new accounts need an invite, so the page can say so up front.
     inviteOnly: isInviteOnly(c.env.ALLOWED_EMAILS),
+    // Whether the login page may offer "explore a demo account".
+    demo: isDemoEnabled(c.env),
   }),
 );
 
@@ -65,6 +68,8 @@ router.get('/me', async (c) => {
       planSource: user.planSource ?? null,
       planStatus: user.planStatus ?? null,
       currentPeriodEnd: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
+      // Lets the app mark a demo account as one, and point at a real sign-up.
+      demo: isDemoEmail(user.email),
     },
   });
 });

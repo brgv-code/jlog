@@ -7,6 +7,8 @@ import { sql } from 'drizzle-orm';
 import type { Env } from '../index';
 import { cleanupBeforeAccountDeletion } from './accountDeletion';
 import { getAppleClientSecret, isAppleConfigured } from './apple';
+import { isDemoEmail } from './demo/account';
+import { demoAccount } from './demo/plugin';
 import { getMailer, magicLinkMessage } from './email';
 import { INVITE_ONLY_MESSAGE, isInvited } from './invites';
 
@@ -249,6 +251,11 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
         // of hashes rather than a bundle of live sign-in links.
         storeToken: 'hashed',
         async sendMagicLink({ email, url }) {
+          // Demo addresses are recognised by their domain, so an account
+          // signed in by link under one would be swept as a demo overnight.
+          if (isDemoEmail(email)) {
+            throw new APIError('FORBIDDEN', { message: 'That address cannot sign in.' });
+          }
           // Refuse before sending, so a stranger gets the reason on the login
           // page instead of a link that cannot work. Someone who already has
           // an account may always sign in.
@@ -293,6 +300,9 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
           }
         },
       }),
+      // `POST /api/auth/demo/sign-in`. Registered everywhere and refuses to run
+      // unless DEMO_ENABLED is set, so the route table is the same either way.
+      demoAccount(env),
     ],
 
     advanced: {

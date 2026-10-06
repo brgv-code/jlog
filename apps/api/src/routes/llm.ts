@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { cfAccessHeadersFor } from '../lib/cfAccess';
+import { isDemoUser } from '../lib/demo/account';
+import { DEMO_LATENCY_MS, demoExtract, sleep } from '../lib/demo/model';
 import { decrypt, encrypt } from '../lib/encryption';
 import { requireSession } from '../lib/session';
 
@@ -44,6 +46,16 @@ router.put('/config', async (c) => {
   const parsed = llmConfigSchema.safeParse(body);
   if (!parsed.success) {
     throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+
+  // A demo account runs on the built-in demo model, and a key pasted into a
+  // throwaway account that is deleted tomorrow is a key nobody meant to store.
+  if (await isDemoUser(c.env.DB, session.userId)) {
+    throw new HttpError(
+      403,
+      'DEMO_ACCOUNT',
+      'The demo account uses a built-in model. Sign up to connect your own provider.',
+    );
   }
 
   const data = parsed.data;
@@ -112,6 +124,24 @@ extractRouter.post('/', async (c) => {
 
   const { html } = parsed.data;
   const db = createDb(c.env.DB);
+
+  if (await isDemoUser(c.env.DB, session.userId)) {
+    await sleep(DEMO_LATENCY_MS.extract);
+    const result = demoExtract(html, parsed.data.url);
+    if (!result.company || !result.role) {
+      return c.json(
+        {
+          error: {
+            code: 'EXTRACTION_FAILED',
+            message:
+              'Could not identify company or role from this page. Try on a page with a visible job posting.',
+          },
+        },
+        422,
+      );
+    }
+    return c.json(result);
+  }
 
   const [row] = await db.select().from(llmConfigs).where(eq(llmConfigs.userId, session.userId));
 

@@ -52,6 +52,10 @@ LANGFUSE_TRACING_ENVIRONMENT = "production"
 # extensions get an ID derived from their install path unless manifest.json pins a
 # "key"; repin this if the extension is reloaded from a different path or published.
 EXTENSION_ID = "enonliciopahgdejgpdjaeadebclgjom"
+# "Explore a demo account" on the landing and login pages (src/lib/demo). Each
+# visitor gets a throwaway account with a seeded search, removed after a day by
+# the nightly sweep. Delete this line to turn the demo off.
+DEMO_ENABLED = "true"
 
 # The nightly sweep of expired credentials (src/lib/cleanup.ts).
 #

@@ -25,6 +25,7 @@ interface User {
   name: string;
   email: string;
   avatarUrl: string | null;
+  demo?: boolean;
 }
 
 type AuthState =
@@ -186,7 +187,9 @@ export default function HomeShell() {
               letterSpacing: '-0.01em',
             }}
           >
-            Welcome back{auth.user.name ? `, ${auth.user.name.split(' ')[0]}` : ''}
+            {auth.user.demo
+              ? `Meet ${auth.user.name.split(' ')[0]}`
+              : `Welcome back${auth.user.name ? `, ${auth.user.name.split(' ')[0]}` : ''}`}
           </p>
           <p
             style={{
@@ -195,7 +198,9 @@ export default function HomeShell() {
               marginTop: 'var(--space-1)',
             }}
           >
-            Signed in as {auth.user.email}
+            {auth.user.demo
+              ? 'This is a demo account. Six months of job search, ready to explore.'
+              : `Signed in as ${auth.user.email}`}
           </p>
         </div>
       </div>
