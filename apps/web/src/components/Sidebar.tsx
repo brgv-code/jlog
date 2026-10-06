@@ -4,6 +4,7 @@ import {
   ChevronUpIcon,
   ExternalLinkIcon,
   FileUserIcon,
+  FlaskConicalIcon,
   HomeIcon,
   LogOutIcon,
   PanelLeftIcon,
@@ -70,6 +71,8 @@ interface User {
   name: string;
   email: string;
   avatarUrl: string | null;
+  /** A throwaway demo account (see apps/api/src/lib/demo). */
+  demo?: boolean;
 }
 
 interface SidebarProps {
@@ -241,6 +244,8 @@ export function Sidebar({ user, active, onSignOut }: SidebarProps) {
 
       <div style={{ flex: 1 }} />
 
+      {user.demo && <DemoNotice collapsed={collapsed} onLeave={onSignOut} />}
+
       {/* Account */}
       <div ref={accountRef} style={{ position: 'relative', padding: 'var(--space-2)' }}>
         {accountOpen && (
@@ -346,6 +351,89 @@ export function Sidebar({ user, active, onSignOut }: SidebarProps) {
         </button>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Says, on every page, that this is the demo and not someone's real search,
+ * and offers the way to a real account. Signing out is that way: the demo
+ * session has to end before a sign-in can start a real one.
+ */
+function DemoNotice({ collapsed, onLeave }: { collapsed: boolean; onLeave: () => void }) {
+  if (collapsed) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-2) 0' }}>
+        <span
+          title="Demo account: a sample search that is deleted after a day"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '28px',
+            height: '28px',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--color-accent)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          <FlaskConicalIcon size={14} strokeWidth={1.75} />
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        margin: '0 var(--space-2) var(--space-2)',
+        padding: 'var(--space-3)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-lg)',
+        display: 'grid',
+        gap: 'var(--space-2)',
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          fontSize: 'var(--text-xs)',
+          fontWeight: 600,
+          color: 'var(--color-text-primary)',
+        }}
+      >
+        <FlaskConicalIcon size={13} strokeWidth={1.75} style={{ color: 'var(--color-accent)' }} />
+        Demo account
+      </span>
+      <span
+        style={{
+          fontSize: 'var(--text-xs)',
+          color: 'var(--color-text-secondary)',
+          lineHeight: 1.5,
+        }}
+      >
+        A sample search to click around in. Change anything you like: it is deleted after a day.
+      </span>
+      <button
+        type="button"
+        onClick={onLeave}
+        style={{
+          marginTop: '2px',
+          background: 'var(--color-primary)',
+          color: 'var(--color-primary-fg)',
+          border: 'none',
+          borderRadius: 'var(--radius-md)',
+          padding: '6px var(--space-3)',
+          fontSize: 'var(--text-xs)',
+          fontWeight: 600,
+          fontFamily: 'var(--font-sans)',
+          cursor: 'pointer',
+        }}
+      >
+        Create your own account
+      </button>
+    </div>
   );
 }
 

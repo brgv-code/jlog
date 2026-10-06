@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Auth } from './lib/auth';
 import { runScheduledCleanup } from './lib/cleanup';
+import { warmDemoLogos } from './lib/demo/seed';
 import type { Tracing } from './lib/langfuse';
 import { makeDrafter, makeTailor } from './lib/tailor';
 import { authInstanceMiddleware } from './middleware/authInstance';
@@ -108,6 +109,12 @@ export interface Env {
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_PRICE_ID?: string;
+  /**
+   * "true" lets anyone open a throwaway demo account from the landing page
+   * (lib/demo). Off unless set. Demo accounts live a day and are swept by the
+   * nightly cleanup.
+   */
+  DEMO_ENABLED?: string;
 }
 
 export type Variables = {
@@ -178,6 +185,13 @@ app.route('/api/auth', authRouter);
 // Better Auth owns the rest: starting a social sign-in, the provider callbacks,
 // magic links, sign-out, session lookup. Its handler takes the raw Request and
 // returns a Response, so it is mounted rather than wrapped.
+// The demo sign-in is Better Auth's endpoint too (lib/demo/plugin.ts); this
+// only adds the logo warm-up after it, so a cold cache never delays sign-in.
+app.post('/api/auth/demo/sign-in', async (c) => {
+  const res = await c.var.auth.handler(c.req.raw);
+  if (res.ok) c.executionCtx.waitUntil(warmDemoLogos(c.env).catch(() => {}));
+  return res;
+});
 app.on(['GET', 'POST'], '/api/auth/*', (c) => c.var.auth.handler(c.req.raw));
 app.route('/api/applications', applicationsRouter);
 app.route('/api/applications', eventsRouter);
@@ -234,7 +248,8 @@ export default {
         .then((swept) => {
           console.log(
             `[cleanup] removed ${swept.verifications} sign-in links, ` +
-              `${swept.sessions} expired sessions, ${swept.extensionKeys} extension keys`,
+              `${swept.sessions} expired sessions, ${swept.extensionKeys} extension keys, ` +
+              `${swept.demoAccounts} demo accounts`,
           );
         })
         // A failed sweep is worth knowing about and is not worth retrying into:

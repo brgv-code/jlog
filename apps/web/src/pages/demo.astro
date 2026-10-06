@@ -1,0 +1,24 @@
+---
+import DemoStart from '../components/DemoStart';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Demo · jlog">
+  <!--
+    Opening this page creates an account, so crawlers are kept out: robots.txt
+    disallows it (data/appRoutes.mjs) and this asks anything that ignores that
+    not to index it.
+  -->
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  <main
+    style="
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-6);
+    "
+  >
+    <DemoStart client:load />
+  </main>
+</Layout>

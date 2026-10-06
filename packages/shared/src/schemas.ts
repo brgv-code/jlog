@@ -29,6 +29,8 @@ export const authProvidersResponseSchema = z.object({
   }),
   // Optional so an older API without the invite list still parses.
   inviteOnly: z.boolean().optional(),
+  // Whether a throwaway demo account can be opened. Optional for the same reason.
+  demo: z.boolean().optional(),
 });
 
 export type AuthProviderAvailability = z.infer<typeof authProvidersResponseSchema>['providers'];
@@ -43,6 +45,7 @@ export const meResponseSchema = z.object({
     email: z.string(),
     avatarUrl: z.string().nullable(),
     plan: z.enum(PLANS),
+    demo: z.boolean().optional(),
   }),
 });
 

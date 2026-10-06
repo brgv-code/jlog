@@ -1,6 +1,8 @@
-import { authSessions, authVerifications, createDb, extensionKeys } from '@jlog/db';
-import { lt } from 'drizzle-orm';
+import { authSessions, authVerifications, createDb, extensionKeys, users } from '@jlog/db';
+import { and, eq, like, lt } from 'drizzle-orm';
 import type { Env } from '../index';
+import { cleanupBeforeAccountDeletion } from './accountDeletion';
+import { DEMO_EMAIL_DOMAIN, DEMO_TTL_MS } from './demo/account';
 
 /**
  * The nightly sweep of credentials that have run out.
@@ -33,7 +35,11 @@ export type CleanupResult = {
   verifications: number;
   sessions: number;
   extensionKeys: number;
+  demoAccounts: number;
 };
+
+/** Demo accounts removed per run. A busy launch day is cleared over a few nights. */
+const DEMO_SWEEP_LIMIT = 500;
 
 export async function runScheduledCleanup(env: Env): Promise<CleanupResult> {
   const db = createDb(env.DB);
@@ -60,9 +66,24 @@ export async function runScheduledCleanup(env: Env): Promise<CleanupResult> {
     .where(lt(extensionKeys.expiresAt, graceCutoff))
     .returning({ id: extensionKeys.id });
 
+  // Demo accounts past their day. Everything they own cascades from the user
+  // row; the files a visitor may have uploaded (an imported CV) are collected
+  // first, the same as for a real deletion.
+  const demoCutoff = new Date(now.getTime() - DEMO_TTL_MS);
+  const expiredDemos = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(like(users.email, `%@${DEMO_EMAIL_DOMAIN}`), lt(users.createdAt, demoCutoff)))
+    .limit(DEMO_SWEEP_LIMIT);
+  for (const { id } of expiredDemos) {
+    await cleanupBeforeAccountDeletion(env, id).catch(() => {});
+    await db.delete(users).where(eq(users.id, id));
+  }
+
   return {
     verifications: verifications.length,
     sessions: sessions.length,
     extensionKeys: keys.length,
+    demoAccounts: expiredDemos.length,
   };
 }

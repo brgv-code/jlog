@@ -16,7 +16,7 @@ type Availability = AuthProviderAvailability;
 
 type Status =
   | { state: 'loading' }
-  | { state: 'ready'; providers: Availability; inviteOnly: boolean }
+  | { state: 'ready'; providers: Availability; inviteOnly: boolean; demo: boolean }
   // Reached when the API is unreachable. GitHub is assumed rather than showing
   // an empty card, since it is the one method every instance is expected to have.
   | { state: 'offline' };
@@ -120,6 +120,7 @@ export default function LoginPanel() {
           state: 'ready',
           providers: body.providers,
           inviteOnly: body.inviteOnly ?? false,
+          demo: body.demo ?? false,
         });
         // A refused sign-up arrives as the generic "could not create" code;
         // on an invite-only instance that is almost always the reason.
@@ -429,6 +430,24 @@ export default function LoginPanel() {
       {!providers.email && !anySocial && (
         <p style={{ ...subheadingStyle, marginBottom: 0 }}>
           No sign-in method is configured on this instance yet.
+        </p>
+      )}
+
+      {status.state === 'ready' && status.demo && (
+        <p
+          style={{
+            fontSize: 'var(--text-sm)',
+            color: 'var(--color-text-secondary)',
+            marginTop: 'var(--space-8)',
+            paddingTop: 'var(--space-6)',
+            borderTop: '1px solid var(--color-border)',
+          }}
+        >
+          Just looking?{' '}
+          <a href="/demo" style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>
+            Explore a demo account
+          </a>
+          , no sign-up needed.
         </p>
       )}
     </div>

@@ -11,6 +11,7 @@ export const APP_ROUTES = [
   '/settings',
   '/login',
   '/designsystem',
+  '/demo',
 ];
 
 /** True for a URL or path that is one of the routes above, or under one. */

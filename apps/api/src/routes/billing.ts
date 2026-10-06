@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import Stripe from 'stripe';
 import type { Env, Variables } from '../index';
 import { planChangeFor } from '../lib/billing';
+import { isDemoEmail } from '../lib/demo/account';
 import { requireSession } from '../lib/session';
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -65,6 +66,13 @@ router.post('/checkout', async (c) => {
   const db = createDb(c.env.DB);
   const [user] = await db.select().from(users).where(eq(users.id, session.userId));
   if (!user) return c.json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, 401);
+  // A demo account is deleted within a day; a subscription on it would outlive it.
+  if (isDemoEmail(user.email)) {
+    return c.json(
+      { error: { code: 'DEMO_ACCOUNT', message: 'Sign up for your own account to subscribe.' } },
+      403,
+    );
+  }
 
   // Reuse the customer if this account has ever checked out, so a second
   // subscription does not create a second customer holding the same card.
