@@ -24,7 +24,9 @@ describe('extension IDs', () => {
     const raw = `${STORE},${DEV}`;
     expect(isTrustedExtensionOrigin(raw, `chrome-extension://${STORE}`)).toBe(true);
     expect(isTrustedExtensionOrigin(raw, `chrome-extension://${DEV}`)).toBe(true);
-    expect(isTrustedExtensionOrigin(raw, 'chrome-extension://someotherextensionidxxxxxxxxxxxx')).toBe(false);
+    expect(
+      isTrustedExtensionOrigin(raw, 'chrome-extension://someotherextensionidxxxxxxxxxxxx'),
+    ).toBe(false);
     expect(isTrustedExtensionOrigin(raw, `https://${STORE}`)).toBe(false);
   });
 });
