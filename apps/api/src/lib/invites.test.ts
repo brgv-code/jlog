@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isInviteOnly, isInvited, parseInviteList } from './invites';
+import { activeInviteList, isInviteOnly, isInvited, parseInviteList } from './invites';
 
 describe('invite list', () => {
   it('is open when unset or empty', () => {
@@ -26,5 +26,24 @@ describe('invite list', () => {
   it('does not treat a domain entry as a suffix match', () => {
     expect(isInvited('@example.com', 'eve@evil-example.com')).toBe(false);
     expect(isInvited('@example.com', 'eve@sub.example.com')).toBe(false);
+  });
+});
+
+describe('OPEN_SIGNUP', () => {
+  const ALLOWED_EMAILS = 'you@example.com';
+
+  it('sets the invite list aside when "true"', () => {
+    const list = activeInviteList({ ALLOWED_EMAILS, OPEN_SIGNUP: 'true' });
+    expect(isInviteOnly(list)).toBe(false);
+    expect(isInvited(list, 'stranger@example.org')).toBe(true);
+  });
+
+  it('keeps the invite list otherwise', () => {
+    const envs = ['', 'false', 'TRUE'].map((OPEN_SIGNUP) => ({ ALLOWED_EMAILS, OPEN_SIGNUP }));
+    for (const env of [{ ALLOWED_EMAILS }, ...envs]) {
+      const list = activeInviteList(env);
+      expect(isInviteOnly(list)).toBe(true);
+      expect(isInvited(list, 'stranger@example.org')).toBe(false);
+    }
   });
 });

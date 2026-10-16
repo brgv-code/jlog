@@ -5,7 +5,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
 import { resolvedProviders } from '../lib/auth';
 import { isDemoEmail, isDemoEnabled } from '../lib/demo/account';
-import { isInviteOnly } from '../lib/invites';
+import { activeInviteList, isInviteOnly } from '../lib/invites';
 
 /**
  * The two auth endpoints Better Auth does not provide.
@@ -26,7 +26,7 @@ router.get('/providers', async (c) =>
   c.json({
     providers: await resolvedProviders(c.env),
     // Whether new accounts need an invite, so the page can say so up front.
-    inviteOnly: isInviteOnly(c.env.ALLOWED_EMAILS),
+    inviteOnly: isInviteOnly(activeInviteList(c.env)),
     // Whether the login page may offer "explore a demo account".
     demo: isDemoEnabled(c.env),
   }),

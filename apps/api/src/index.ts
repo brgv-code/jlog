@@ -81,6 +81,8 @@ export interface Env {
    * See lib/invites.ts.
    */
   ALLOWED_EMAILS?: string;
+  /** "true" sets ALLOWED_EMAILS aside and opens sign-up, keeping the list. */
+  OPEN_SIGNUP?: string;
   EMAIL_FROM?: string;
   // Dedicated secret for encrypting stored LLM API keys — kept separate from
   // SESSION_SECRET so a change to one doesn't have blast radius on the other.
