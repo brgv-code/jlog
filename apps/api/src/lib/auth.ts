@@ -11,7 +11,7 @@ import { isDemoEmail } from './demo/account';
 import { demoAccount } from './demo/plugin';
 import { getMailer, magicLinkMessage } from './email';
 import { extensionOrigins } from './extensionIds';
-import { INVITE_ONLY_MESSAGE, isInvited } from './invites';
+import { INVITE_ONLY_MESSAGE, activeInviteList, isInvited } from './invites';
 
 /**
  * jlog's Better Auth instance.
@@ -204,7 +204,7 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
              * APIError would be rethrown and end on the API's own domain.
              * Emailed links are refused earlier, in sendMagicLink.
              */
-            if (!isInvited(env.ALLOWED_EMAILS, user.email)) {
+            if (!isInvited(activeInviteList(env), user.email)) {
               throw new Error(`Sign-up refused: ${user.email} is not on the invite list`);
             }
             if (user.name?.trim()) return { data: user };
@@ -260,7 +260,7 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
           // Refuse before sending, so a stranger gets the reason on the login
           // page instead of a link that cannot work. Someone who already has
           // an account may always sign in.
-          if (!isInvited(env.ALLOWED_EMAILS, email)) {
+          if (!isInvited(activeInviteList(env), email)) {
             const [existing] = await createDb(env.DB)
               .select({ id: users.id })
               .from(users)

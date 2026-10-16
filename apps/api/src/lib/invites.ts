@@ -31,6 +31,18 @@ export function parseInviteList(raw: string | undefined): InviteList | null {
   return list;
 }
 
+/**
+ * The invite list in force. `OPEN_SIGNUP = "true"` sets it aside without
+ * deleting it, so jlog.ai can open sign-up and go back to invites later by
+ * changing one line in wrangler.toml, with the list still in its secret.
+ */
+export function activeInviteList(env: {
+  ALLOWED_EMAILS?: string;
+  OPEN_SIGNUP?: string;
+}): string | undefined {
+  return env.OPEN_SIGNUP === 'true' ? undefined : env.ALLOWED_EMAILS;
+}
+
 /** Whether this address may create an account. Always true when no list is set. */
 export function isInvited(raw: string | undefined, email: string): boolean {
   const list = parseInviteList(raw);

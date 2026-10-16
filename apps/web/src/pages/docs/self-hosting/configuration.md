@@ -32,6 +32,7 @@ All optional and independent. See [sign-in methods](/docs/self-hosting/sign-in).
 | `RESEND_API_KEY`, `EMAIL_FROM` | Emailed sign-in links through Resend. Both are needed. |
 | `BETTER_AUTH_SECRET` | Optional separate signing secret for sign-in. Falls back to `SESSION_SECRET`. |
 | `ALLOWED_EMAILS` | Invite-only sign-up: addresses, or `@domain` for a whole domain, separated by commas. Unset, anyone can create an account. People who already have one can always sign in. Set it as a secret, so the list stays out of the repository. |
+| `OPEN_SIGNUP` | Set to `"true"` to let anyone create an account while keeping `ALLOWED_EMAILS` stored. Remove it to go back to invites. |
 | `API_ORIGIN` | Only when something in front of the Worker rewrites the Host header. Normally the origin is taken from the request. |
 
 ## API: optional services

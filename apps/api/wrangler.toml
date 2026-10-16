@@ -57,6 +57,10 @@ EXTENSION_ID = "ghianoebaadfaoheimmapmbdbljppmcb,enonliciopahgdejgpdjaeadebclgjo
 # visitor gets a throwaway account with a seeded search, removed after a day by
 # the nightly sweep. Delete this line to turn the demo off.
 DEMO_ENABLED = "true"
+# Anyone may create an account. The ALLOWED_EMAILS secret (the invite list) is
+# kept but ignored while this is "true"; delete this line to go back to
+# invite-only sign-up (src/lib/invites.ts).
+OPEN_SIGNUP = "true"
 
 # The nightly sweep of expired credentials (src/lib/cleanup.ts).
 #
