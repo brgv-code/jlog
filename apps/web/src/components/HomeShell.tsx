@@ -11,6 +11,7 @@ import {
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { type CvProfile, isProfileUsable, loadCvProfile } from '../lib/cvProfile';
+import { loginUrlFor } from '../lib/next';
 import { Sidebar } from './Sidebar';
 import { BarList } from './charts/BarList';
 import { Columns } from './charts/Columns';
@@ -101,7 +102,7 @@ export default function HomeShell() {
   }, []);
 
   useEffect(() => {
-    if (auth.status === 'unauthenticated') window.location.href = '/login';
+    if (auth.status === 'unauthenticated') window.location.href = loginUrlFor(window.location);
   }, [auth.status]);
 
   useEffect(() => {

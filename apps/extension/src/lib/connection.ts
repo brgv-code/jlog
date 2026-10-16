@@ -15,7 +15,27 @@ export const API_BASE: string =
 export const WEB_BASE: string =
   (import.meta.env.VITE_WEB_BASE as string | undefined) ?? 'http://localhost:4321';
 
-export const SETTINGS_URL = `${WEB_BASE}/settings`;
+/**
+ * Straight to the key section. Settings is a long page and the keys sit near
+ * the bottom, so landing at the top left a new user hunting for the one thing
+ * the popup sent them to do. Signed out, Settings sends them through sign-in
+ * and back here, anchor included.
+ */
+export const SETTINGS_URL = `${WEB_BASE}/settings#extension`;
+
+/**
+ * Opened once, on a fresh install. A store install otherwise ends on a puzzle
+ * piece in the toolbar and nothing else: the popup is where connecting happens,
+ * and nobody has been told it exists yet.
+ */
+export const WELCOME_URL = `${WEB_BASE}/extension/welcome/`;
+
+/**
+ * Where Chrome sends someone after they remove the extension. A short, optional
+ * form; the version is the only thing attached, so a report can be matched to
+ * the build it is about. Nothing identifying: the key is gone by then anyway.
+ */
+export const UNINSTALL_URL = `${WEB_BASE}/extension/uninstalled/`;
 
 /**
  * Where tracked jobs actually live. The applications list, not the dashboard:

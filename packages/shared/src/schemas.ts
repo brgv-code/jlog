@@ -126,6 +126,41 @@ export const followUpEventSchema = z.object({
   channel: z.enum(FOLLOW_UP_CHANNELS),
 });
 
+// --- Uninstall feedback ---
+
+/** The choices on the page Chrome opens after the extension is removed. */
+export const UNINSTALL_REASONS = [
+  'did_not_work',
+  'missing_site',
+  'too_many_permissions',
+  'not_job_hunting',
+  'switched_tool',
+  'other',
+] as const;
+
+export type UninstallReason = (typeof UNINSTALL_REASONS)[number];
+
+/**
+ * Anonymous by design: the person filling it in has just removed the thing
+ * that held their key, so there is no account to attach it to. An email is
+ * there only for someone who wants a reply, and is optional.
+ */
+export const uninstallFeedbackSchema = z.object({
+  reason: z.enum(UNINSTALL_REASONS),
+  message: z.string().trim().max(2000).optional(),
+  email: z.string().trim().email().max(320).optional(),
+  // Set by the extension in the uninstall URL. Digits and dots only, so the
+  // column can never carry anything but a version.
+  version: z
+    .string()
+    .regex(/^\d+(\.\d+){0,3}$/)
+    .optional(),
+  // A field people never see. Bots that fill every input fill this one too.
+  website: z.string().max(500).optional(),
+});
+
+export type UninstallFeedback = z.infer<typeof uninstallFeedbackSchema>;
+
 // --- Document asset references inside LaTeX source ---
 
 /**

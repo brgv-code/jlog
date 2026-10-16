@@ -16,6 +16,7 @@ import billingRouter from './routes/billing';
 import companyLogoRouter from './routes/companyLogo';
 import eventsRouter from './routes/events';
 import extensionRouter from './routes/extension';
+import feedbackRouter from './routes/feedback';
 import llmRouter, { extractRouter } from './routes/llm';
 import profileRouter from './routes/profile';
 import settingsRouter from './routes/settings';
@@ -202,6 +203,7 @@ app.route('/api/profile', profileRouter);
 app.route('/api/llm', llmRouter);
 app.route('/api/extract', extractRouter);
 app.route('/api/extension', extensionRouter);
+app.route('/api/feedback', feedbackRouter);
 // Billing. /billing/webhook is deliberately sessionless: Stripe sends no cookie
 // and the signature is what authenticates it.
 app.route('/api/billing', billingRouter);
@@ -249,7 +251,7 @@ export default {
           console.log(
             `[cleanup] removed ${swept.verifications} sign-in links, ` +
               `${swept.sessions} expired sessions, ${swept.extensionKeys} extension keys, ` +
-              `${swept.demoAccounts} demo accounts`,
+              `${swept.demoAccounts} demo accounts, ${swept.uninstallFeedback} uninstall responses`,
           );
         })
         // A failed sweep is worth knowing about and is not worth retrying into:

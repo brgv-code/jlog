@@ -3,6 +3,7 @@ import { APPLICATION_STATUSES } from '@jlog/shared';
 import { BriefcaseIcon, PlusIcon, SearchIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { loginUrlFor } from '../lib/next';
 import { usePageTitle } from '../lib/usePageTitle';
 import { Sidebar } from './Sidebar';
 import { AddApplicationDialog } from './applications/AddApplicationDialog';
@@ -97,7 +98,7 @@ export default function ApplicationsShell() {
   }, []);
 
   useEffect(() => {
-    if (auth.status === 'unauthenticated') window.location.href = '/login';
+    if (auth.status === 'unauthenticated') window.location.href = loginUrlFor(window.location);
   }, [auth.status]);
 
   // Debounce search

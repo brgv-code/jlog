@@ -1,0 +1,194 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+/*
+ * The tab the extension opens once, on a fresh install (background/index.ts).
+ *
+ * A store install otherwise ends on a puzzle piece in the toolbar. Connecting
+ * happens in the popup, with a key from Settings, and neither of those is
+ * something a new user would find by looking. This page says the three steps
+ * and links the one that needs the web app.
+ *
+ * "Open Settings" goes to /settings#extension, not /login: Settings sends a
+ * signed-out visitor through sign-in and back to that anchor (lib/next.ts), and
+ * a signed-in one straight to it, so one link serves both.
+ */
+const settingsHref = '/settings#extension';
+---
+
+<Layout
+  title="jlog is installed"
+  description="Three steps to connect the jlog Chrome extension to your account."
+>
+  <main class="prose">
+    <p class="back"><a href="/">← jlog</a></p>
+
+    <h1>jlog is installed</h1>
+    <p class="lede">
+      Three steps and it starts recording the jobs you apply to. Two minutes, most of it signing in.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h2>Pin it to your toolbar</h2>
+        <p>
+          Click the puzzle piece at the top right of Chrome, then the pin next to <strong>jlog</strong>.
+          The popup is where you connect it, and where <em>Extract with AI</em> lives, so it is worth
+          having in reach.
+        </p>
+      </li>
+      <li>
+        <h2>Make a key</h2>
+        <p>
+          Sign in, or create a free account, and generate a key under
+          <strong>Settings → Chrome extension</strong>. It is shown once, so copy it before you leave
+          the page.
+        </p>
+        <p><a class="button" href={settingsHref}>Open Settings</a></p>
+      </li>
+      <li>
+        <h2>Paste it into the popup</h2>
+        <p>
+          Click the jlog icon, paste the key and press <strong>Connect</strong>. The popup shows the
+          account it is linked to, so you can tell you picked the right one.
+        </p>
+      </li>
+    </ol>
+
+    <h2>What happens next</h2>
+    <ul>
+      <li>
+        On <strong>LinkedIn, Wellfound, Ashby, Greenhouse, Lever</strong> and
+        <strong>Y Combinator's job board</strong>, applications are recorded as you submit them.
+      </li>
+      <li>
+        On any other careers page, open the popup and press <strong>Extract with AI</strong>. You
+        confirm what it read before anything is saved.
+      </li>
+      <li>
+        On Greenhouse, Lever and Ashby forms, a <strong>Fill with jlog</strong> button fills the fields
+        it recognises from your profile. It never submits; you do.
+      </li>
+    </ul>
+    <p>
+      Everything lands in <a href="/applications">your applications</a>. The
+      <a href="/docs/extension">extension guide</a> has the detail, and the
+      <a href="/privacy">privacy policy</a> says exactly what the extension reads and where it goes.
+    </p>
+  </main>
+</Layout>
+
+<style>
+  .prose {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: var(--space-12) var(--space-6) var(--space-16);
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    line-height: 1.7;
+  }
+
+  .back {
+    margin-bottom: var(--space-8);
+    font-size: var(--text-sm);
+  }
+
+  .back a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .back a:hover {
+    color: var(--color-text-primary);
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--space-2);
+  }
+
+  .lede {
+    font-size: var(--text-lg);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-10);
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-top: var(--space-10);
+    margin-bottom: var(--space-3);
+  }
+
+  p {
+    margin-bottom: var(--space-4);
+  }
+
+  ul {
+    margin: 0 0 var(--space-4) var(--space-6);
+  }
+
+  li {
+    margin-bottom: var(--space-3);
+  }
+
+  a {
+    color: var(--color-primary);
+  }
+
+  /* Numbered by hand so the number can sit in its own column, beside a heading
+     rather than before a paragraph. */
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: step;
+  }
+
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: var(--space-12);
+    margin-bottom: var(--space-8);
+  }
+
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0.1em;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .steps h2 {
+    margin-top: 0;
+    font-size: var(--text-lg);
+  }
+
+  .button {
+    display: inline-block;
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    padding: var(--space-2) var(--space-5);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+  }
+
+  .button:hover {
+    opacity: 0.9;
+  }
+</style>

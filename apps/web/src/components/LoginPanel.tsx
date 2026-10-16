@@ -1,6 +1,7 @@
 import { type AuthProviderAvailability, authProvidersResponseSchema } from '@jlog/shared';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { safeNext } from '../lib/next';
 import { JlogMark } from './ui/JlogMark';
 
 /**
@@ -79,6 +80,14 @@ const primaryButton: CSSProperties = {
   borderColor: 'transparent',
 };
 
+/**
+ * Where a successful sign-in lands. The page that sent someone here, when it
+ * said so, otherwise the dashboard with its one-time greeting.
+ */
+function returnPath(next: string | null): string {
+  return next ?? '/dashboard?welcome=1';
+}
+
 export default function LoginPanel() {
   const [status, setStatus] = useState<Status>({ state: 'loading' });
   const [email, setEmail] = useState('');
@@ -94,6 +103,13 @@ export default function LoginPanel() {
   // Held until the session check answers, so a signed-in visitor does not see
   // the sign-in buttons flash up first.
   const [sessionChecked, setSessionChecked] = useState(false);
+  // Read once: it has to outlive the error parameter being replaced after a
+  // failed round trip, and the page never changes it.
+  const [next] = useState(() =>
+    typeof window === 'undefined'
+      ? null
+      : safeNext(new URLSearchParams(window.location.search).get('next')),
+  );
 
   useEffect(() => {
     // A failed round trip lands back here carrying its reason.
@@ -151,10 +167,13 @@ export default function LoginPanel() {
           // the URL. Both sign-in routes set it, because both land in the same
           // place and a magic link opened in a fresh tab carries no other trace
           // that a sign-in just happened.
-          callbackURL: `${window.location.origin}/dashboard?welcome=1`,
+          callbackURL: `${window.location.origin}${returnPath(next)}`,
           // Without this a failure ends on Better Auth's own error page, on the
           // API's domain, which is a dead end for the person looking at it.
-          errorCallbackURL: `${window.location.origin}/login`,
+          // `next` rides along so a retry still returns to the right page.
+          errorCallbackURL: `${window.location.origin}/login${
+            next ? `?next=${encodeURIComponent(next)}` : ''
+          }`,
         }),
       });
 
@@ -183,7 +202,7 @@ export default function LoginPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          callbackURL: `${window.location.origin}/dashboard?welcome=1`,
+          callbackURL: `${window.location.origin}${returnPath(next)}`,
         }),
       });
 
@@ -247,7 +266,7 @@ export default function LoginPanel() {
           </p>
         )}
         <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-          <a href="/dashboard" style={{ ...primaryButton, textDecoration: 'none' }}>
+          <a href={next ?? '/dashboard'} style={{ ...primaryButton, textDecoration: 'none' }}>
             Continue to jlog
           </a>
           <button

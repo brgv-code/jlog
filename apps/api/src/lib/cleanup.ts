@@ -1,4 +1,11 @@
-import { authSessions, authVerifications, createDb, extensionKeys, users } from '@jlog/db';
+import {
+  authSessions,
+  authVerifications,
+  createDb,
+  extensionKeys,
+  uninstallFeedback,
+  users,
+} from '@jlog/db';
 import { and, eq, like, lt } from 'drizzle-orm';
 import type { Env } from '../index';
 import { cleanupBeforeAccountDeletion } from './accountDeletion';
@@ -36,7 +43,15 @@ export type CleanupResult = {
   sessions: number;
   extensionKeys: number;
   demoAccounts: number;
+  uninstallFeedback: number;
 };
+
+/**
+ * How long an answer from the uninstall page is kept. A year covers comparing
+ * one release with the next; past that the reasons describe an extension that
+ * no longer exists. The privacy policy states this number.
+ */
+export const UNINSTALL_FEEDBACK_RETENTION_DAYS = 365;
 
 /** Demo accounts removed per run. A busy launch day is cleared over a few nights. */
 const DEMO_SWEEP_LIMIT = 500;
@@ -80,10 +95,19 @@ export async function runScheduledCleanup(env: Env): Promise<CleanupResult> {
     await db.delete(users).where(eq(users.id, id));
   }
 
+  const feedbackCutoff = new Date(
+    now.getTime() - UNINSTALL_FEEDBACK_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const feedback = await db
+    .delete(uninstallFeedback)
+    .where(lt(uninstallFeedback.createdAt, feedbackCutoff))
+    .returning({ id: uninstallFeedback.id });
+
   return {
     verifications: verifications.length,
     sessions: sessions.length,
     extensionKeys: keys.length,
     demoAccounts: expiredDemos.length,
+    uninstallFeedback: feedback.length,
   };
 }

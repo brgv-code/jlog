@@ -3,6 +3,8 @@ import type { CvProfile, SavedValues } from '../lib/autofill';
 import {
   API_BASE,
   type Connection,
+  UNINSTALL_URL,
+  WELCOME_URL,
   checkConnection,
   getToken,
   setCachedConnection,
@@ -208,11 +210,23 @@ async function handleMessage(message: unknown): Promise<MessageResult> {
   }
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  // Only a fresh install. This also fires on every update and on a Chrome
+  // update, and writing `no-key` then told the popup that a connected browser
+  // had no key, until the next check corrected it.
+  if (reason !== chrome.runtime.OnInstalledReason.INSTALL) return;
+
   // A fresh install has no key, and saying so up front means the popup opens
   // straight onto the paste screen instead of guessing.
   void setCachedConnection({ status: 'no-key', expiresAt: null, label: null, account: null });
+  void chrome.tabs.create({ url: WELCOME_URL });
 });
+
+// Set on every start of the worker rather than once at install, so installs
+// from before this existed pick it up on their next update without a reinstall.
+void chrome.runtime.setUninstallURL(
+  `${UNINSTALL_URL}?v=${encodeURIComponent(chrome.runtime.getManifest().version)}`,
+);
 
 chrome.runtime.onMessage.addListener(
   (
