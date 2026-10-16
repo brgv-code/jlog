@@ -48,40 +48,39 @@ change one, change both or the listing and the extension disagree.
 
 ## Detailed description
 
-> Applying to jobs is easy to do and hard to keep track of. jlog watches the job
-> boards you already use and records what you applied to, so the list maintains
-> itself.
+> Applying to jobs is easy to do and hard to keep track of. jlog records the jobs you apply to and fills in application forms from your profile, so your list keeps itself up to date.
 >
-> On LinkedIn, Wellfound, Ashby, Greenhouse, Lever and Y Combinator's job board,
-> applications are captured as you make them — no copying, no spreadsheet. jlog
-> records the company, the role, the link and the date, and you can edit or
-> delete any of it afterwards.
+> Record applications as you apply
+> On the job boards jlog supports, such as LinkedIn and Greenhouse, an application is saved when you submit it: the company, the role, the link and the date. You can edit or delete any of it afterwards. The documentation at jlog.ai lists every supported site.
 >
-> On any other careers page, click the jlog icon and "Extract with AI" reads the
-> posting and fills in the company, role and location, which you confirm before
-> anything is saved.
+> Save a job from any careers page
+> Click the jlog icon and "Extract with AI" reads the posting and fills in the company, role and location. You confirm it before anything is saved.
 >
-> On Greenhouse, Lever and Ashby application forms, including ones embedded in a
-> company's own careers site, a "Fill with jlog" button fills your name, email,
-> phone, links and location from your jlog profile. Visa, salary and equal
-> opportunity questions are filled only from answers you saved yourself, and
-> left empty otherwise. jlog only fills empty fields, and it never submits: you
-> read the form and press submit.
+> Fill in application forms
+> On supported application forms, including ones embedded in a company's own careers site, a "Fill with jlog" button fills your name, email, phone, links and location from your jlog profile. Visa, salary and equal opportunity questions are filled only from answers you saved yourself, and left empty otherwise. jlog only fills empty fields and never submits: you read the form and press submit.
 >
-> With jlog Pro, open questions such as "Why do you want to work here?" get a
-> "Draft" button. It writes an answer from the experience in your profile and
-> lists the facts it used, so you can check it before you send it. If your
-> profile does not cover the question, it says so instead of making something
-> up.
+> Draft answers with jlog Pro
+> Open questions such as "Why do you want to work here?" get a "Draft" button. It writes an answer from the experience in your profile and lists the facts it used, so you can check it before you send it. If your profile does not cover the question, it says so instead of making something up.
 >
-> Everything lands in your jlog dashboard, where you can track status from saved
-> through applied, interviewing, and offer — with notes, the original posting,
-> and a timeline of what happened when.
+> Track everything in one place
+> Everything lands in your jlog dashboard, where you can follow each application from saved to applied, interviewing and offer, with notes, the original posting and a timeline of what happened when.
 >
-> jlog is open source and self-hostable. If you would rather run it yourself,
-> the whole thing is at github.com/brgv-code/jlog.
+> jlog is open source, and you can run it yourself: github.com/brgv-code/jlog
 >
-> You will need a free jlog account to connect the extension.
+> You need a jlog account to connect the extension.
+
+**Name the job boards once.** The first submission (16 October 2026) was
+rejected for keyword spam ("Yellow Argon"): the old description listed
+"LinkedIn, Wellfound, Ashby, Greenhouse, Lever and Y Combinator's job board",
+and then named three of them again. The store reads a list of brand names as
+keywords. Name one or two as examples and point at the docs for the full list.
+The same goes for the promo tiles, which no longer carry the list either. The
+permission justifications below are different: there the sites have to be
+named, because the reviewer is checking each host permission against them.
+
+"You need a jlog account" rather than "a free jlog account" while sign up on
+jlog.ai is invite only: a listing that promises an account people cannot make
+is the kind of claim a reviewer, or a one star review, picks up on.
 
 ## Category
 
