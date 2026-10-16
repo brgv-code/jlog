@@ -10,6 +10,7 @@ import { getAppleClientSecret, isAppleConfigured } from './apple';
 import { isDemoEmail } from './demo/account';
 import { demoAccount } from './demo/plugin';
 import { getMailer, magicLinkMessage } from './email';
+import { extensionOrigins } from './extensionIds';
 import { INVITE_ONLY_MESSAGE, isInvited } from './invites';
 
 /**
@@ -113,7 +114,7 @@ export function createAuth(env: Env, requestUrl: string, secrets: ResolvedSecret
     // The web app and the extension are on different origins from this worker,
     // so both have to be named explicitly before Better Auth will accept a
     // sign-in initiated from them or redirect back to them.
-    trustedOrigins: [env.WEB_ORIGIN, `chrome-extension://${env.EXTENSION_ID}`],
+    trustedOrigins: [env.WEB_ORIGIN, ...extensionOrigins(env.EXTENSION_ID)],
 
     user: {
       modelName: 'users',

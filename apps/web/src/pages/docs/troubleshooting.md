@@ -74,7 +74,7 @@ Stripe tells jlog about a payment separately from sending you back. Reload in a 
 
 ### The extension cannot reach a self-hosted API
 
-- `EXTENSION_ID` on the API must be your build's ID from `chrome://extensions`. The API accepts only that extension.
+- `EXTENSION_ID` on the API must include your build's ID from `chrome://extensions`. The API accepts only the extensions listed there, separated by commas.
 - Your API's origin must be in the extension's `host_permissions`, and in `VITE_API_BASE` when you built it.
 
 ### Sign in with Apple fails locally
