@@ -14,7 +14,7 @@ Locally, the API reads `apps/api/.dev.vars`. On Cloudflare, anything secret is s
 | `ENCRYPTION_SECRET` | Encrypts stored AI provider keys with AES-GCM. A different value from `SESSION_SECRET`. Changing it makes saved keys unreadable, so each user saves theirs again. |
 | `WEB_ORIGIN` | The web app's origin, exactly, for example `https://jobs.example.com`. Sign-ins from anywhere else are refused. |
 | `COOKIE_DOMAIN` | `localhost` when running locally. Any other value, such as `production`, turns on secure cookies that work across your web and API origins over HTTPS. |
-| `EXTENSION_ID` | Your build of the extension's ID, from `chrome://extensions`. The API only accepts requests from this extension. |
+| `EXTENSION_ID` | Your build of the extension's ID, from `chrome://extensions`. The API only accepts requests from the extensions listed here. To trust more than one build, such as a store build and an unpacked one, separate the IDs with commas. |
 
 Plus at least one sign-in method below.
 

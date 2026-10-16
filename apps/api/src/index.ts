@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 import type { Auth } from './lib/auth';
 import { runScheduledCleanup } from './lib/cleanup';
 import { warmDemoLogos } from './lib/demo/seed';
+import { isTrustedExtensionOrigin } from './lib/extensionIds';
 import type { Tracing } from './lib/langfuse';
 import { makeDrafter, makeTailor } from './lib/tailor';
 import { authInstanceMiddleware } from './middleware/authInstance';
@@ -86,7 +87,8 @@ export interface Env {
   ENCRYPTION_SECRET: string;
   WEB_ORIGIN: string;
   COOKIE_DOMAIN: string;
-  // The jlog Chrome extension's ID — CORS only trusts this one, not any chrome-extension:// origin.
+  // The jlog Chrome extension IDs, comma separated (store build plus unpacked dev
+  // build). CORS trusts exactly these, not any chrome-extension:// origin. See lib/extensionIds.ts.
   EXTENSION_ID: string;
   // Optional: Cloudflare Access service token for protecting a tunnelled Ollama instance.
   // Sent only to CF_ACCESS_HOST (see lib/cfAccess.ts), never to a user's own Ollama URL.
@@ -159,10 +161,10 @@ app.use(
       // Access-Control-Allow-Origin — required because credentials: true forbids "*".
       if (origin === c.env.WEB_ORIGIN) return origin;
 
-      // Only jlog's own extension, pinned by ID — chrome-extension:// is a scheme,
-      // not a domain, so matching the prefix alone would trust every extension
-      // installed in the user's browser, not just this one.
-      if (origin === `chrome-extension://${c.env.EXTENSION_ID}`) return origin;
+      // Only jlog's own extension builds, pinned by ID — chrome-extension:// is a
+      // scheme, not a domain, so matching the prefix alone would trust every
+      // extension installed in the user's browser, not just ours.
+      if (isTrustedExtensionOrigin(c.env.EXTENSION_ID, origin)) return origin;
       return null;
     },
     // Lets the browser attach/receive the session cookie on cross-origin requests.

@@ -48,10 +48,11 @@ LANGFUSE_BASE_URL = "https://cloud.langfuse.com"
 # Keeps a preview deployment's traces out of production's inside the same
 # Langfuse project. Unset locally, which lands traces in "default".
 LANGFUSE_TRACING_ENVIRONMENT = "production"
-# jlog's own Chrome extension ID — CORS only trusts this one. Dev-loaded unpacked
-# extensions get an ID derived from their install path unless manifest.json pins a
-# "key"; repin this if the extension is reloaded from a different path or published.
-EXTENSION_ID = "enonliciopahgdejgpdjaeadebclgjom"
+# jlog's own Chrome extension IDs, comma separated — CORS trusts exactly these.
+# First the Chrome Web Store item, then the unpacked build loaded from
+# apps/extension/dist (its ID comes from the folder path unless manifest.json
+# pins a "key"; repin it if the extension is loaded from somewhere else).
+EXTENSION_ID = "ghianoebaadfaoheimmapmbdbljppmcb,enonliciopahgdejgpdjaeadebclgjom"
 # "Explore a demo account" on the landing and login pages (src/lib/demo). Each
 # visitor gets a throwaway account with a seeded search, removed after a day by
 # the nightly sweep. Delete this line to turn the demo off.
