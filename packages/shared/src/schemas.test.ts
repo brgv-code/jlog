@@ -8,6 +8,7 @@ import {
   findTraversingAssetRefs,
   isNeverExpiring,
   normaliseVariantContent,
+  uninstallFeedbackSchema,
 } from './schemas';
 
 describe('findTraversingAssetRefs', () => {
@@ -133,5 +134,29 @@ describe('extension key lifetimes', () => {
     const res = extensionTokenSchema.safeParse({ label: '  Work laptop  ' });
     expect(res.success && res.data.label).toBe('Work laptop');
     expect(extensionTokenSchema.safeParse({ label: 'x'.repeat(61) }).success).toBe(false);
+  });
+});
+
+describe('uninstall feedback', () => {
+  it('accepts a reason on its own, since everything else is optional', () => {
+    expect(uninstallFeedbackSchema.safeParse({ reason: 'not_job_hunting' }).success).toBe(true);
+  });
+
+  it('rejects a reason the page does not offer', () => {
+    expect(uninstallFeedbackSchema.safeParse({ reason: 'hated_it' }).success).toBe(false);
+  });
+
+  it('keeps the version column to digits and dots', () => {
+    expect(uninstallFeedbackSchema.safeParse({ reason: 'other', version: '1.0.0' }).success).toBe(
+      true,
+    );
+    expect(
+      uninstallFeedbackSchema.safeParse({ reason: 'other', version: '1.0<script>' }).success,
+    ).toBe(false);
+  });
+
+  it('caps the message', () => {
+    const message = 'x'.repeat(2001);
+    expect(uninstallFeedbackSchema.safeParse({ reason: 'other', message }).success).toBe(false);
   });
 });

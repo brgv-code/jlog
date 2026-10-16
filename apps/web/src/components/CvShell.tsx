@@ -1,6 +1,7 @@
 import { FileUserIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { loginUrlFor } from '../lib/next';
 import { Sidebar } from './Sidebar';
 import { CvProfileForm } from './settings/CvProfileForm';
 import { ImportCvForm } from './settings/ImportCvForm';
@@ -43,7 +44,7 @@ export default function CvShell() {
   }, []);
 
   useEffect(() => {
-    if (auth.status === 'unauthenticated') window.location.href = '/login';
+    if (auth.status === 'unauthenticated') window.location.href = loginUrlFor(window.location);
   }, [auth.status]);
 
   async function handleSignOut() {

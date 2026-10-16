@@ -445,3 +445,19 @@ export const autofillValues = sqliteTable('autofill_values', {
   data: text('data', { mode: 'json' }).$type<Record<string, unknown>>().notNull().default({}),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
+
+/**
+ * What people said on the page Chrome opens after the extension is removed.
+ *
+ * Deliberately not linked to `users`: the form is anonymous, and a row here
+ * should survive the account it might have come from being deleted. `email` is
+ * present only when someone asked for a reply.
+ */
+export const uninstallFeedback = sqliteTable('uninstall_feedback', {
+  id: text('id').primaryKey(),
+  reason: text('reason').notNull(),
+  message: text('message'),
+  email: text('email'),
+  extensionVersion: text('extension_version'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});

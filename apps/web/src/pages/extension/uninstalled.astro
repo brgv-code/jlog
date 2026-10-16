@@ -1,0 +1,324 @@
+---
+import { UNINSTALL_REASONS, type UninstallReason } from '@jlog/shared';
+import Layout from '../../layouts/Layout.astro';
+
+/*
+ * Where Chrome sends someone after they remove the extension
+ * (chrome.runtime.setUninstallURL in background/index.ts).
+ *
+ * Two jobs, in this order. First, say plainly what removing the extension did
+ * and did not do: the applications are still in the account, which is the
+ * thing a person most likely wants to know. Then an optional, anonymous form
+ * asking why, posted to /api/feedback/uninstall.
+ *
+ * Typed against UNINSTALL_REASONS so a reason added to the schema without a
+ * label here fails the build instead of rendering an empty radio button.
+ */
+const reasonLabels: Record<UninstallReason, string> = {
+  did_not_work: 'It did not record or fill what I expected',
+  missing_site: 'The job site I use is not supported',
+  too_many_permissions: 'It asked for more access than I was comfortable with',
+  not_job_hunting: 'I am not looking for a job any more',
+  switched_tool: 'I am using something else',
+  other: 'Something else',
+};
+const reasons = UNINSTALL_REASONS.map((value) => ({ value, label: reasonLabels[value] }));
+---
+
+<Layout
+  title="jlog was removed"
+  description="The jlog extension was removed. Your applications are still in your account."
+>
+  <main class="prose">
+    <p class="back"><a href="/">← jlog</a></p>
+
+    <h1>The extension was removed</h1>
+    <p class="lede">
+      Your applications are still in your jlog account, and <a href="/applications">still there to
+      open</a>. Removing the extension only deleted its key from this browser.
+    </p>
+    <p>
+      To stop that key working everywhere, revoke it under
+      <a href="/settings#extension">Settings → Chrome extension</a>. To remove everything, delete
+      your account at the bottom of Settings.
+    </p>
+
+    <h2>Would you tell us why?</h2>
+    <p class="muted">
+      Optional, and anonymous unless you leave an address. It goes to the one person who builds jlog,
+      who reads every answer.
+    </p>
+
+    <form id="feedback" novalidate>
+      <fieldset>
+        <legend class="sr-only">Why did you remove it?</legend>
+        {
+          reasons.map(({ value, label }) => (
+            <label class="choice">
+              <input type="radio" name="reason" value={value} required />
+              <span>{label}</span>
+            </label>
+          ))
+        }
+      </fieldset>
+
+      <label class="field">
+        <span>Anything else? <span class="muted">(optional)</span></span>
+        <textarea name="message" rows="4" maxlength="2000"
+          placeholder="Which site, what went wrong, what you expected"></textarea>
+      </label>
+
+      <label class="field">
+        <span>Email, if you would like a reply <span class="muted">(optional)</span></span>
+        <input type="email" name="email" maxlength="320" autocomplete="email" />
+      </label>
+
+      <!-- The honeypot. Hidden from people and from screen readers; a bot that
+           fills every field fills this one, and the API drops the submission. -->
+      <label class="hp" aria-hidden="true">
+        Website <input type="text" name="website" tabindex="-1" autocomplete="off" />
+      </label>
+
+      <p id="feedback-error" class="error" role="alert" hidden></p>
+      <button type="submit" class="button">Send</button>
+    </form>
+
+    <div id="feedback-thanks" hidden>
+      <h2>Thank you</h2>
+      <p>
+        That has been sent. If you change your mind about jlog, the
+        <a href="/docs/extension">extension guide</a> shows how to get it back.
+      </p>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  const API = import.meta.env.PUBLIC_API_URL as string;
+
+  const form = document.getElementById('feedback') as HTMLFormElement | null;
+  const errorEl = document.getElementById('feedback-error') as HTMLParagraphElement | null;
+  const thanks = document.getElementById('feedback-thanks');
+
+  // The extension appends ?v=<version> to this page's URL. Only a version is
+  // passed on; the API rejects anything that is not digits and dots.
+  const version = new URLSearchParams(window.location.search).get('v');
+
+  function showError(message: string) {
+    if (!errorEl) return;
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (errorEl) errorEl.hidden = true;
+
+    const data = new FormData(form);
+    const reason = data.get('reason');
+    if (typeof reason !== 'string') {
+      showError('Pick the reason closest to yours, then send.');
+      return;
+    }
+    const text = (name: string) => {
+      const v = data.get(name);
+      return typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined;
+    };
+
+    const button = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Sending…';
+    }
+
+    try {
+      const res = await fetch(`${API}/api/feedback/uninstall`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason,
+          message: text('message'),
+          email: text('email'),
+          version: version && /^\d+(\.\d+){0,3}$/.test(version) ? version : undefined,
+          website: text('website'),
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: { code?: string } };
+        showError(
+          body.error?.code === 'VALIDATION_ERROR'
+            ? 'That email address does not look right. Fix it or leave it empty.'
+            : 'It did not go through. Please try again in a moment.',
+        );
+        return;
+      }
+      form.hidden = true;
+      if (thanks) thanks.hidden = false;
+    } catch {
+      showError('Could not reach jlog. Check your connection and try again.');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Send';
+      }
+    }
+  });
+</script>
+
+<style>
+  .prose {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: var(--space-12) var(--space-6) var(--space-16);
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    line-height: 1.7;
+  }
+
+  .back {
+    margin-bottom: var(--space-8);
+    font-size: var(--text-sm);
+  }
+
+  .back a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .back a:hover {
+    color: var(--color-text-primary);
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--space-2);
+  }
+
+  .lede {
+    font-size: var(--text-lg);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-6);
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-top: var(--space-10);
+    margin-bottom: var(--space-3);
+  }
+
+  p {
+    margin-bottom: var(--space-4);
+  }
+
+  a {
+    color: var(--color-primary);
+  }
+
+  .muted {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+  }
+
+  fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0 0 var(--space-6);
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .choice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  .choice:has(input:checked) {
+    border-color: var(--color-primary);
+  }
+
+  .choice input {
+    margin-top: 0.2em;
+    accent-color: var(--color-primary);
+  }
+
+  .field {
+    display: grid;
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+
+  .field .muted {
+    font-weight: 400;
+  }
+
+  textarea,
+  input[type='email'] {
+    font: inherit;
+    font-weight: 400;
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    width: 100%;
+  }
+
+  textarea:focus,
+  input[type='email']:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+  }
+
+  .hp {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .error {
+    color: var(--color-danger);
+    font-size: var(--text-sm);
+  }
+
+  .button {
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
+    border: 0;
+    padding: var(--space-2) var(--space-6);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+
+  .button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+</style>

@@ -12,6 +12,9 @@ export const APP_ROUTES = [
   '/login',
   '/designsystem',
   '/demo',
+  // Not behind sign-in, but only ever reached from the extension itself (its
+  // install and uninstall tabs). Nobody searches for them.
+  '/extension',
 ];
 
 /** True for a URL or path that is one of the routes above, or under one. */

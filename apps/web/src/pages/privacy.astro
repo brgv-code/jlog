@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 // Google's OAuth consent screen requires a reachable privacy policy URL before
 // an external app can leave testing mode. It is also just the honest thing to
 // publish for a product that holds someone's job search.
-const lastUpdated = '27 September 2026';
+const lastUpdated = '16 October 2026';
 
 // Where data access and deletion requests land. Also what is given to Google as
 // the app's support email, so the two agree.
@@ -151,6 +151,13 @@ const contactEmail = 'support@jlog.ai';
       the extension removes the key from your browser; to revoke it everywhere, delete it under
       Settings.
     </p>
+    <p>
+      When you install the extension it opens a page on jlog.ai explaining how to connect it. When
+      you remove it, Chrome opens a page asking why, with an optional form. If you send it, jlog
+      stores the reason you picked, anything you typed, the extension's version number, and an
+      email address only if you entered one so we can reply. It is not linked to your account, and
+      it is deleted after a year.
+    </p>
 
     <h2>Analytics, which currently do nothing</h2>
     <p>
@@ -255,7 +262,9 @@ const contactEmail = 'support@jlog.ai';
 
     <h2>How long things are kept</h2>
     <p>
-      Your data stays until you delete it or ask for your account to be removed.
+      Your data stays until you delete it or ask for your account to be removed. The one exception
+      is the optional form shown after uninstalling the extension: those answers are kept for a year
+      and then deleted.
     </p>
     <p>
       Credentials that have run out are swept by a job that runs once a day. Spent and expired

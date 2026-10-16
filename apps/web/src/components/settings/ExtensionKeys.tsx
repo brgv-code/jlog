@@ -193,7 +193,8 @@ export function ExtensionKeys() {
   }
 
   return (
-    <section style={sectionStyle}>
+    // `id` is what the extension's "Open Settings" links to (#extension).
+    <section id="extension" style={{ ...sectionStyle, scrollMarginTop: 'var(--space-6)' }}>
       <p style={headingStyle}>Chrome extension</p>
       {/* Consequence-first microcopy, at the point the decision is made. */}
       <p style={helpStyle}>

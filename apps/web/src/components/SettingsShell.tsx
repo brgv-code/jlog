@@ -1,6 +1,7 @@
 import { ArrowRightIcon, SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { loginUrlFor } from '../lib/next';
 import { Sidebar } from './Sidebar';
 import { AutofillAnswers } from './settings/AutofillAnswers';
 import { DeleteAccount } from './settings/DeleteAccount';
@@ -56,7 +57,26 @@ export default function SettingsShell() {
   }, [loadMe]);
 
   useEffect(() => {
-    if (auth.status === 'unauthenticated') window.location.href = '/login';
+    if (auth.status === 'unauthenticated') window.location.href = loginUrlFor(window.location);
+  }, [auth.status]);
+
+  // The browser jumps to a #anchor on load, but this page is an island and the
+  // section is not there yet, so the jump finds nothing. Do it once the page
+  // has rendered. Matters for #extension, where the extension's popup sends
+  // people to generate a key.
+  useEffect(() => {
+    if (auth.status !== 'authenticated' || !window.location.hash) return;
+    const target = document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+    if (!target) return;
+    target.scrollIntoView({ block: 'start' });
+    // The sections above fetch their own data and grow when it arrives, which
+    // pushes the target down after the jump. Settle once more, unless the
+    // person has started scrolling themselves in the meantime.
+    const landedAt = window.scrollY;
+    const settle = window.setTimeout(() => {
+      if (window.scrollY === landedAt) target.scrollIntoView({ block: 'start' });
+    }, 600);
+    return () => window.clearTimeout(settle);
   }, [auth.status]);
 
   useEffect(() => {
