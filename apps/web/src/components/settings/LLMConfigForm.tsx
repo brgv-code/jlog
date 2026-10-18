@@ -1,5 +1,7 @@
+import { REASONING_EFFORTS, type ReasoningEffort } from '@jlog/shared';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../lib/api';
+import { type ModelList, defaultModel, fetchModels, modelLabel } from '../../lib/llmModels';
 
 type Provider = 'anthropic' | 'openai' | 'gemini' | 'ollama';
 
@@ -7,14 +9,21 @@ interface LLMConfig {
   provider: Provider;
   model: string;
   ollamaUrl: string | null;
+  reasoningEffort?: ReasoningEffort;
   hasApiKey: boolean;
 }
 
-const DEFAULT_MODELS: Record<Provider, string> = {
-  anthropic: 'claude-3-5-haiku-20241022',
-  openai: 'gpt-4o-mini',
-  gemini: 'gemini-1.5-flash',
-  ollama: 'llama3',
+/** Ollama lists what is installed locally; the hosted providers come from the catalogue. */
+const OLLAMA_DEFAULT = 'llama3';
+
+/** The select value that switches the model field to a free text id. */
+const CUSTOM = '__custom__';
+
+const EFFORT_LABELS: Record<ReasoningEffort, string> = {
+  default: 'Default (the provider decides)',
+  low: 'Low: fastest and cheapest',
+  medium: 'Medium',
+  high: 'High: slowest, most thorough',
 };
 
 const PROVIDER_LABELS: Record<Provider, string> = {
@@ -46,7 +55,11 @@ const labelStyle = {
 export function LLMConfigForm() {
   const [config, setConfig] = useState<LLMConfig | null>(null);
   const [provider, setProvider] = useState<Provider>('anthropic');
-  const [model, setModel] = useState(DEFAULT_MODELS.anthropic);
+  const [model, setModel] = useState('');
+  const [custom, setCustom] = useState(false);
+  const [list, setList] = useState<ModelList | null>(null);
+  const [listing, setListing] = useState(false);
+  const [effort, setEffort] = useState<ReasoningEffort>('default');
   const [apiKey, setApiKey] = useState('');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
@@ -62,6 +75,7 @@ export function LLMConfigForm() {
           setConfig(data.config);
           setProvider(data.config.provider);
           setModel(data.config.model);
+          setEffort(data.config.reasoningEffort ?? 'default');
           setOllamaUrl(data.config.ollamaUrl ?? 'http://localhost:11434');
         }
       })
@@ -78,16 +92,55 @@ export function LLMConfigForm() {
         const names = (data.models ?? []).map((m) => m.name);
         setOllamaModels(names);
         if (names.length > 0 && !names.includes(model)) {
-          setModel(names[0] ?? DEFAULT_MODELS.ollama);
+          setModel(names[0] ?? OLLAMA_DEFAULT);
         }
       })
       .catch(() => setOllamaModels([]));
   }, [provider, ollamaUrl, model]);
 
+  // The catalogue for a hosted provider, and which of it the key can call.
+  // Re-asked when a new key is typed, so access is checked before saving.
+  function loadModels(p: Provider, key?: string, preselect = false) {
+    if (p === 'ollama') {
+      setList(null);
+      return;
+    }
+    setListing(true);
+    fetchModels(p, key)
+      .then((next) => {
+        setList(next);
+        if (preselect && next) {
+          setModel(defaultModel(next));
+          setCustom(false);
+        }
+      })
+      .finally(() => setListing(false));
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the provider changes, not on every keystroke in the key field
+  useEffect(() => {
+    loadModels(provider);
+  }, [provider]);
+
+  // A saved model the catalogue does not list (a fine-tune, an older id, a
+  // model newer than the catalogue) stays as typed rather than being replaced.
+  // Nothing saved yet gets the newest model this key can call.
+  useEffect(() => {
+    if (!list) return;
+    if (!model && !custom) setModel(defaultModel(list));
+    else if (model && !list.models.some((m) => m.id === model)) setCustom(true);
+  }, [list, model, custom]);
+
   function handleProviderChange(p: Provider) {
     setProvider(p);
-    setModel(DEFAULT_MODELS[p]);
+    setModel(p === 'ollama' ? OLLAMA_DEFAULT : '');
+    setCustom(false);
+    loadModels(p, undefined, true);
   }
+
+  const selected = list?.models.find((m) => m.id === model);
+  const latest = list ? list.models.filter((m) => list.latest.includes(m.id)) : [];
+  const rest = list ? list.models.filter((m) => !list.latest.includes(m.id)) : [];
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -95,7 +148,7 @@ export function LLMConfigForm() {
     setErrorMsg('');
 
     try {
-      const body: Record<string, string> = { provider, model };
+      const body: Record<string, string> = { provider, model, reasoningEffort: effort };
       if (apiKey) body.apiKey = apiKey;
       if (provider === 'ollama') body.ollamaUrl = ollamaUrl;
 
@@ -168,17 +221,94 @@ export function LLMConfigForm() {
               </option>
             ))}
           </select>
+        ) : provider !== 'ollama' && list && list.models.length > 0 ? (
+          <>
+            <select
+              id="llm-model"
+              value={custom ? CUSTOM : model}
+              onChange={(e) => {
+                if (e.target.value === CUSTOM) {
+                  setCustom(true);
+                  return;
+                }
+                setCustom(false);
+                setModel(e.target.value);
+              }}
+              style={{ ...inputStyle, cursor: 'pointer' }}
+            >
+              <optgroup label="Latest">
+                {latest.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {modelLabel(m, list.available)}
+                  </option>
+                ))}
+              </optgroup>
+              {rest.length > 0 && (
+                <optgroup label={`All ${PROVIDER_LABELS[provider]} models`}>
+                  {rest.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {modelLabel(m, list.available)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <option value={CUSTOM}>Other model id…</option>
+            </select>
+            {custom && (
+              <input
+                aria-label="Model id"
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder="Exact model id, as the provider names it"
+                style={{ ...inputStyle, marginTop: '6px' }}
+                required
+              />
+            )}
+          </>
         ) : (
           <input
             id="llm-model"
             type="text"
             value={model}
             onChange={(e) => setModel(e.target.value)}
+            placeholder={listing ? 'Loading models…' : 'Model id'}
             style={inputStyle}
             required
           />
         )}
       </div>
+
+      {provider !== 'ollama' && (
+        <div>
+          <label htmlFor="llm-effort" style={labelStyle}>
+            Reasoning effort
+          </label>
+          <select
+            id="llm-effort"
+            value={effort}
+            onChange={(e) => setEffort(e.target.value as ReasoningEffort)}
+            style={{ ...inputStyle, cursor: 'pointer' }}
+          >
+            {REASONING_EFFORTS.map((value) => (
+              <option key={value} value={value}>
+                {EFFORT_LABELS[value]}
+              </option>
+            ))}
+          </select>
+          <p
+            style={{
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-text-tertiary)',
+              marginTop: '4px',
+            }}
+          >
+            {selected && !selected.reasoning
+              ? 'This model does not reason, so the setting has no effect on it.'
+              : 'How long a reasoning model thinks before answering. Tailoring and imports are structured work; low is usually enough.'}
+          </p>
+        </div>
+      )}
 
       {provider !== 'ollama' && (
         <div>
@@ -190,6 +320,7 @@ export function LLMConfigForm() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
+            onBlur={() => apiKey && loadModels(provider, apiKey)}
             placeholder={config?.hasApiKey ? 'API key saved ••••••' : 'sk-...'}
             style={inputStyle}
           />

@@ -205,6 +205,8 @@ export const llmConfigs = sqliteTable('llm_configs', {
   apiKeyEncrypted: text('api_key_encrypted'),
   model: text('model').notNull(),
   ollamaUrl: text('ollama_url'),
+  /** default | low | medium | high. Null reads as default: send no effort. */
+  reasoningEffort: text('reasoning_effort', { enum: ['default', 'low', 'medium', 'high'] }),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 

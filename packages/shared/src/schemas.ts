@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CV_TEMPLATES, DEFAULT_TEMPLATE } from './cv/templates';
+import { REASONING_EFFORTS } from './models/efforts';
 
 export const githubUserSchema = z.object({
   id: z.number(),
@@ -109,6 +110,13 @@ export const llmConfigSchema = z.object({
   model: z.string().min(1).max(100),
   apiKey: z.string().max(500).optional(),
   ollamaUrl: z.string().url().optional(),
+  reasoningEffort: z.enum(REASONING_EFFORTS).optional(),
+});
+
+/** POST /api/llm/models. The key is one typed but not saved yet; it is never stored. */
+export const llmModelsRequestSchema = z.object({
+  provider: z.enum(['anthropic', 'openai', 'gemini']),
+  apiKey: z.string().max(500).optional(),
 });
 
 export const extractSchema = z.object({

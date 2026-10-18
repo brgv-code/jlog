@@ -2,6 +2,7 @@ import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
 import type { ExtractOptions, LLMProvider } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
+import { sendWithEffort } from './effort';
 
 interface OpenAICompletion {
   choices: Array<{ message: { content: string | null }; finish_reason?: string }>;
@@ -18,38 +19,41 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
     ): Promise<T> {
       let res: Response;
       try {
-        res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          signal: AbortSignal.timeout(options?.timeoutMs ?? 30000),
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT },
-              { role: 'user', content: `${prompt}\n\n${content}` },
-            ],
-            /*
-             * Not `max_tokens`. The reasoning models reject it outright —
-             * "Unsupported parameter: 'max_tokens' is not supported with this
-             * model. Use 'max_completion_tokens' instead." — and fail the whole
-             * request with a 400 rather than ignoring it.
-             *
-             * `max_completion_tokens` is accepted by the older chat models too,
-             * so this is one parameter for both families rather than a
-             * model-name lookup that goes stale every time OpenAI ships
-             * something.
-             *
-             * Note it bounds reasoning tokens as well as visible ones on those
-             * models, so a budget that is merely enough for the answer can be
-             * spent entirely on thinking and return empty content.
-             */
-            max_completion_tokens: options?.maxTokens ?? 1024,
-            response_format: { type: 'json_object' },
-          }),
-        });
+        const send = (effort: string | undefined) =>
+          fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            signal: AbortSignal.timeout(options?.timeoutMs ?? 30000),
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT },
+                { role: 'user', content: `${prompt}\n\n${content}` },
+              ],
+              /*
+               * Not `max_tokens`. The reasoning models reject it outright —
+               * "Unsupported parameter: 'max_tokens' is not supported with this
+               * model. Use 'max_completion_tokens' instead." — and fail the whole
+               * request with a 400 rather than ignoring it.
+               *
+               * `max_completion_tokens` is accepted by the older chat models too,
+               * so this is one parameter for both families rather than a
+               * model-name lookup that goes stale every time OpenAI ships
+               * something.
+               *
+               * Note it bounds reasoning tokens as well as visible ones on those
+               * models, so a budget that is merely enough for the answer can be
+               * spent entirely on thinking and return empty content.
+               */
+              max_completion_tokens: options?.maxTokens ?? 1024,
+              response_format: { type: 'json_object' },
+              ...(effort ? { reasoning_effort: effort } : {}),
+            }),
+          });
+        res = await sendWithEffort(send, options?.reasoningEffort);
       } catch (e) {
         throw new LLMError('NETWORK_ERROR', `OpenAI request failed: ${String(e)}`);
       }
