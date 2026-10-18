@@ -52,6 +52,18 @@ function readLegacyProfile(): CvProfile | null {
   }
 }
 
+/**
+ * Fired after something other than the profile form writes the profile, so the
+ * form reloads instead of holding a stale copy. Without it, importing a CV
+ * filled the profile on the server, the form below kept showing the old one,
+ * and its next Save wrote the old one back, sections and all.
+ */
+export const CV_PROFILE_CHANGED = 'jlog:cv-profile-changed';
+
+export function notifyCvProfileChanged(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(CV_PROFILE_CHANGED));
+}
+
 export async function saveCvProfile(profile: CvProfile): Promise<void> {
   const res = await apiFetch('/api/profile/cv', {
     method: 'PUT',

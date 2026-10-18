@@ -9,7 +9,12 @@
 import { CheckIcon, FileTextIcon, ImportIcon, Loader2Icon, UploadIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { apiFetch } from '../../lib/api';
-import { type CvProfile, loadCvProfile, saveCvProfile } from '../../lib/cvProfile';
+import {
+  type CvProfile,
+  loadCvProfile,
+  notifyCvProfileChanged,
+  saveCvProfile,
+} from '../../lib/cvProfile';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Separator } from '../ui/separator';
@@ -171,6 +176,20 @@ export function ImportCvForm() {
         sourceId: string | null;
       };
 
+      // The CV's header and its other sections (projects, skills, education)
+      // are the owner's own text, and a tailored CV can only print what the
+      // profile holds. Importing a CV therefore copies them too, rather than
+      // leaving them behind a second button that was easy to miss.
+      // Not fatal: the facts are already stored, so a failure here is said
+      // plainly and the button stays available to retry.
+      if (!chromeApplied) {
+        await writeChrome(preview.chrome).catch(() =>
+          setError(
+            'Imported, but your profile details could not be updated. Try "Use for my profile".',
+          ),
+        );
+      }
+
       // After the facts, never instead of them: an upload that fails leaves an
       // import that fully succeeded, so this must not set `error`, which would
       // tell the user their import broke when it did not.
@@ -210,19 +229,24 @@ export function ImportCvForm() {
    * fields the CV actually filled in are written, so importing a CV that omits
    * a homepage does not erase the one already stored.
    */
+  async function writeChrome(chrome: Preview['chrome']) {
+    const current = await loadCvProfile();
+    const found = Object.fromEntries(
+      Object.entries(chrome).filter(([, v]) =>
+        Array.isArray(v) ? v.length > 0 : String(v ?? '').trim() !== '',
+      ),
+    );
+    await saveCvProfile({ ...current, ...found } as CvProfile);
+    setChromeApplied(true);
+    notifyCvProfileChanged();
+  }
+
   async function applyChrome() {
     if (!preview) return;
     setBusy(true);
     setError(null);
     try {
-      const current = await loadCvProfile();
-      const found = Object.fromEntries(
-        Object.entries(preview.chrome).filter(([, v]) =>
-          Array.isArray(v) ? v.length > 0 : String(v ?? '').trim() !== '',
-        ),
-      );
-      await saveCvProfile({ ...current, ...found } as CvProfile);
-      setChromeApplied(true);
+      await writeChrome(preview.chrome);
     } catch {
       setError('Could not save those details to your profile.');
     } finally {

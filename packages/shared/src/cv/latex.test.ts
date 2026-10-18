@@ -101,6 +101,41 @@ describe('parseLatexCv', () => {
     expect(chrome.sections.map((s) => s.heading)).not.toContain('Experience');
   });
 
+  // moderncv writes a degree with the same \cventry as a job. Read as roles,
+  // an Education section became bullet-less "jobs" and disappeared from the CV.
+  it('keeps entries under Education as that section, not as jobs', () => {
+    const src = [
+      '\\section{Experience}',
+      '\\cventry{2020--2024}{Engineer}{Acme}{Berlin}{}{\\begin{itemize}\\item Shipped billing.\\end{itemize}}',
+      '\\section{Projects}',
+      '\\cvitem{OpenThing}{An open source tool.}',
+      '\\section{Education}',
+      '\\cventry{}{MSc, Computer Science}{TU Somewhere}{Germany}{}{}',
+      '\\cventry{2013--2017}{B.E., Electronics}{Some College}{India}{}{}',
+      '\\section{Languages}',
+      '\\cvitem{}{English (fluent)}',
+    ].join('\n');
+    const { roles, chrome } = parseLatexCv(src);
+    expect(roles.map((r) => r.employer)).toEqual(['Acme']);
+    expect(chrome.sections).toEqual([
+      { heading: 'Projects', items: [{ left: 'OpenThing', right: 'An open source tool.' }] },
+      {
+        heading: 'Education',
+        items: [
+          { left: '', right: 'MSc, Computer Science, TU Somewhere, Germany' },
+          { left: '2013--2017', right: 'B.E., Electronics, Some College, India' },
+        ],
+      },
+      { heading: 'Languages', items: [{ left: '', right: 'English (fluent)' }] },
+    ]);
+  });
+
+  it('still reads entries under an unfamiliar heading as jobs', () => {
+    const src =
+      '\\section{Where I worked}\n\\cventry{2020}{Engineer}{Acme}{}{}{\\begin{itemize}\\item Did it.\\end{itemize}}';
+    expect(parseLatexCv(src).roles.map((r) => r.employer)).toEqual(['Acme']);
+  });
+
   it('survives a file with no experience at all', () => {
     const { roles, chrome } = parseLatexCv('\\name{Ada}{Lovelace}\n\\email{a@b.c}');
     expect(roles).toEqual([]);
