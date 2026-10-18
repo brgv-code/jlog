@@ -179,7 +179,34 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
         getText('[class*="company"]') ||
         getText('.header--title') ||
         companyFromUrl;
-      return { company, role };
+      // The employer's logo is served from Greenhouse's own logo bucket, which
+      // tells it apart from any other image a company embeds in its board.
+      // og:image carries the same file when the header has no logo.
+      function readLogo(): string {
+        const isBoardLogo = (src: string) =>
+          src.startsWith('https://') && src.includes('external_greenhouse_job_boards/logos');
+        const img = Array.from(document.querySelectorAll('img')).find((candidate) =>
+          isBoardLogo(candidate.getAttribute('src') ?? ''),
+        );
+        const og =
+          document.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? '';
+        return img?.getAttribute('src') ?? (isBoardLogo(og) ? og : '');
+      }
+      const logoUrl = readLogo();
+      return { company, role, ...(logoUrl ? { logoUrl } : {}) };
+    },
+    // job-boards.greenhouse.io renders the posting in `.job__description`; the
+    // older boards.greenhouse.io layout keeps it in `#content`. Both are server
+    // rendered, so no polling is needed.
+    extractPageText: () => {
+      function textOf(el: HTMLElement | null): string {
+        return ((el?.innerText || el?.textContent) ?? '').trim();
+      }
+      const container =
+        document.querySelector<HTMLElement>('.job__description') ??
+        document.querySelector<HTMLElement>('#content') ??
+        document.querySelector<HTMLElement>('.job-post');
+      return textOf(container) || document.body.innerText.trim();
     },
   },
   {
@@ -207,7 +234,20 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
         })() ||
         getText('[class*="company"]') ||
         (pathParts[0] ? decodeURIComponent(pathParts[0]).replace(/-/g, ' ') : '');
-      return { company, role };
+      // Lever serves every employer logo from its lever-client-logos bucket;
+      // anything else on the page (the footer's Lever mark) is not the employer.
+      function readLogo(): string {
+        const isClientLogo = (src: string) =>
+          src.startsWith('https://') && src.includes('lever-client-logos');
+        const img = Array.from(document.querySelectorAll('img')).find((candidate) =>
+          isClientLogo(candidate.getAttribute('src') ?? ''),
+        );
+        const og =
+          document.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? '';
+        return img?.getAttribute('src') ?? (isClientLogo(og) ? og : '');
+      }
+      const logoUrl = readLogo();
+      return { company, role, ...(logoUrl ? { logoUrl } : {}) };
     },
   },
   {
@@ -231,7 +271,49 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
         getText('[class*="company-name"]') ||
         getText('header h2') ||
         (pathParts[0] ? decodeURIComponent(pathParts[0]).replace(/-/g, ' ') : '');
-      return { company, role };
+      // Ashby ships the org theme in an inline `window.__appData` script. This
+      // runs in the extension's isolated world, so that global is out of reach,
+      // but the script's text is not. The square logo suits the dashboard's
+      // avatar; an org-theme-logo image in the DOM is the same file.
+      function readLogo(): string {
+        const html = document.documentElement.innerHTML;
+        const fromAppData = html.match(/"logoSquareImageUrl":"(https:\/\/[^"]+)"/)?.[1] ?? '';
+        if (fromAppData) return fromAppData;
+        const img = Array.from(document.querySelectorAll('img')).find((candidate) =>
+          (candidate.getAttribute('src') ?? '').includes('/org-theme-logo/'),
+        );
+        const src = img?.getAttribute('src') ?? '';
+        return src.startsWith('https://') ? src : '';
+      }
+      const logoUrl = readLogo();
+      return { company, role, ...(logoUrl ? { logoUrl } : {}) };
+    },
+    // Ashby is a client rendered SPA whose class names carry a build hash
+    // (`_descriptionText_oj0x8_198`), so match on the stable prefix, and poll
+    // briefly in case the popup fires before the posting has rendered.
+    extractPageText: async () => {
+      function textOf(el: HTMLElement | null): string {
+        return ((el?.innerText || el?.textContent) ?? '').trim();
+      }
+      function readContainer(): HTMLElement | null {
+        const candidates = [
+          '[class*="_descriptionText_"]',
+          '#overview',
+          '.ashby-job-posting-right-pane',
+        ];
+        for (const selector of candidates) {
+          const el = document.querySelector<HTMLElement>(selector);
+          if (textOf(el)) return el;
+        }
+        return null;
+      }
+      const deadline = Date.now() + 2000;
+      let container = readContainer();
+      while (!container && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 150));
+        container = readContainer();
+      }
+      return textOf(container) || document.body.innerText.trim();
     },
   },
   {

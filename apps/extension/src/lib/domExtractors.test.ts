@@ -171,6 +171,67 @@ describe('domExtractors', () => {
     });
   });
 
+  it('reads the Greenhouse description, not the whole page', () => {
+    setBody(`
+      <div class="job__header"><h1 class="job__title">Senior Backend Engineer</h1></div>
+      <div class="job__description body"><p>Greenhouse description text.</p></div>
+      <form id="application-form">First name</form>
+    `);
+    const greenhouse = SITE_EXTRACTORS.find((s) => s.name === 'greenhouse');
+    const pageText = greenhouse?.extractPageText?.() as string;
+    expect(pageText).toContain('Greenhouse description text.');
+    expect(pageText).not.toContain('First name');
+  });
+
+  it('takes the Greenhouse logo from its logo bucket, not any other image', () => {
+    const logo =
+      'https://s8-recruiting.cdn.greenhouse.io/external_greenhouse_job_boards/logos/400/040/300/original/acme.png?1';
+    setBody(`
+      <img src="https://cdn.acme.com/banner.png" alt="Team photo">
+      <img src="${logo}" alt="Acme Logo">
+      <h1 class="job__title">Senior Backend Engineer</h1>
+    `);
+    const greenhouse = SITE_EXTRACTORS.find((s) => s.name === 'greenhouse');
+    expect(greenhouse?.extract()).toMatchObject({ logoUrl: logo });
+  });
+
+  it('takes the Lever client logo and skips the Lever footer mark', () => {
+    const logo = 'https://lever-client-logos.s3.us-west-2.amazonaws.com/acme.png';
+    setBody(`
+      <div class="main-header-logo"><img alt="Acme logo" src="${logo}"></div>
+      <h2 data-qa="posting-name">Designer</h2>
+      <img alt="Lever logo" src="/img/lever-logo-refresh.svg" class="footer-logo">
+    `);
+    const lever = SITE_EXTRACTORS.find((s) => s.name === 'lever');
+    expect(lever?.extract()).toMatchObject({ logoUrl: logo });
+  });
+
+  it('reads the Ashby square logo out of the inline app data', () => {
+    const logo = 'https://app.ashbyhq.com/api/images/org-theme-logo/a/b/c.png';
+    setBody(`
+      <script>window.__appData = {"theme":{"logoSquareImageUrl":"${logo}"}}</script>
+      <h1 class="ashby-job-posting-heading">Product Engineer</h1>
+    `);
+    const ashby = SITE_EXTRACTORS.find((s) => s.name === 'ashby');
+    expect(ashby?.extract()).toMatchObject({ logoUrl: logo });
+  });
+
+  it('leaves the logo out when the board shows none', () => {
+    setBody('<h1 class="job__title">Senior Backend Engineer</h1>');
+    const greenhouse = SITE_EXTRACTORS.find((s) => s.name === 'greenhouse');
+    expect(greenhouse?.extract()).not.toHaveProperty('logoUrl');
+  });
+
+  it('reads the Ashby description by its hashed class prefix', async () => {
+    setBody(`
+      <h1 class="ashby-job-posting-heading">Product Engineer</h1>
+      <div id="overview"><div class="_descriptionText_oj0x8_198"><p>Ashby description text.</p></div></div>
+    `);
+    const ashby = SITE_EXTRACTORS.find((s) => s.name === 'ashby');
+    const pageText = await ashby?.extractPageText?.();
+    expect(pageText).toContain('Ashby description text.');
+  });
+
   it('returns empty strings when nothing on the page matches any selector', async () => {
     setBody('<div>completely unrelated content</div>');
     const linkedin = SITE_EXTRACTORS.find((s) => s.name === 'linkedin');

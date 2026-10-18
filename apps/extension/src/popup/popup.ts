@@ -624,18 +624,19 @@ function renderExtracting(root: HTMLElement, url: string): void {
             // Company/role came straight from the DOM, so there's no need to
             // call the LLM at all — but also read the description straight
             // from the DOM (no LLM) so the field isn't left blank just
-            // because the fast path skipped the LLM call.
-            if (siteExtractor.extractPageText) {
-              chrome.scripting.executeScript(
-                { target: { tabId }, func: siteExtractor.extractPageText },
-                (textResults) => {
-                  const description = textResults?.[0]?.result as string | undefined;
-                  renderConfirmExtracted(root, job, url, description);
-                },
-              );
-              return;
-            }
-            renderConfirmExtracted(root, job, url);
+            // because the fast path skipped the LLM call. A site without its
+            // own description reader still gets the whole page text, the same
+            // thing the LLM path would have shown.
+            chrome.scripting.executeScript(
+              {
+                target: { tabId },
+                func: siteExtractor.extractPageText ?? (() => document.body.innerText),
+              },
+              (textResults) => {
+                const description = textResults?.[0]?.result as string | undefined;
+                renderConfirmExtracted(root, job, url, description);
+              },
+            );
             return;
           }
           // Selectors found nothing (page not fully loaded, or markup changed) —
