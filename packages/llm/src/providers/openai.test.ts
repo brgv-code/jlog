@@ -37,6 +37,18 @@ const completion = (content: string | null, finish_reason?: string) => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe('makeOpenAIProvider', () => {
+  // A reasoning model tailoring a CV thinks for longer than extraction ever
+  // needed; a fixed 30s abort cut it off mid answer.
+  it('waits as long as the caller asks, and 30s when it does not say', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    mockOpenAI(completion('{"ok":true}'));
+    const provider = makeOpenAIProvider('k', 'gpt-5-nano');
+    await provider.extractJSON('p', schema, 'c', { timeoutMs: 120_000 });
+    await provider.extractJSON('p', schema, 'c');
+    expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([120_000, 30_000]);
+    timeout.mockRestore();
+  });
+
   it('sends max_completion_tokens and never max_tokens', async () => {
     const fetchMock = mockOpenAI(completion('{"ok":true}'));
     await makeOpenAIProvider('sk-test', 'gpt-4o-mini').extractJSON('p', schema, 'c', {
