@@ -1,4 +1,10 @@
-import { ArchiveIcon, ArchiveRestoreIcon, PencilIcon } from 'lucide-react';
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  CheckCheckIcon,
+  CheckIcon,
+  PencilIcon,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   FACTS_CHANGED,
@@ -43,7 +49,10 @@ export function StoredFacts() {
     return () => window.removeEventListener(FACTS_CHANGED, load);
   }, []);
 
-  async function change(id: string, patch: { status?: 'active' | 'archived'; canonical?: string }) {
+  async function change(
+    id: string,
+    patch: { status?: 'active' | 'archived'; canonical?: string; confirmed?: boolean },
+  ) {
     setBusy(id);
     setError(null);
     const ok = await updateFact(id, patch);
@@ -69,9 +78,9 @@ export function StoredFacts() {
       <CardHeader>
         <CardTitle>Your experience</CardTitle>
         <CardDescription>
-          What tailored CVs are built from. Each line says where it came from: lines from older
-          applications may have been written by an AI, so check them. Archive anything that is not
-          true or that you do not want used; edit a line to correct its wording.
+          What tailored CVs are built from. Lines from your CV are used as they are. Lines from
+          older applications may have been written by an AI, so they are not used until you keep
+          them. Archive anything that is not true; edit a line to correct its wording.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -90,6 +99,7 @@ export function StoredFacts() {
               onToggle={() =>
                 change(role.id, { status: role.status === 'active' ? 'archived' : 'active' })
               }
+              onKeepAll={() => change(role.id, { confirmed: true })}
             />
             {role.status === 'active' && (
               <ul className="space-y-1.5">
@@ -111,6 +121,7 @@ export function StoredFacts() {
                           status: bullet.status === 'active' ? 'archived' : 'active',
                         })
                       }
+                      onKeep={() => change(bullet.id, { confirmed: true })}
                     />
                   ))}
               </ul>
@@ -131,10 +142,12 @@ function RoleHeader({
   role,
   busy,
   onToggle,
+  onKeepAll,
 }: {
   role: StoredRole;
   busy: boolean;
   onToggle: () => void;
+  onKeepAll: () => void;
 }) {
   const archived = role.status === 'archived';
   return (
@@ -149,10 +162,23 @@ function RoleHeader({
       </span>
       {role.dates && <span className="text-muted-foreground/70 text-[12px]">{role.dates}</span>}
       {role.origin === 'history' && <Badge variant="warning">{ORIGIN_LABELS.history}</Badge>}
+      {!archived && role.unconfirmed > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          disabled={busy}
+          onClick={onKeepAll}
+          title="Every active line under this role is true: let tailoring use them"
+        >
+          <CheckCheckIcon />
+          Keep all {role.unconfirmed}
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="sm"
-        className="ml-auto"
+        className={!archived && role.unconfirmed > 0 ? '' : 'ml-auto'}
         disabled={busy}
         onClick={onToggle}
         aria-label={
@@ -174,6 +200,7 @@ function BulletRow({
   onCancel,
   onSave,
   onToggle,
+  onKeep,
 }: {
   bullet: StoredBullet;
   busy: boolean;
@@ -182,6 +209,7 @@ function BulletRow({
   onCancel: () => void;
   onSave: (text: string) => void;
   onToggle: () => void;
+  onKeep: () => void;
 }) {
   const archived = bullet.status === 'archived';
   if (editing !== null) {
@@ -222,6 +250,18 @@ function BulletRow({
         <Badge variant={bullet.origin === 'history' ? 'warning' : 'info'}>
           {ORIGIN_LABELS[bullet.origin]}
         </Badge>
+      )}
+      {!archived && bullet.origin === 'history' && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          onClick={onKeep}
+          title="This is true: let tailoring use it"
+        >
+          <CheckIcon />
+          Keep
+        </Button>
       )}
       {!archived && (
         <Button

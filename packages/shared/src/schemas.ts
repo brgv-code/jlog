@@ -327,15 +327,17 @@ export const cvImportPreviewSchema = z.object({
  * back the rows it chose, so nothing can be written that was not on screen.
  */
 /**
- * PATCH /api/profile/facts/:id. Archive or restore a fact, or correct a
- * bullet's wording. At least one of the two.
+ * PATCH /api/profile/facts/:id. Archive or restore a fact, correct a bullet's
+ * wording, or keep a fact from older applications. At least one of those.
  */
 export const factUpdateSchema = z
   .object({
     status: z.enum(['active', 'archived']).optional(),
     canonical: z.string().trim().min(1).max(1000).optional(),
+    /** Keep (true) a fact seeded from older applications, so tailoring may use it. */
+    confirmed: z.boolean().optional(),
   })
-  .refine((v) => v.status !== undefined || v.canonical !== undefined, {
+  .refine((v) => v.status !== undefined || v.canonical !== undefined || v.confirmed !== undefined, {
     message: 'Nothing to change.',
   });
 

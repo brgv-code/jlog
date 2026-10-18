@@ -7,8 +7,12 @@
  */
 import { apiFetch } from './api';
 
-/** cv: from a CV imported here. edited: corrected by the owner. history: seeded from older applications. */
-export type FactOrigin = 'cv' | 'edited' | 'history';
+/**
+ * cv: from a CV imported here. edited: corrected by the owner. kept: from older
+ * applications, and kept by the owner. history: from older applications and
+ * not kept yet, which tailoring does not use.
+ */
+export type FactOrigin = 'cv' | 'edited' | 'kept' | 'history';
 export type FactStatus = 'active' | 'archived';
 
 export type StoredBullet = { id: string; text: string; status: FactStatus; origin: FactOrigin };
@@ -21,6 +25,8 @@ export type StoredRole = {
   location: string | null;
   status: FactStatus;
   origin: 'cv' | 'history';
+  /** Active bullets under this role that tailoring is not using yet. */
+  unconfirmed: number;
   bullets: StoredBullet[];
 };
 
@@ -41,7 +47,7 @@ export async function loadStoredFacts(): Promise<StoredFacts | null> {
 
 export async function updateFact(
   id: string,
-  change: { status?: FactStatus; canonical?: string },
+  change: { status?: FactStatus; canonical?: string; confirmed?: boolean },
 ): Promise<boolean> {
   const res = await apiFetch(`/api/profile/facts/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -54,7 +60,8 @@ export async function updateFact(
 export const ORIGIN_LABELS: Record<FactOrigin, string> = {
   cv: 'From your CV',
   edited: 'Edited by you',
-  history: 'From older applications',
+  kept: 'Kept by you',
+  history: 'Unconfirmed: not used',
 };
 
 /** The end of a "2023--2025" or "2025--current" range, as a sortable number. */
