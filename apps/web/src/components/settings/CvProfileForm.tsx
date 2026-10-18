@@ -1,6 +1,7 @@
 import { CheckIcon, PlusIcon, Trash2Icon, UploadIcon, UserRoundIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
+  CV_PROFILE_CHANGED,
   type CvProfile,
   type CvSection,
   EMPTY_PROFILE,
@@ -259,12 +260,16 @@ export function CvProfileForm() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadCvProfile()
-      .then((loaded) => {
-        setProfile(loaded);
-        setSections(toDrafts(loaded.sections));
-      })
-      .catch(() => setError('Could not load your CV profile.'));
+    const load = () =>
+      loadCvProfile()
+        .then((loaded) => {
+          setProfile(loaded);
+          setSections(toDrafts(loaded.sections));
+        })
+        .catch(() => setError('Could not load your CV profile.'));
+    load();
+    window.addEventListener(CV_PROFILE_CHANGED, load);
+    return () => window.removeEventListener(CV_PROFILE_CHANGED, load);
   }, []);
 
   function set<K extends keyof CvProfile>(key: K, value: CvProfile[K]) {

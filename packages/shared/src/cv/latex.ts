@@ -139,8 +139,8 @@ function readChrome(src: string): ImportedChrome {
 }
 
 /** `\section{X}` headings with the body that follows each one. */
-function readSections(src: string): { heading: string; body: string }[] {
-  const out: { heading: string; body: string }[] = [];
+function readSections(src: string): { heading: string; body: string; start: number }[] {
+  const out: { heading: string; body: string; start: number }[] = [];
   const re = /\\section\{([^}]*)\}/g;
   // Both offsets: a body starts after its own command and ends where the next
   // command starts, not where the next body does — otherwise every section
@@ -154,7 +154,7 @@ function readSections(src: string): { heading: string; body: string }[] {
   heads.forEach((h, i) => {
     const end = i + 1 < heads.length ? (heads[i + 1]?.start ?? src.length) : src.length;
     const body = src.slice(h.at, end).replace(/\\end\{document\}[\s\S]*$/, '');
-    out.push({ heading: h.heading, body });
+    out.push({ heading: h.heading, body, start: h.start });
   });
   return out;
 }
@@ -176,20 +176,43 @@ function readItems(rawBody: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Headings whose `\\cventry` lines are not jobs. moderncv uses the same command
+ * for a degree as for a role, so without this an Education section became two
+ * "roles" with no bullets and vanished from the CV, and a thesis or a project
+ * was offered to tailoring as employment. Unknown headings keep the old
+ * reading, so a CV that titles its jobs unusually does not lose them.
+ */
+const NOT_JOBS =
+  /^(education|academic|qualifications?|certifications?|training|research|publications?|awards?|honou?rs|volunteer(ing)?|community|projects?|languages)\b/i;
+
 export function parseLatexCv(source: string): ImportedCv {
   const chrome = readChrome(source);
   const roles: ImportedRole[] = [];
+  const heads = readSections(source);
+  /** Entries under a not-jobs heading, kept as that section's items, in order. */
+  const entryItems = new Map<string, { left: string; right: string }[]>();
 
   const entryRe = /\\cventry\b/g;
   let m = entryRe.exec(source);
   while (m !== null) {
     // Advance before any branch can `continue`, or a skipped entry loops
     // forever on the same match.
+    const m0 = m.index;
     const at = m.index + m[0].length;
     m = entryRe.exec(source);
     const [groups] = readGroups(source, at, 6);
     if (groups.length < 6) continue;
-    const [rawDates, roleTitle, employer, location] = groups.map((g) => toProse(g));
+    const [rawDates, roleTitle, employer, location, detail] = groups.map((g) => toProse(g));
+    const heading = heads.filter((h) => h.start < m0).pop()?.heading;
+    if (heading && NOT_JOBS.test(heading)) {
+      const bullets = readItems(groups[5] ?? '');
+      const right = [roleTitle, employer, location, detail, ...bullets].filter(Boolean).join(', ');
+      const list = entryItems.get(heading) ?? [];
+      list.push({ left: rawDates ?? '', right });
+      entryItems.set(heading, list);
+      continue;
+    }
     roles.push({
       employer: employer || '',
       roleTitle: roleTitle || '',
@@ -199,16 +222,16 @@ export function parseLatexCv(source: string): ImportedCv {
     });
   }
 
-  for (const section of readSections(source)) {
+  for (const section of heads) {
     if (/^summary$/i.test(section.heading)) {
       chrome.summary = toProse(section.body);
       continue;
     }
     // A section is Experience if the entries live in it; those are roles, and
     // they are already read above.
-    if (section.body.includes('\\cventry')) continue;
+    if (section.body.includes('\\cventry') && !entryItems.has(section.heading)) continue;
 
-    const items: { left: string; right: string }[] = [];
+    const items: { left: string; right: string }[] = [...(entryItems.get(section.heading) ?? [])];
     const itemRe = /\\cvitem\b/g;
     let im = itemRe.exec(section.body);
     while (im !== null) {

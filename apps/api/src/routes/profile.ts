@@ -596,14 +596,23 @@ router.put('/cv', async (c) => {
     throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
   }
 
+  // The photo filename belongs to the photo routes, which also own the bytes. A
+  // profile save carries whatever photo the form loaded, and writing that back
+  // cleared any photo uploaded since: the image stayed stored and nothing
+  // pointed at it, so generated CVs silently lost it.
+  const { photo: _ignored, ...fields } = parsed.data;
   const db = createDb(c.env.DB);
   const now = new Date();
   await db
     .insert(cvProfiles)
-    .values({ userId: session.userId, ...parsed.data, createdAt: now, updatedAt: now })
-    .onConflictDoUpdate({ target: cvProfiles.userId, set: { ...parsed.data, updatedAt: now } });
+    .values({ userId: session.userId, ...fields, createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({ target: cvProfiles.userId, set: { ...fields, updatedAt: now } });
 
-  return c.json({ profile: parsed.data, stored: true });
+  const [row] = await db
+    .select({ photo: cvProfiles.photo })
+    .from(cvProfiles)
+    .where(eq(cvProfiles.userId, session.userId));
+  return c.json({ profile: { ...fields, photo: row?.photo ?? '' }, stored: true });
 });
 
 /*
