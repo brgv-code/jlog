@@ -5,6 +5,7 @@ import { loginUrlFor } from '../lib/next';
 import { Sidebar } from './Sidebar';
 import { CvProfileForm } from './settings/CvProfileForm';
 import { ImportCvForm } from './settings/ImportCvForm';
+import { StoredFacts } from './settings/StoredFacts';
 import { JlogMark } from './ui/JlogMark';
 
 interface User {
@@ -131,6 +132,7 @@ export default function CvShell() {
           </p>
 
           <ImportCvForm />
+          <StoredFacts />
           <CvProfileForm />
         </main>
       </div>

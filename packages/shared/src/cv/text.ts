@@ -30,7 +30,7 @@ const DATES =
   /((?:19|20)\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*(?:19|20)\d{2})\s*(?:--+|[–—]|-|to|until|–)?\s*((?:19|20)\d{2}|present|current|ongoing|now)?/i;
 
 const KNOWN_SECTION =
-  /^(experience|employment|work(?:\s+experience)?|professional\s+experience|education|skills?|languages?|summary|profile|about|objective|projects?|publications?|certifications?|interests|awards|volunteering)\b/i;
+  /^(experience|employment|work(?:\s+experience)?|professional\s+experience|education|skills?|languages?|summary|profile|about|objective|projects?|publications?|certifications?|interests|awards|volunteering|research|community|leadership|talks|honou?rs)\b/i;
 
 /** Headings shout: all caps, or a known word on a short line of its own. */
 function isHeading(line: string): boolean {
@@ -42,6 +42,20 @@ function isHeading(line: string): boolean {
   if (KNOWN_SECTION.test(text) && text.split(/\s+/).length <= 4) return true;
   const letters = text.replace(/[^a-zA-Z]/g, '');
   return letters.length >= 3 && letters === letters.toUpperCase();
+}
+
+/**
+ * A PDF wraps at the page edge, so one item can arrive as several lines. A
+ * line runs on into the next when it plainly stops mid sentence: on a comma or
+ * a joining word, or at full width with no closing punctuation. A short line
+ * without a full stop, like a skills row, is left alone.
+ */
+const JOINING = /(,|\b(?:and|or|with|of|the|to|for|in|on|across|by|from))$/i;
+const WRAP_WIDTH = 85;
+function runsOn(line: string): boolean {
+  const text = line.trimEnd();
+  if (/[.!?]$/.test(text)) return false;
+  return JOINING.test(text) || text.length >= WRAP_WIDTH;
 }
 
 /** A job line carries a date range and is not a bullet. */
@@ -138,7 +152,12 @@ export function parseTextCv(source: string): ImportedCv {
 
     if (!section) continue;
     const list = sectionLines.get(section) ?? [];
-    list.push(line);
+    const last = list[list.length - 1];
+    if (last !== undefined && !BULLET.test(line) && runsOn(last)) {
+      list[list.length - 1] = `${last} ${line.trim()}`;
+    } else {
+      list.push(line);
+    }
     sectionLines.set(section, list);
   }
 
@@ -148,4 +167,47 @@ export function parseTextCv(source: string): ImportedCv {
   }
 
   return { chrome, roles, unplaced };
+}
+
+/**
+ * The section headings a CV's text plainly has, in order: known section names
+ * on a short line of their own. Deliberately narrower than `isHeading`, which
+ * also takes any line in capitals; this is used to accuse a model of dropping a
+ * section, and a false accusation costs a retry.
+ */
+export function sectionHeadings(source: string): string[] {
+  return source
+    .split('\n')
+    .map(plain)
+    .filter((l) => l && !/:\s*\S/.test(l) && l.split(/\s+/).length <= 4 && KNOWN_SECTION.test(l));
+}
+
+/**
+ * Sections the text has but the reading does not. Experience and Summary are
+ * not sections of the reading (they become roles and the summary), so they
+ * are never missing from it.
+ */
+export function missingSections(cv: ImportedCv, source: string): string[] {
+  const have = new Set(cv.chrome.sections.map((s) => s.heading.trim().toLowerCase()));
+  return sectionHeadings(source).filter((h) => {
+    const key = h.toLowerCase();
+    return (
+      !have.has(key) &&
+      !EXPERIENCE.test(key) &&
+      !/experience|employment/i.test(key) &&
+      !SUMMARY.test(key)
+    );
+  });
+}
+
+/**
+ * Add the named sections from another reading, in the order the CV has them.
+ * The rule reader is rougher than a model, but a rough Projects section the
+ * user can see and fix beats one that silently is not there.
+ */
+export function withSections(cv: ImportedCv, from: ImportedCv, headings: string[]): ImportedCv {
+  const wanted = new Set(headings.map((h) => h.toLowerCase()));
+  const extra = from.chrome.sections.filter((s) => wanted.has(s.heading.toLowerCase()));
+  if (!extra.length) return cv;
+  return { ...cv, chrome: { ...cv.chrome, sections: [...cv.chrome.sections, ...extra] } };
 }
