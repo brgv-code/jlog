@@ -326,6 +326,12 @@ export const profileFacts = sqliteTable('profile_facts', {
   status: text('status', { enum: ['active', 'parked', 'archived'] })
     .notNull()
     .default('active'),
+  /**
+   * When the owner vouched for this fact: imported and ticked, edited, or
+   * kept. Null for facts seeded from older applications until kept, and
+   * tailoring uses only facts where this is set (migration 0019).
+   */
+  confirmedAt: integer('confirmed_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });

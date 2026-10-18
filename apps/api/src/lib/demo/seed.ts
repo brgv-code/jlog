@@ -109,6 +109,7 @@ export async function createDemoAccount(env: Env, now = new Date()) {
       endDate: null,
       canonical: `${role.roleTitle} at ${role.employer}`,
       status: 'active',
+      confirmedAt: now,
       createdAt: now,
       updatedAt: now,
     });
@@ -133,6 +134,7 @@ export async function createDemoAccount(env: Env, now = new Date()) {
         sourceStart: start === -1 ? null : start,
         sourceEnd: start === -1 ? null : start + text.length,
         status: 'active',
+        confirmedAt: now,
         createdAt: now,
         updatedAt: now,
       });
@@ -141,7 +143,7 @@ export async function createDemoAccount(env: Env, now = new Date()) {
   }
   // Inserted in the CV's order, which is the order the pro package reads them
   // back in: it selects facts without an ORDER BY.
-  for (const rows of chunk(factRows, 17)) statements.push(db.insert(profileFacts).values(rows));
+  for (const rows of chunk(factRows, 18)) statements.push(db.insert(profileFacts).values(rows));
 
   // Each bullet's own words as imported, plus the phrasings written for
   // earlier applications. The latter are what the tailoring view's history
