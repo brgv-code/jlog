@@ -29,7 +29,9 @@ import {
   cvStructureSchema,
   detectCvFormat,
   factIdFor,
+  factUpdateSchema,
   locateAll,
+  missingSections,
   parseLatexCv,
   parseMarkdownCv,
   parseTextCv,
@@ -37,6 +39,7 @@ import {
   toImportedCv,
   variantHashFor,
   variantIdFor,
+  withSections,
 } from '@jlog/shared';
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
@@ -71,10 +74,29 @@ async function structureText(
     });
     const parsed = cvStructureSchema.safeParse(raw);
     if (!parsed.success) return { cv: parseTextCv(source), readBy: 'rules' };
-    const cv = toImportedCv(parsed.data, source);
+    let cv = toImportedCv(parsed.data, source);
     // A model that returned nothing usable is worse than the rules, which at
     // least find the lines carrying dates.
     if (!cv.roles.length) return { cv: parseTextCv(source), readBy: 'rules' };
+
+    // Bullets are checked against the source; whole sections were not. A model
+    // once returned Skills, Research and Education and silently left Projects
+    // out. So the headings the text plainly has are checked too: one retry that
+    // names what is missing, then whatever is still missing from the rules.
+    const missing = missingSections(cv, source);
+    if (missing.length) {
+      const retried = await callJson({
+        name: 'structure-cv-text-retry',
+        system: CV_STRUCTURE_SYSTEM,
+        user: `${source}\n\nYour previous answer left out these sections of the CV: ${missing.join(', ')}. Return the whole structure again, with every section.`,
+      }).catch(() => null);
+      const again = cvStructureSchema.safeParse(retried);
+      if (again.success) {
+        const next = toImportedCv(again.data, source);
+        if (next.roles.length && missingSections(next, source).length < missing.length) cv = next;
+      }
+      cv = withSections(cv, parseTextCv(source), missingSections(cv, source));
+    }
     return { cv, readBy: 'model' };
   } catch {
     return { cv: parseTextCv(source), readBy: 'rules' };
@@ -288,34 +310,162 @@ router.post('/import/commit', async (c) => {
   });
 });
 
-/** What is stored now, shaped the way the review screen shows it. */
+/**
+ * Where a fact came from, which is how much to trust it.
+ *
+ * `cv`: read from a CV the owner imported here (it has a position in that CV,
+ * or the import stored its words). `edited`: the owner corrected it. `history`:
+ * seeded from earlier applications, many of them AI tailored, so a claim may be
+ * one the owner never made. The CV page shows this so those can be checked.
+ */
+type FactOrigin = 'cv' | 'edited' | 'history';
+
+/**
+ * What is stored now, shaped the way the review screen shows it.
+ *
+ * `?include=archived` adds archived facts with their status, for the CV page,
+ * where they can be restored. Without it the answer is unchanged: only active
+ * facts, which is what the tailoring view's document reconstruction reads.
+ */
 router.get('/facts', async (c) => {
   const session = requireSession(c);
   const db = createDb(c.env.DB);
+  const withArchived = c.req.query('include') === 'archived';
 
   const rows = await db
     .select()
     .from(profileFacts)
-    .where(and(eq(profileFacts.userId, session.userId), eq(profileFacts.status, 'active')));
+    .where(
+      withArchived
+        ? eq(profileFacts.userId, session.userId)
+        : and(eq(profileFacts.userId, session.userId), eq(profileFacts.status, 'active')),
+    );
+
+  const marked = await db
+    .select({ factId: profileFactVariants.factId, source: profileFactVariants.source })
+    .from(profileFactVariants)
+    .where(
+      and(
+        eq(profileFactVariants.userId, session.userId),
+        inArray(profileFactVariants.source, ['import', 'edited']),
+      ),
+    );
+  const edited = new Set(marked.filter((m) => m.source === 'edited').map((m) => m.factId));
+  const imported = new Set(marked.filter((m) => m.source === 'import').map((m) => m.factId));
+  const originOf = (row: (typeof rows)[number]): FactOrigin =>
+    edited.has(row.id) ? 'edited' : row.sourceId || imported.has(row.id) ? 'cv' : 'history';
 
   const roles = rows.filter((r) => r.kind === 'role');
   const bullets = rows.filter((r) => r.kind === 'bullet');
+  const bulletOut = (b: (typeof rows)[number]) => ({
+    id: b.id,
+    text: b.canonical,
+    ...(withArchived ? { status: b.status, origin: originOf(b) } : {}),
+  });
 
   return c.json({
-    roles: roles.map((role) => ({
-      id: role.id,
-      employer: role.employer,
-      roleTitle: role.roleTitle,
-      dates: role.startDate,
-      location: role.location,
-      bullets: bullets
-        .filter((b) => b.parentFactId === role.id)
-        .map((b) => ({ id: b.id, text: b.canonical })),
-    })),
+    roles: roles.map((role) => {
+      const own = bullets.filter((b) => b.parentFactId === role.id);
+      return {
+        id: role.id,
+        employer: role.employer,
+        roleTitle: role.roleTitle,
+        dates: role.startDate,
+        location: role.location,
+        ...(withArchived
+          ? {
+              status: role.status,
+              // A role is the owner's when any of its bullets is.
+              origin: own.some((b) => originOf(b) !== 'history') ? 'cv' : 'history',
+            }
+          : {}),
+        bullets: own.map(bulletOut),
+      };
+    }),
     // A bullet whose role was archived still belongs to the user.
-    orphans: bullets
-      .filter((b) => !roles.some((r) => r.id === b.parentFactId))
-      .map((b) => ({ id: b.id, text: b.canonical })),
+    orphans: bullets.filter((b) => !roles.some((r) => r.id === b.parentFactId)).map(bulletOut),
+  });
+});
+
+/**
+ * PATCH /facts/:id — archive or restore a fact, or correct a bullet's words.
+ *
+ * Archiving is how a fact stops reaching tailored CVs: the tailoring agent
+ * loads active facts only. An archived role takes its bullets with it, since
+ * the agent only offers bullets under roles it can see.
+ *
+ * Editing keeps the id, so citations and the base CV layout still point at
+ * the fact. Its stored phrasings are deleted: they word the old claim, and a
+ * correction exists precisely because something in it was wrong, so the agent
+ * must not be able to pick an old wording over the new one. The new words are
+ * stored as an `edited` phrasing, which also marks the fact as the owner's.
+ */
+router.patch('/facts/:id', async (c) => {
+  const session = requireSession(c);
+  const body = await c.req.json().catch(() => {
+    throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+  });
+  const parsed = factUpdateSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+
+  const db = createDb(c.env.DB);
+  const id = c.req.param('id');
+  const [fact] = await db
+    .select()
+    .from(profileFacts)
+    .where(and(eq(profileFacts.id, id), eq(profileFacts.userId, session.userId)));
+  // Someone else's fact and a missing one answer the same.
+  if (!fact) throw new HttpError(404, 'NOT_FOUND', 'No such fact');
+
+  const { status, canonical } = parsed.data;
+  if (canonical !== undefined && fact.kind !== 'bullet') {
+    throw new HttpError(400, 'VALIDATION_ERROR', 'Only a bullet can be reworded.');
+  }
+
+  const now = new Date();
+  const statements: BatchItem<'sqlite'>[] = [
+    db
+      .update(profileFacts)
+      .set({
+        ...(status ? { status } : {}),
+        ...(canonical !== undefined ? { canonical } : {}),
+        updatedAt: now,
+      })
+      .where(and(eq(profileFacts.id, id), eq(profileFacts.userId, session.userId))),
+  ];
+  if (canonical !== undefined && canonical !== fact.canonical) {
+    const hash = await variantHashFor(canonical);
+    statements.push(
+      db
+        .delete(profileFactVariants)
+        .where(
+          and(eq(profileFactVariants.factId, id), eq(profileFactVariants.userId, session.userId)),
+        ),
+      db
+        .insert(profileFactVariants)
+        .values({
+          id: variantIdFor(hash),
+          factId: id,
+          userId: session.userId,
+          content: canonical,
+          contentHash: hash,
+          source: 'edited',
+          sourceRoleTitle: null,
+          sourceCompany: null,
+          usedAt: null,
+          createdAt: now,
+        })
+        .onConflictDoNothing(),
+    );
+  }
+  await db.batch(statements as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+
+  return c.json({
+    id,
+    status: status ?? fact.status,
+    text: canonical ?? fact.canonical,
   });
 });
 

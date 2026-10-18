@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseTextCv } from './text';
+import { missingSections, parseTextCv, withSections } from './text';
+import { EMPTY_CHROME, type ImportedCv } from './types';
 
 /** What unpdf actually returns for a one-page CV, layout flattened to lines. */
 const CV = `Ada Lovelace
@@ -91,5 +92,56 @@ describe('parseTextCv', () => {
     const { roles, chrome } = parseTextCv('\n\n   \n');
     expect(roles).toEqual([]);
     expect(chrome.firstName).toBe('');
+  });
+});
+
+describe('missing sections', () => {
+  // Wrapped at a page edge the way PDF text extraction leaves it.
+  const source = [
+    'Ada Lovelace',
+    'Experience',
+    '2020–2024 Engineer, Acme, Berlin',
+    '- Shipped the billing system.',
+    'Projects',
+    'Engine A self-hostable tool on Cloudflare Workers: Hono API, D1 with Drizzle, Astro frontend, and',
+    'a browser extension with extraction across several providers.',
+    'Notes An open source server tracking brand visibility across AI search engines (Perplexity, AI',
+    'Overviews).',
+    'Skills',
+    'Backend TypeScript, Node.js',
+    'Frontend React, Astro',
+    'Research',
+    "Master's Thesis Detecting hallucinations.",
+  ].join('\n');
+
+  const reading = (headings: string[]): ImportedCv => ({
+    chrome: {
+      ...EMPTY_CHROME,
+      sections: headings.map((heading) => ({ heading, items: [{ left: 'x', right: 'y' }] })),
+    },
+    roles: [],
+    unplaced: [],
+  });
+
+  it('names a section the text has and a reading left out', () => {
+    expect(missingSections(reading(['Skills', 'Research']), source)).toEqual(['Projects']);
+  });
+
+  it('never calls Experience or Summary missing', () => {
+    expect(missingSections(reading(['Projects', 'Skills', 'Research']), source)).toEqual([]);
+  });
+
+  it('fills a missing section from the rules, with wrapped lines joined back', () => {
+    const filled = withSections(reading(['Skills', 'Research']), parseTextCv(source), ['Projects']);
+    const projects = filled.chrome.sections.find((s) => s.heading === 'Projects');
+    expect(projects?.items.map((i) => `${i.left} ${i.right}`.trim())).toEqual([
+      'Engine A self-hostable tool on Cloudflare Workers: Hono API, D1 with Drizzle, Astro frontend, and a browser extension with extraction across several providers.',
+      'Notes An open source server tracking brand visibility across AI search engines (Perplexity, AI Overviews).',
+    ]);
+  });
+
+  it('keeps short skill rows apart', () => {
+    const skills = parseTextCv(source).chrome.sections.find((s) => s.heading === 'Skills');
+    expect(skills?.items).toHaveLength(2);
   });
 });

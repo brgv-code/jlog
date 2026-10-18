@@ -15,6 +15,7 @@ import {
   notifyCvProfileChanged,
   saveCvProfile,
 } from '../../lib/cvProfile';
+import { notifyFactsChanged } from '../../lib/facts';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Separator } from '../ui/separator';
@@ -175,6 +176,7 @@ export function ImportCvForm() {
         located: number;
         sourceId: string | null;
       };
+      notifyFactsChanged();
 
       // The CV's header and its other sections (projects, skills, education)
       // are the owner's own text, and a tailored CV can only print what the
