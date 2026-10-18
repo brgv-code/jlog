@@ -88,7 +88,15 @@ function hueFor(name: string): number {
  * The monogram is the default rather than the failure state: most companies
  * will never resolve a logo, and a column of forty rows still needs landmarks.
  */
-function CompanyAvatar({ company, showLogos }: { company: string; showLogos: boolean }) {
+export function CompanyAvatar({
+  company,
+  showLogos,
+  size = 32,
+}: {
+  company: string;
+  showLogos: boolean;
+  size?: number;
+}) {
   const logo = useCompanyLogo(company, showLogos);
 
   if (logo) {
@@ -96,11 +104,11 @@ function CompanyAvatar({ company, showLogos }: { company: string; showLogos: boo
       <img
         src={logo}
         alt=""
-        width={32}
-        height={32}
+        width={size}
+        height={size}
         style={{
-          width: '32px',
-          height: '32px',
+          width: `${size}px`,
+          height: `${size}px`,
           borderRadius: 'var(--radius-md)',
           objectFit: 'contain',
           // Logos arrive on whatever ground the board used. A neutral tile keeps
@@ -112,10 +120,10 @@ function CompanyAvatar({ company, showLogos }: { company: string; showLogos: boo
     );
   }
 
-  return <Monogram company={company} />;
+  return <Monogram company={company} size={size} />;
 }
 
-function Monogram({ company }: { company: string }) {
+function Monogram({ company, size }: { company: string; size: number }) {
   return (
     <span
       aria-hidden="true"
@@ -123,13 +131,13 @@ function Monogram({ company }: { company: string }) {
       style={
         {
           '--mono-h': hueFor(company),
-          width: '32px',
-          height: '32px',
+          width: `${size}px`,
+          height: `${size}px`,
           borderRadius: 'var(--radius-md)',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 'var(--text-xs)',
+          fontSize: size > 32 ? 'var(--text-base)' : 'var(--text-xs)',
           fontWeight: 600,
           flexShrink: 0,
         } as CSSProperties

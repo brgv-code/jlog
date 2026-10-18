@@ -1,0 +1,393 @@
+/*
+ * The application detail view.
+ *
+ * Structure, in the order the eye should take it: a 56px bar that says where
+ * you are and holds the page's actions, a reading column (identity, the
+ * posting, then what has happened to it), and a quiet properties rail.
+ *
+ * The layout lives here rather than in inline styles because it has to answer
+ * to its own width, not the window's: the same view sits beside a 232px rail,
+ * a 56px rail, or nothing, so it is a container query. Below 760px of its own
+ * width the rail drops in under the title and the page scrolls as one column.
+ */
+
+.jd-host {
+  container: jd / inline-size;
+}
+
+.jd {
+  --jd-bar: 56px;
+  --jd-sticky-top: 0px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
+
+/* ---- Bar ------------------------------------------------------------------ */
+
+.jd-bar {
+  height: var(--jd-bar);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) 0 var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+}
+
+.jd-crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.jd-crumb-root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  height: 28px;
+  margin-left: calc(-1 * var(--space-2));
+  padding: 0 var(--space-2);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--motion-instant) ease, background-color var(--motion-instant) ease;
+}
+
+.jd-crumb-current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.jd-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* ---- Body ----------------------------------------------------------------- */
+
+.jd-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.jd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 304px;
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas:
+    "head rail"
+    "doc rail"
+    "activity rail";
+  min-height: 100%;
+}
+
+/*
+ * The reading measure. 50rem less the gutters is about 72 characters of body
+ * text, and it is centred in whatever the rail leaves, so on a wide screen the
+ * posting reads as a page rather than as a line running to the far edge.
+ */
+.jd-head,
+.jd-doc,
+.jd-activity {
+  width: 100%;
+  max-width: 50rem;
+  justify-self: center;
+  padding-inline: var(--space-10);
+}
+
+.jd-head {
+  grid-area: head;
+  padding-top: var(--space-10);
+  padding-bottom: var(--space-6);
+}
+
+.jd-doc {
+  grid-area: doc;
+}
+
+.jd-activity {
+  grid-area: activity;
+  padding-top: var(--space-10);
+  padding-bottom: var(--space-16);
+}
+
+.jd-rail {
+  grid-area: rail;
+  border-left: 1px solid var(--color-border);
+}
+
+/* Sticks while the posting scrolls, and scrolls itself only if it must. */
+.jd-rail-inner {
+  position: sticky;
+  top: 0;
+  max-height: calc(100dvh - var(--jd-bar));
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+  display: grid;
+  gap: var(--space-6);
+  align-content: start;
+}
+
+.jd-rail-section + .jd-rail-section {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-6);
+}
+
+/* ---- Properties ----------------------------------------------------------- */
+
+.jd-props {
+  display: grid;
+  gap: 2px;
+}
+
+/* Labels sit on a value's first line, so a wrapped address reads as one row. */
+.jd-prop {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: start;
+  min-height: 32px;
+  padding-block: 2px;
+  gap: var(--space-2);
+}
+
+.jd-prop-label {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/*
+ * A value reads as text and is a button. The 6px inset is pulled back with a
+ * negative margin so the text lines up with read-only values, and the hover
+ * wash is the only thing that tells them apart.
+ */
+.jd-prop-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 28px;
+  margin-left: -6px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.jd-prop-value > .jd-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Only a URL is cut short; a salary or a place name wraps rather than losing its end. */
+.jd-prop-value > .jd-wrap {
+  min-width: 0;
+  padding: 5px 0;
+  overflow-wrap: anywhere;
+}
+
+button.jd-prop-value {
+  width: calc(100% + 6px);
+  background: none;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: text;
+  transition: background-color var(--motion-instant) ease;
+}
+
+/* ---- Document tabs -------------------------------------------------------- */
+
+/*
+ * The tabs and their Edit action stay in reach through a long posting. They
+ * stick under the bar, which on a narrow screen is itself sticky.
+ */
+.jd-tabs {
+  position: sticky;
+  top: var(--jd-sticky-top);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background-color: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.jd-tab {
+  background: none;
+  border: none;
+  /* The underline sits on the element's own bottom edge so it lands on the
+     container's hairline rather than above it. */
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: var(--space-3) 0;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--motion-instant) ease, border-color var(--motion-instant) ease;
+}
+
+.jd-tab[aria-selected="true"] {
+  border-bottom-color: var(--color-text-primary);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* ---- Editable heading ----------------------------------------------------- */
+
+.jd-editable {
+  display: block;
+  width: fit-content;
+  max-width: calc(100% + 12px);
+  margin: -2px -6px;
+  padding: 2px 6px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: text;
+  overflow-wrap: anywhere;
+  transition: background-color var(--motion-instant) ease;
+}
+
+/* ---- Follow-up composer --------------------------------------------------- */
+
+.jd-composer-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--space-3);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: text;
+  transition: border-color var(--motion-instant) ease, color var(--motion-instant) ease;
+}
+
+/* Hover only where there is a pointer to hover with: on touch, a tap would
+   leave the wash stuck on until the next tap elsewhere. */
+@media (hover: hover) and (pointer: fine) {
+  .jd-crumb-root:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-hover);
+  }
+  button.jd-prop-value:hover,
+  .jd-editable:hover {
+    background-color: var(--color-surface-hover);
+  }
+  .jd-tab:hover {
+    color: var(--color-text-primary);
+  }
+  .jd-composer-trigger:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+}
+
+/* ---- Narrow --------------------------------------------------------------- */
+
+@container jd (max-width: 760px) {
+  /* One column, and the window scrolls it, so mobile browsers can hide their
+     chrome on scroll the way they do for any other page. */
+  .jd {
+    --jd-sticky-top: var(--jd-bar);
+    height: auto;
+  }
+
+  .jd-bar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 0 var(--space-2) 0 var(--space-4);
+  }
+
+  .jd-scroll {
+    overflow: visible;
+  }
+
+  .jd-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas:
+      "head"
+      "rail"
+      "doc"
+      "activity";
+    min-height: 0;
+  }
+
+  .jd-head,
+  .jd-doc,
+  .jd-activity {
+    max-width: none;
+    padding-inline: var(--space-4);
+  }
+
+  .jd-head {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-5);
+  }
+
+  .jd-activity {
+    padding-top: var(--space-8);
+  }
+
+  /* The rail becomes a band between the title and the posting: the facts you
+     check first, before you start reading. */
+  .jd-rail {
+    border-left: none;
+    border-block: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+  }
+
+  .jd-rail-inner {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding: var(--space-4);
+    gap: var(--space-5);
+  }
+
+  .jd-rail-section + .jd-rail-section {
+    padding-top: var(--space-5);
+  }
+
+  .jd-prop {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  /* Icon only; the label stays as the accessible name. */
+  .jd-hide-narrow {
+    display: none;
+  }
+}

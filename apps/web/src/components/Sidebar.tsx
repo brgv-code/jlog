@@ -91,15 +91,40 @@ interface SidebarProps {
  *
  * Collapsed, it keeps the same order and vertical positions as expanded, so the
  * icon rail is the same muscle memory rather than a second layout to learn.
+ *
+ * On a narrow screen it is always the icon rail, because 232px of a 390px
+ * phone is most of the page. The toggle there opens the full rail as a drawer
+ * over the content instead of pushing it, and that choice is not saved: a phone
+ * opening the drawer once should not leave a desktop collapsed.
  */
 export function Sidebar({ user, active, onSignOut }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [savedCollapsed, setCollapsed] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const narrow = useNarrow();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
+
+  const collapsed = narrow ? !drawerOpen : savedCollapsed;
+  const overlay = narrow && drawerOpen;
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSED_KEY) === '1');
   }, []);
+
+  // Widening the window past the breakpoint with the drawer open should not
+  // leave it open the next time the window narrows.
+  useEffect(() => {
+    if (!narrow) setDrawerOpen(false);
+  }, [narrow]);
+
+  useEffect(() => {
+    if (!overlay) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setDrawerOpen(false);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [overlay]);
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -118,6 +143,10 @@ export function Sidebar({ user, active, onSignOut }: SidebarProps) {
   }, [accountOpen]);
 
   function toggleCollapsed() {
+    if (narrow) {
+      setDrawerOpen((o) => !o);
+      return;
+    }
     setCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem(COLLAPSED_KEY, next ? '1' : '0');
@@ -128,230 +157,279 @@ export function Sidebar({ user, active, onSignOut }: SidebarProps) {
   const width = collapsed ? 56 : 232;
 
   return (
-    <aside
-      style={{
-        width,
-        flexShrink: 0,
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: 'var(--color-surface)',
-        borderRight: '1px solid var(--color-border)',
-        transition: 'width var(--transition-base)',
-      }}
-    >
-      {/* Wordmark */}
-      <div
-        style={{
-          height: '56px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          padding: collapsed ? 0 : '0 var(--space-3) 0 var(--space-4)',
-          flexShrink: 0,
-        }}
-      >
-        {!collapsed && (
-          <a
-            href="/dashboard"
-            style={{
-              fontWeight: 600,
-              fontSize: 'var(--text-sm)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-text-primary)',
-              textDecoration: 'none',
-            }}
-          >
-            jlog
-          </a>
-        )}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+    <>
+      {/* Holds the icon rail's place in the row while the rail itself is fixed,
+          so opening the drawer covers the page instead of reflowing it. */}
+      {narrow && <div aria-hidden="true" style={{ width: 56, flexShrink: 0 }} />}
+      {overlay && (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: the backdrop is a pointer target; Escape closes the drawer from the document listener
+        <div
+          aria-hidden="true"
+          className="jlog-fade"
+          onClick={() => setDrawerOpen(false)}
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '28px',
-            height: '28px',
-            background: 'none',
-            border: 'none',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--color-text-tertiary)',
-            cursor: 'pointer',
+            position: 'fixed',
+            inset: 0,
+            zIndex: 49,
+            backgroundColor: 'var(--color-overlay)',
           }}
-        >
-          <PanelLeftIcon size={16} strokeWidth={1.75} />
-        </button>
-      </div>
-
-      {/* Nav */}
-      <nav
+        />
+      )}
+      <aside
+        className={overlay ? 'jlog-drawer' : undefined}
         style={{
-          padding: `0 ${collapsed ? '8px' : 'var(--space-2)'}`,
-          display: 'grid',
-          gap: '2px',
+          width,
+          flexShrink: 0,
+          ...(narrow
+            ? {
+                position: 'fixed',
+                left: 0,
+                top: 0,
+                height: '100dvh',
+                zIndex: 50,
+                boxShadow: overlay ? 'var(--shadow-lg)' : 'none',
+              }
+            : { position: 'sticky', top: 0, height: '100vh' }),
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: 'var(--color-surface)',
+          borderRight: '1px solid var(--color-border)',
+          // Narrow, the drawer is revealed by clip (.jlog-drawer), not by width.
+          transition: narrow ? 'none' : 'width var(--transition-base)',
         }}
       >
-        {NAV.map(({ key, label, href, Icon, tone, external }) => {
-          const isActive = key === active;
-          return (
-            <a
-              key={key}
-              href={href}
-              {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              aria-current={isActive ? 'page' : undefined}
-              title={collapsed ? label : undefined}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-3)',
-                height: '34px',
-                padding: collapsed ? 0 : '0 var(--space-3)',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: isActive ? 'var(--color-surface-active)' : 'transparent',
-                color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                fontSize: 'var(--text-sm)',
-                fontWeight: isActive ? 500 : 400,
-                textDecoration: 'none',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-              }}
-            >
-              <Icon size={16} strokeWidth={1.75} style={{ color: tone, flexShrink: 0 }} />
-              {!collapsed && (
-                <>
-                  <span style={{ flex: 1 }}>{label}</span>
-                  {external && (
-                    <ExternalLinkIcon
-                      size={13}
-                      strokeWidth={1.75}
-                      style={{ color: 'var(--color-text-tertiary)' }}
-                    />
-                  )}
-                </>
-              )}
-            </a>
-          );
-        })}
-      </nav>
-
-      <div style={{ flex: 1 }} />
-
-      {user.demo && <DemoNotice collapsed={collapsed} onLeave={onSignOut} />}
-
-      {/* Account */}
-      <div ref={accountRef} style={{ position: 'relative', padding: 'var(--space-2)' }}>
-        {accountOpen && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 'calc(100% - var(--space-1))',
-              left: 'var(--space-2)',
-              minWidth: '232px',
-              backgroundColor: 'var(--color-bg)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-lg)',
-              boxShadow: 'var(--shadow-lg)',
-              padding: 'var(--space-3)',
-              display: 'grid',
-              gap: 'var(--space-3)',
-              zIndex: 40,
-            }}
-          >
-            <div style={{ display: 'grid', gap: '2px' }}>
-              <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{user.name}</span>
-              <span
-                style={{
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--color-text-secondary)',
-                  fontFamily: 'var(--font-mono)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {user.email}
-              </span>
-            </div>
-            <ThemeSegmented compact />
-            <button
-              type="button"
-              onClick={onSignOut}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-                background: 'none',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--color-text-secondary)',
-                fontSize: 'var(--text-sm)',
-                fontFamily: 'var(--font-sans)',
-                padding: 'var(--space-2)',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <LogOutIcon size={14} strokeWidth={1.75} />
-              Sign out
-            </button>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setAccountOpen((o) => !o)}
-          aria-expanded={accountOpen}
-          aria-haspopup="menu"
-          title={collapsed ? user.name : undefined}
+        {/* Wordmark */}
+        <div
           style={{
-            width: '100%',
+            height: '56px',
             display: 'flex',
             alignItems: 'center',
-            gap: 'var(--space-3)',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            background: 'none',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            padding: collapsed ? '6px 0' : 'var(--space-2)',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-sans)',
-            textAlign: 'left',
+            justifyContent: collapsed ? 'center' : 'space-between',
+            padding: collapsed ? 0 : '0 var(--space-3) 0 var(--space-4)',
+            flexShrink: 0,
           }}
         >
-          <Avatar user={user} />
           {!collapsed && (
-            <>
-              <span
+            <a
+              href="/dashboard"
+              style={{
+                fontWeight: 600,
+                fontSize: 'var(--text-sm)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--color-text-primary)',
+                textDecoration: 'none',
+              }}
+            >
+              jlog
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              background: 'none',
+              border: 'none',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--color-text-tertiary)',
+              cursor: 'pointer',
+            }}
+          >
+            <PanelLeftIcon size={16} strokeWidth={1.75} />
+          </button>
+        </div>
+
+        {/* Nav */}
+        <nav
+          style={{
+            padding: `0 ${collapsed ? '8px' : 'var(--space-2)'}`,
+            display: 'grid',
+            gap: '2px',
+          }}
+        >
+          {NAV.map(({ key, label, href, Icon, tone, external }) => {
+            const isActive = key === active;
+            return (
+              <a
+                key={key}
+                href={href}
+                {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                aria-current={isActive ? 'page' : undefined}
+                title={collapsed ? label : undefined}
                 style={{
-                  flex: 1,
-                  minWidth: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  height: '34px',
+                  padding: collapsed ? 0 : '0 var(--space-3)',
+                  justifyContent: collapsed ? 'center' : 'flex-start',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: isActive ? 'var(--color-surface-active)' : 'transparent',
+                  color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                   fontSize: 'var(--text-sm)',
-                  color: 'var(--color-text-primary)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  fontWeight: isActive ? 500 : 400,
+                  textDecoration: 'none',
                   whiteSpace: 'nowrap',
+                  overflow: 'hidden',
                 }}
               >
-                {user.name}
-              </span>
-              <ChevronUpIcon
-                size={14}
-                strokeWidth={1.75}
-                style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }}
-              />
-            </>
+                <Icon size={16} strokeWidth={1.75} style={{ color: tone, flexShrink: 0 }} />
+                {!collapsed && (
+                  <>
+                    <span style={{ flex: 1 }}>{label}</span>
+                    {external && (
+                      <ExternalLinkIcon
+                        size={13}
+                        strokeWidth={1.75}
+                        style={{ color: 'var(--color-text-tertiary)' }}
+                      />
+                    )}
+                  </>
+                )}
+              </a>
+            );
+          })}
+        </nav>
+
+        <div style={{ flex: 1 }} />
+
+        {user.demo && <DemoNotice collapsed={collapsed} onLeave={onSignOut} />}
+
+        {/* Account */}
+        <div ref={accountRef} style={{ position: 'relative', padding: 'var(--space-2)' }}>
+          {accountOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 'calc(100% - var(--space-1))',
+                left: 'var(--space-2)',
+                minWidth: '232px',
+                backgroundColor: 'var(--color-bg)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: 'var(--shadow-lg)',
+                padding: 'var(--space-3)',
+                display: 'grid',
+                gap: 'var(--space-3)',
+                zIndex: 40,
+              }}
+            >
+              <div style={{ display: 'grid', gap: '2px' }}>
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{user.name}</span>
+                <span
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-text-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {user.email}
+                </span>
+              </div>
+              <ThemeSegmented compact />
+              <button
+                type="button"
+                onClick={onSignOut}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)',
+                  background: 'none',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-text-secondary)',
+                  fontSize: 'var(--text-sm)',
+                  fontFamily: 'var(--font-sans)',
+                  padding: 'var(--space-2)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <LogOutIcon size={14} strokeWidth={1.75} />
+                Sign out
+              </button>
+            </div>
           )}
-        </button>
-      </div>
-    </aside>
+
+          <button
+            type="button"
+            onClick={() => setAccountOpen((o) => !o)}
+            aria-expanded={accountOpen}
+            aria-haspopup="menu"
+            title={collapsed ? user.name : undefined}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-3)',
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              background: 'none',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              padding: collapsed ? '6px 0' : 'var(--space-2)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              textAlign: 'left',
+            }}
+          >
+            <Avatar user={user} />
+            {!collapsed && (
+              <>
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--color-text-primary)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {user.name}
+                </span>
+                <ChevronUpIcon
+                  size={14}
+                  strokeWidth={1.75}
+                  style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }}
+                />
+              </>
+            )}
+          </button>
+        </div>
+      </aside>
+    </>
   );
+}
+
+const NARROW_QUERY = '(max-width: 767px)';
+
+/**
+ * Whether the window is phone-narrow. Read synchronously on first render: the
+ * shells mount the rail only after the session check, on the client, so there
+ * is no server render to disagree with and no frame of a 232px rail on a phone.
+ */
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_QUERY);
+    const onChange = () => setNarrow(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
 }
 
 /**

@@ -240,45 +240,44 @@ export default function ApplicationsShell() {
           restating something. The only thing that earns weight up here is the
           one primary action.
         */}
-        <header
-          style={{
-            height: '56px',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 'var(--space-4)',
-            padding: '0 var(--space-8)',
-          }}
-        >
-          <span
+        {/* An open application brings its own bar, whose trail names it. */}
+        {!selectedId && (
+          <header
             style={{
-              display: 'inline-flex',
+              height: '56px',
+              flexShrink: 0,
+              display: 'flex',
               alignItems: 'center',
-              gap: 'var(--space-2)',
-              fontSize: 'var(--text-sm)',
-              color: 'var(--color-text-secondary)',
+              justifyContent: 'space-between',
+              gap: 'var(--space-4)',
+              padding: '0 var(--space-8)',
             }}
           >
-            <BriefcaseIcon
-              size={14}
-              strokeWidth={1.75}
-              style={{ color: 'var(--color-icon-applications)' }}
-            />
-            Applications
-          </span>
-          {!selectedId && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                fontSize: 'var(--text-sm)',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              <BriefcaseIcon
+                size={14}
+                strokeWidth={1.75}
+                style={{ color: 'var(--color-icon-applications)' }}
+              />
+              Applications
+            </span>
             <Button size="sm" onClick={() => setShowAddDialog(true)}>
               <PlusIcon size={14} strokeWidth={2} />
               Add application
             </Button>
-          )}
-        </header>
+          </header>
+        )}
 
         {selectedId ? (
-          <main
-            style={{ flex: 1, minHeight: 0, maxWidth: '1400px', margin: '0 auto', width: '100%' }}
-          >
+          <main style={{ flex: 1, minWidth: 0, width: '100%' }}>
             <ApplicationDetail
               applicationId={selectedId}
               userName={user.name}
