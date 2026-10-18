@@ -9,6 +9,7 @@ const role = (over: Partial<StoredRole>): StoredRole => ({
   location: null,
   status: 'active',
   origin: 'cv',
+  unconfirmed: 0,
   bullets: [],
   ...over,
 });
