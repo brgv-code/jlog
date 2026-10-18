@@ -20,7 +20,7 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
       try {
         res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(options?.timeoutMs ?? 30000),
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'content-type': 'application/json',

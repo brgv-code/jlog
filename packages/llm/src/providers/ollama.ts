@@ -26,7 +26,7 @@ export function makeOllamaProvider(
       try {
         res = await fetch(url, {
           method: 'POST',
-          signal: AbortSignal.timeout(60000),
+          signal: AbortSignal.timeout(options?.timeoutMs ?? 60000),
           headers: { 'content-type': 'application/json', ...extraHeaders },
           body: JSON.stringify({
             model,

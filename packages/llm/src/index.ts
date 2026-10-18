@@ -14,6 +14,12 @@ export type ExtractOptions = {
   system?: string;
   /** Output cap. Extraction needs very little; other tasks need more. */
   maxTokens?: number;
+  /**
+   * How long to wait for the provider. Extraction answers in seconds; a
+   * reasoning model tailoring a CV can think for a minute, and the old fixed
+   * 30s cut it off before it answered.
+   */
+  timeoutMs?: number;
 };
 
 export interface LLMProvider {

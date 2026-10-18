@@ -95,7 +95,8 @@ export async function makeJsonCaller(
       // tells the model to answer with company/role/location instead.
       const result = await provider.extractJSON('', rawJsonSchema, req.user, {
         system: req.system,
-        maxTokens: 4096,
+        maxTokens: budgetFor(row.provider),
+        timeoutMs: JSON_CALL_TIMEOUT_MS,
       });
       generation?.update({ output: result }).end();
       traced?.root.update({ output: result });
@@ -107,6 +108,21 @@ export async function makeJsonCaller(
     }
   };
 }
+
+/**
+ * Output budget for one JSON call. On OpenAI's reasoning models (gpt-5 and the
+ * o-series) the cap covers hidden reasoning as well as the answer, and 4096 was
+ * spent on reasoning alone: tailoring and CV import both failed with no content.
+ * The cap is a ceiling, billed by use, so a model that answers in 1k costs the
+ * same under 16k. Anthropic stays at 4096 because some Claude models reject a
+ * larger max_tokens outright.
+ */
+function budgetFor(provider: string): number {
+  return provider === 'openai' ? 16_384 : 4096;
+}
+
+/** A reasoning model tailoring a CV can think for a minute; 30s cut it off. */
+const JSON_CALL_TIMEOUT_MS = 120_000;
 
 export function makeTailor(c: Context<AppContext>): Promise<TailorJson | null> {
   return makeJsonCaller(c, { name: 'tailor-cv', tags: ['tailoring'] });
