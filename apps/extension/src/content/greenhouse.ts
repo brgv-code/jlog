@@ -1,5 +1,6 @@
-// Greenhouse content script — self-contained
-export {};
+// Greenhouse content script
+import { readSiteLogo } from '../lib/domExtractors';
+
 // Covers boards.greenhouse.io/{company}/jobs/{id}
 // and {company}.greenhouse.io/jobs/{id} (embedded boards)
 
@@ -42,15 +43,18 @@ function sendJobDetected(company: string, role: string): void {
   if (!company || !role) return;
   submittedUrls.add(url);
 
-  chrome.runtime.sendMessage({
-    type: 'JOB_DETECTED',
-    job: {
-      company,
-      role,
-      sourceUrl: url,
-      sourceSite: 'greenhouse',
-      appliedAt: Date.now(),
-    },
+  void readSiteLogo('greenhouse').then((logoUrl) => {
+    chrome.runtime.sendMessage({
+      type: 'JOB_DETECTED',
+      job: {
+        company,
+        role,
+        sourceUrl: url,
+        sourceSite: 'greenhouse',
+        appliedAt: Date.now(),
+        ...(logoUrl ? { logoUrl } : {}),
+      },
+    });
   });
 }
 

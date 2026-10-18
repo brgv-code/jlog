@@ -1,5 +1,6 @@
-// Ashby HQ content script — self-contained
-export {};
+// Ashby HQ content script
+import { readSiteLogo } from '../lib/domExtractors';
+
 // Covers jobs.ashbyhq.com/{company}/{role-slug}
 
 const submittedUrls = new Set<string>();
@@ -37,15 +38,18 @@ function sendJobDetected(company: string, role: string): void {
   if (!company || !role) return;
   submittedUrls.add(url);
 
-  chrome.runtime.sendMessage({
-    type: 'JOB_DETECTED',
-    job: {
-      company,
-      role,
-      sourceUrl: url,
-      sourceSite: 'ashby',
-      appliedAt: Date.now(),
-    },
+  void readSiteLogo('ashby').then((logoUrl) => {
+    chrome.runtime.sendMessage({
+      type: 'JOB_DETECTED',
+      job: {
+        company,
+        role,
+        sourceUrl: url,
+        sourceSite: 'ashby',
+        appliedAt: Date.now(),
+        ...(logoUrl ? { logoUrl } : {}),
+      },
+    });
   });
 }
 

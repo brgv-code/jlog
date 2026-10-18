@@ -373,3 +373,18 @@ export const SITE_EXTRACTORS: SiteExtractor[] = [
 export function matchSiteExtractor(url: string): SiteExtractor | null {
   return SITE_EXTRACTORS.find((site) => site.matches(url)) ?? null;
 }
+
+/**
+ * The employer logo a site's extractor finds on the current page. For the
+ * content scripts, which already have company and role by the time an
+ * application is submitted but would otherwise send no logo at all. A logo is
+ * decoration, so any failure here yields nothing rather than blocking the save.
+ */
+export async function readSiteLogo(name: string): Promise<string | undefined> {
+  try {
+    const site = SITE_EXTRACTORS.find((s) => s.name === name);
+    return (await site?.extract())?.logoUrl;
+  } catch {
+    return undefined;
+  }
+}

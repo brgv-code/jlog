@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { SITE_EXTRACTORS, matchSiteExtractor } from './domExtractors';
+import { SITE_EXTRACTORS, matchSiteExtractor, readSiteLogo } from './domExtractors';
 
 function setBody(html: string): void {
   document.body.innerHTML = html;
@@ -214,6 +214,13 @@ describe('domExtractors', () => {
     `);
     const ashby = SITE_EXTRACTORS.find((s) => s.name === 'ashby');
     expect(ashby?.extract()).toMatchObject({ logoUrl: logo });
+  });
+
+  it('hands the content scripts the logo their site extractor found', async () => {
+    const logo = 'https://lever-client-logos.s3.us-west-2.amazonaws.com/acme.png';
+    setBody(`<img alt="Acme logo" src="${logo}"><h2 data-qa="posting-name">Designer</h2>`);
+    await expect(readSiteLogo('lever')).resolves.toBe(logo);
+    await expect(readSiteLogo('no-such-site')).resolves.toBeUndefined();
   });
 
   it('leaves the logo out when the board shows none', () => {
