@@ -225,13 +225,19 @@ router.post('/import/commit', async (c) => {
           endDate: null,
           canonical: `${role.roleTitle || 'Role'} at ${role.employer}`,
           status: 'active',
+          confirmedAt: now,
           createdAt: now,
           updatedAt: now,
         })
         // Re-importing a corrected CV should fix the role, not duplicate it.
         .onConflictDoUpdate({
           target: profileFacts.id,
-          set: { roleTitle: role.roleTitle || null, startDate: role.dates || null, updatedAt: now },
+          set: {
+            roleTitle: role.roleTitle || null,
+            startDate: role.dates || null,
+            confirmedAt: now,
+            updatedAt: now,
+          },
         }),
     );
 
@@ -261,6 +267,8 @@ router.post('/import/commit', async (c) => {
             canonical: text,
             ...provenance,
             status: 'active',
+            // Ticked in the review step: the owner vouched for it.
+            confirmedAt: now,
             createdAt: now,
             updatedAt: now,
           })
@@ -269,7 +277,13 @@ router.post('/import/commit', async (c) => {
           // span: it would highlight a line the user has since rewritten.
           .onConflictDoUpdate({
             target: profileFacts.id,
-            set: { canonical: text, parentFactId: roleId, ...provenance, updatedAt: now },
+            set: {
+              canonical: text,
+              parentFactId: roleId,
+              ...provenance,
+              confirmedAt: now,
+              updatedAt: now,
+            },
           }),
         // The phrasing as written. The unique index over (user_id, content_hash)
         // is what makes a second import of the same CV a no-op.
@@ -318,7 +332,7 @@ router.post('/import/commit', async (c) => {
  * seeded from earlier applications, many of them AI tailored, so a claim may be
  * one the owner never made. The CV page shows this so those can be checked.
  */
-type FactOrigin = 'cv' | 'edited' | 'history';
+type FactOrigin = 'cv' | 'edited' | 'kept' | 'history';
 
 /**
  * What is stored now, shaped the way the review screen shows it.
@@ -352,8 +366,15 @@ router.get('/facts', async (c) => {
     );
   const edited = new Set(marked.filter((m) => m.source === 'edited').map((m) => m.factId));
   const imported = new Set(marked.filter((m) => m.source === 'import').map((m) => m.factId));
+  // Only `history` is left out of tailoring; the rest says why a fact is in.
   const originOf = (row: (typeof rows)[number]): FactOrigin =>
-    edited.has(row.id) ? 'edited' : row.sourceId || imported.has(row.id) ? 'cv' : 'history';
+    edited.has(row.id)
+      ? 'edited'
+      : row.sourceId || imported.has(row.id)
+        ? 'cv'
+        : row.confirmedAt
+          ? 'kept'
+          : 'history';
 
   const roles = rows.filter((r) => r.kind === 'role');
   const bullets = rows.filter((r) => r.kind === 'bullet');
@@ -377,6 +398,7 @@ router.get('/facts', async (c) => {
               status: role.status,
               // A role is the owner's when any of its bullets is.
               origin: own.some((b) => originOf(b) !== 'history') ? 'cv' : 'history',
+              unconfirmed: own.filter((b) => b.status === 'active' && !b.confirmedAt).length,
             }
           : {}),
         bullets: own.map(bulletOut),
@@ -419,7 +441,7 @@ router.patch('/facts/:id', async (c) => {
   // Someone else's fact and a missing one answer the same.
   if (!fact) throw new HttpError(404, 'NOT_FOUND', 'No such fact');
 
-  const { status, canonical } = parsed.data;
+  const { status, canonical, confirmed } = parsed.data;
   if (canonical !== undefined && fact.kind !== 'bullet') {
     throw new HttpError(400, 'VALIDATION_ERROR', 'Only a bullet can be reworded.');
   }
@@ -431,10 +453,29 @@ router.patch('/facts/:id', async (c) => {
       .set({
         ...(status ? { status } : {}),
         ...(canonical !== undefined ? { canonical } : {}),
+        // Rewording a line is vouching for the new words.
+        ...(confirmed !== undefined || canonical !== undefined
+          ? { confirmedAt: confirmed === false ? null : now }
+          : {}),
         updatedAt: now,
       })
       .where(and(eq(profileFacts.id, id), eq(profileFacts.userId, session.userId))),
   ];
+  // Keeping a role keeps every active bullet under it: "these are all true".
+  if (confirmed === true && fact.kind === 'role') {
+    statements.push(
+      db
+        .update(profileFacts)
+        .set({ confirmedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(profileFacts.userId, session.userId),
+            eq(profileFacts.parentFactId, id),
+            eq(profileFacts.status, 'active'),
+          ),
+        ),
+    );
+  }
   if (canonical !== undefined && canonical !== fact.canonical) {
     const hash = await variantHashFor(canonical);
     statements.push(
