@@ -1,5 +1,5 @@
-// LinkedIn content script — self-contained, no imports from node_modules
-export {};
+// LinkedIn content script
+import { readSiteLogo } from '../lib/domExtractors';
 
 // Track URLs already submitted in this session to avoid duplicates
 const submittedUrls = new Set<string>();
@@ -68,15 +68,18 @@ function sendJobDetected(company: string, role: string): void {
 
   submittedUrls.add(url);
 
-  chrome.runtime.sendMessage({
-    type: 'JOB_DETECTED',
-    job: {
-      company,
-      role,
-      sourceUrl: url,
-      sourceSite: 'linkedin',
-      appliedAt: Date.now(),
-    },
+  void readSiteLogo('linkedin').then((logoUrl) => {
+    chrome.runtime.sendMessage({
+      type: 'JOB_DETECTED',
+      job: {
+        company,
+        role,
+        sourceUrl: url,
+        sourceSite: 'linkedin',
+        appliedAt: Date.now(),
+        ...(logoUrl ? { logoUrl } : {}),
+      },
+    });
   });
 }
 

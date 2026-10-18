@@ -1,5 +1,6 @@
-// Lever content script — self-contained
-export {};
+// Lever content script
+import { readSiteLogo } from '../lib/domExtractors';
+
 // Covers jobs.lever.co/{company}/{job-id}
 
 const submittedUrls = new Set<string>();
@@ -40,15 +41,18 @@ function sendJobDetected(company: string, role: string): void {
   if (!company || !role) return;
   submittedUrls.add(url);
 
-  chrome.runtime.sendMessage({
-    type: 'JOB_DETECTED',
-    job: {
-      company,
-      role,
-      sourceUrl: url,
-      sourceSite: 'lever',
-      appliedAt: Date.now(),
-    },
+  void readSiteLogo('lever').then((logoUrl) => {
+    chrome.runtime.sendMessage({
+      type: 'JOB_DETECTED',
+      job: {
+        company,
+        role,
+        sourceUrl: url,
+        sourceSite: 'lever',
+        appliedAt: Date.now(),
+        ...(logoUrl ? { logoUrl } : {}),
+      },
+    });
   });
 }
 
