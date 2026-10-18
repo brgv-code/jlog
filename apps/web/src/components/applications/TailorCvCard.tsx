@@ -2,7 +2,6 @@ import { ArrowRightIcon, SparklesIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type CvProfile, EMPTY_PROFILE, isProfileUsable, loadCvProfile } from '../../lib/cvProfile';
 import { Button } from '../ui/button';
-import { Card, CardContent } from '../ui/card';
 import { TailorCvDialog } from './TailorCvDialog';
 
 interface Props {
@@ -41,41 +40,40 @@ export function TailorCvCard({ applicationId, company, role, jobDescription }: P
       ? { text: 'Add your name and contact details to build a CV header.', href: '/settings' }
       : null;
 
+  /*
+   * A section of the rail, not a card. The black button is the one loud thing
+   * on the page (DESIGN.md), so it does not need a box and a gradient around it
+   * to be found; full width, it reads as the rail's conclusion.
+   */
   return (
     <>
-      <Card className="mb-6 overflow-hidden border-border/80">
-        {/* A single hairline of accent — enough to mark this as the primary
-            action on the page without turning the card into a banner. */}
-        {ready && (
-          <div className="h-px w-full bg-gradient-to-r from-primary via-primary/40 to-transparent" />
+      <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+        <div>
+          <p className="text-[13px] font-medium">Tailor your CV</p>
+          <p className="text-muted-foreground mt-0.5 text-[13px] leading-relaxed">
+            {blocker
+              ? blocker.text
+              : 'Match your stored facts against this posting and compile a PDF.'}
+          </p>
+        </div>
+        {blocker?.href ? (
+          <Button variant="outline" size="sm" className="w-full" asChild>
+            <a href={blocker.href}>
+              Settings <ArrowRightIcon />
+            </a>
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            className="w-full"
+            variant={ready ? 'default' : 'secondary'}
+            disabled={!ready}
+            onClick={() => setOpen(true)}
+          >
+            <SparklesIcon /> Tailor
+          </Button>
         )}
-        <CardContent className="flex items-center gap-4 pt-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium">Tailor your CV</p>
-            <p className="text-muted-foreground mt-0.5 text-[13px] leading-relaxed">
-              {blocker
-                ? blocker.text
-                : 'Match your stored facts against this posting and compile a PDF.'}
-            </p>
-          </div>
-          {blocker?.href ? (
-            <Button variant="outline" size="sm" asChild>
-              <a href={blocker.href}>
-                Settings <ArrowRightIcon />
-              </a>
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant={ready ? 'default' : 'secondary'}
-              disabled={!ready}
-              onClick={() => setOpen(true)}
-            >
-              <SparklesIcon /> Tailor
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      </div>
 
       {ready && profile && (
         <TailorCvDialog

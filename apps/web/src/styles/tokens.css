@@ -292,6 +292,8 @@ body {
   font-size: var(--text-sm);
   line-height: 1.7;
   color: var(--color-text-primary);
+  /* A pasted posting can carry an unbroken URL or a run of symbols. */
+  overflow-wrap: anywhere;
 }
 
 .jlog-prose p {

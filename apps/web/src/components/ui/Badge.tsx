@@ -33,12 +33,15 @@ export function Badge({ children, variant = 'default', tone }: BadgeProps) {
   const style: CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
-    fontSize: '11px',
+    fontSize: 'var(--text-xs)',
     fontWeight: 500,
     lineHeight: 1,
     padding: '3px 8px',
     borderRadius: 'var(--radius-full)',
-    color: ink,
+    // The ink alone sits right on 4.5:1 against its own wash, and drops under
+    // it on the off-white rail. Pulling it toward the theme's text colour
+    // darkens it on light and lightens it on dark, keeping the hue readable.
+    color: `color-mix(in srgb, ${ink} 70%, var(--color-text-primary))`,
     backgroundColor: `color-mix(in srgb, ${ink} 10%, transparent)`,
     whiteSpace: 'nowrap',
   };

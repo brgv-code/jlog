@@ -90,6 +90,48 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Scrim — the dimmed page behind something that opened over it.
+
+   Use for: the sidebar drawer on a narrow screen. Opacity only: the scrim is
+   not a thing that arrives from anywhere, it is the page stepping back. Not
+   for: dialogs, which bring their own overlay through shadcn.
+   --------------------------------------------------------------------------- */
+@keyframes jlog-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.jlog-fade {
+  animation: jlog-fade var(--motion-fast) var(--ease-arrive) both;
+}
+
+/*
+ * Drawer — the sidebar opening over the page on a narrow screen.
+ *
+ * Revealed outward from the icon rail it grows out of, by clip rather than by
+ * width: the full rail is laid out at once and uncovered, so no label is ever
+ * seen squeezed or spilling, and it stays on the compositor. No fill mode on
+ * purpose: once open, the clip is gone, so the account popover and the
+ * drawer's own shadow are not cut off at its edge.
+ */
+@keyframes jlog-drawer {
+  from {
+    clip-path: inset(0 calc(100% - 56px) 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.jlog-drawer {
+  animation: jlog-drawer var(--motion-fast) var(--ease-arrive);
+}
+
+/* ---------------------------------------------------------------------------
    Rejection — something you submitted was not accepted.
 
    A short horizontal shake, on the field or the button that failed. It carries
@@ -242,7 +284,8 @@
   .jlog-shake,
   .jlog-settle,
   .jlog-burst,
-  .jlog-burst-ring {
+  .jlog-burst-ring,
+  .jlog-drawer {
     animation: none;
     opacity: 1;
     transform: none;

@@ -72,15 +72,22 @@ Three signed-in surfaces:
 | `/cv` | `CvShell` | CV import and profile. Was two cards inside Settings; it is what every generated CV is built from, so it gets a primary place. |
 | `/settings` | `SettingsShell` | Centred at 760px — a column pinned left leaves half a wide screen empty. |
 
-The application detail view lives inside `/applications` rather than its own route. It
-pins to `calc(100vh - 56px)` so the document pane and the rail scroll independently
-instead of the page scrolling as one column.
+The application detail view lives inside `/applications` rather than its own route. While
+it is open it replaces the list's breadcrumb bar with its own, so the trail can name the
+application. Its layout is in `styles/detail.css` and answers to a container query on the
+view's own width, not the window's.
 
 | Region | Holds |
 |---|---|
-| Identity bar | Company and role, both editable in place, plus status and the posting link. |
-| Document pane | Job description and notes as tabs. Rendered by default; editing is a mode you enter. |
-| Rail (340px) | Applied date, location, salary, source, Tailor CV, follow-up, activity, delete. |
+| Bar (56px) | Breadcrumb (Applications › company; the first step is the way back), posting link, delete. |
+| Reading column | Company mark, company and role (editable in place), then job description and notes as tabs, then the activity feed. Centred at a 50rem measure. |
+| Activity | Oldest first, ending at the follow-up composer: the one thing written on this page that becomes an event, written where the event appears. |
+| Properties rail (304px) | Status, applied, location, salary, response, source as label/value rows, then Tailor CV. Sticky while the posting scrolls. |
+
+Below 760px of its own width the view is one column: title, then the rail as a band, then
+the posting and activity, and the window scrolls it (the bar and tabs stick). Below a
+767px window the sidebar is always the icon rail, and its toggle opens the full rail as a
+drawer over the page rather than pushing it.
 
 Two rules that page enforces. **Reading is the default state** — the job description used
 to render into a `rows={4}` textarea, so a thousand-word posting was read through a
