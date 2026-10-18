@@ -1,6 +1,7 @@
 import { createDb, llmConfigs } from '@jlog/db';
 import { makeProvider, rawJsonSchema } from '@jlog/llm';
 import type { TailorJson, TailorRequest } from '@jlog/pro';
+import { budgetFor, effortFor } from '@jlog/shared/models';
 import { eq } from 'drizzle-orm';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../index';
@@ -8,6 +9,7 @@ import { cfAccessHeadersFor } from './cfAccess';
 import { isDemoUser } from './demo/account';
 import { demoJsonCaller } from './demo/model';
 import { decrypt } from './encryption';
+import { lookupModel } from './models';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
@@ -62,6 +64,12 @@ export async function makeJsonCaller(
   };
 
   const provider = makeProvider(config);
+  // Sized for the model that was picked, not for its provider (BRG-232): a
+  // reasoning model needs room to think as well as answer, and the effort the
+  // user chose is matched to the values this model accepts.
+  const info = await lookupModel(row.provider, row.model);
+  const maxTokens = budgetFor(info, fallbackBudget(row.provider));
+  const reasoningEffort = effortFor(info, row.reasoningEffort);
   // One trace per request, spanning every attempt the caller makes. The retries
   // are the interesting part — a run that took three goes is worth seeing as
   // one story rather than three unrelated generations. The tracing middleware
@@ -95,8 +103,9 @@ export async function makeJsonCaller(
       // tells the model to answer with company/role/location instead.
       const result = await provider.extractJSON('', rawJsonSchema, req.user, {
         system: req.system,
-        maxTokens: budgetFor(row.provider),
+        maxTokens,
         timeoutMs: JSON_CALL_TIMEOUT_MS,
+        ...(reasoningEffort ? { reasoningEffort } : {}),
       });
       generation?.update({ output: result }).end();
       traced?.root.update({ output: result });
@@ -110,14 +119,13 @@ export async function makeJsonCaller(
 }
 
 /**
- * Output budget for one JSON call. On OpenAI's reasoning models (gpt-5 and the
- * o-series) the cap covers hidden reasoning as well as the answer, and 4096 was
- * spent on reasoning alone: tailoring and CV import both failed with no content.
- * The cap is a ceiling, billed by use, so a model that answers in 1k costs the
- * same under 16k. Anthropic stays at 4096 because some Claude models reject a
- * larger max_tokens outright.
+ * Output budget for a model the catalogue does not know (a custom id, a model
+ * newer than the catalogue, Ollama). On OpenAI's reasoning models the cap
+ * covers hidden reasoning too, and 4096 was spent on reasoning alone; the cap
+ * is a ceiling, billed by use. Anthropic stays at 4096 because some Claude
+ * models reject a larger max_tokens outright.
  */
-function budgetFor(provider: string): number {
+function fallbackBudget(provider: string): number {
   return provider === 'openai' ? 16_384 : 4096;
 }
 

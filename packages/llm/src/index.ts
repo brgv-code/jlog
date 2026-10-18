@@ -20,6 +20,11 @@ export type ExtractOptions = {
    * 30s cut it off before it answered.
    */
   timeoutMs?: number;
+  /**
+   * The provider's own effort value for a reasoning model ("low", "medium"...),
+   * already matched to what the model accepts. Omit to send none.
+   */
+  reasoningEffort?: string;
 };
 
 export interface LLMProvider {
@@ -98,3 +103,4 @@ export { makeGeminiProvider } from './providers/gemini';
 export { makeOllamaProvider } from './providers/ollama';
 export { makeOpenAIProvider } from './providers/openai';
 export { EXTRACT_JOB_SYSTEM_PROMPT } from './prompts/extract-job';
+export { listModelIds } from './models';

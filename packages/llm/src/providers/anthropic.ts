@@ -2,6 +2,7 @@ import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
 import type { ExtractOptions, LLMProvider } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
+import { sendWithEffort } from './effort';
 
 interface AnthropicMessage {
   content: Array<{ type: string; text: string }>;
@@ -18,21 +19,24 @@ export function makeAnthropicProvider(apiKey: string, model: string): LLMProvide
     ): Promise<T> {
       let res: Response;
       try {
-        res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          signal: AbortSignal.timeout(options?.timeoutMs ?? 30000),
-          headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            max_tokens: options?.maxTokens ?? 1024,
-            system: options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT,
-            messages: [{ role: 'user', content: `${prompt}\n\n${content}` }],
-          }),
-        });
+        const send = (effort: string | undefined) =>
+          fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            signal: AbortSignal.timeout(options?.timeoutMs ?? 30000),
+            headers: {
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              max_tokens: options?.maxTokens ?? 1024,
+              system: options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT,
+              messages: [{ role: 'user', content: `${prompt}\n\n${content}` }],
+              ...(effort ? { output_config: { effort } } : {}),
+            }),
+          });
+        res = await sendWithEffort(send, options?.reasoningEffort);
       } catch (e) {
         throw new LLMError('NETWORK_ERROR', `Anthropic request failed: ${String(e)}`);
       }
@@ -45,7 +49,9 @@ export function makeAnthropicProvider(apiKey: string, model: string): LLMProvide
       const data = (await res.json().catch(() => {
         throw new LLMError('PARSE_ERROR', 'Anthropic returned a non-JSON success response');
       })) as AnthropicMessage;
-      const text = data.content[0]?.text;
+      // A model that thinks puts its thinking blocks first; the answer is the
+      // text block, wherever it lands.
+      const text = data.content.find((block) => block.type === 'text')?.text;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'Anthropic returned no content');
       }

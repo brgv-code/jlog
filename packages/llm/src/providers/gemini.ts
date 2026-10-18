@@ -2,10 +2,11 @@ import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
 import type { ExtractOptions, LLMProvider } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
+import { sendWithEffort } from './effort';
 
 interface GeminiResponse {
   candidates: Array<{
-    content: { parts: Array<{ text: string }> };
+    content: { parts: Array<{ text: string; thought?: boolean }> };
   }>;
 }
 
@@ -22,23 +23,28 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
 
       let res: Response;
       try {
-        res = await fetch(url, {
-          method: 'POST',
-          signal: AbortSignal.timeout(options?.timeoutMs ?? 30000),
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `${options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT}\n\n${prompt}\n\n${content}`,
-                  },
-                ],
+        const send = (effort: string | undefined) =>
+          fetch(url, {
+            method: 'POST',
+            signal: AbortSignal.timeout(options?.timeoutMs ?? 30000),
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    {
+                      text: `${options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT}\n\n${prompt}\n\n${content}`,
+                    },
+                  ],
+                },
+              ],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                ...(effort ? { thinkingConfig: { thinkingLevel: effort } } : {}),
               },
-            ],
-            generationConfig: { responseMimeType: 'application/json' },
-          }),
-        });
+            }),
+          });
+        res = await sendWithEffort(send, options?.reasoningEffort);
       } catch (e) {
         throw new LLMError('NETWORK_ERROR', `Gemini request failed: ${String(e)}`);
       }
@@ -51,7 +57,8 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
       const data = (await res.json().catch(() => {
         throw new LLMError('PARSE_ERROR', 'Gemini returned a non-JSON success response');
       })) as GeminiResponse;
-      const text = data.candidates[0]?.content?.parts[0]?.text;
+      // Thought summaries arrive as parts marked `thought`; the answer is the rest.
+      const text = data.candidates[0]?.content?.parts.find((part) => !part.thought)?.text;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'Gemini returned no content');
       }

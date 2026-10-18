@@ -1,6 +1,14 @@
 import { createDb, llmConfigs } from '@jlog/db';
-import { extractedJobSchema, makeProvider } from '@jlog/llm';
-import { HttpError, LLMError, extractSchema, llmConfigSchema } from '@jlog/shared';
+import { extractedJobSchema, listModelIds, makeProvider } from '@jlog/llm';
+import {
+  type CatalogueProvider,
+  HttpError,
+  LLMError,
+  extractSchema,
+  llmConfigSchema,
+  llmModelsRequestSchema,
+} from '@jlog/shared';
+import { budgetFor, effortFor, modelsFor } from '@jlog/shared/models';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
@@ -8,6 +16,7 @@ import { cfAccessHeadersFor } from '../lib/cfAccess';
 import { isDemoUser } from '../lib/demo/account';
 import { DEMO_LATENCY_MS, demoExtract, sleep } from '../lib/demo/model';
 import { decrypt, encrypt } from '../lib/encryption';
+import { loadCatalogue, lookupModel } from '../lib/models';
 import { requireSession } from '../lib/session';
 
 type AppContext = { Bindings: Env; Variables: Variables };
@@ -30,6 +39,7 @@ router.get('/config', async (c) => {
       provider: row.provider,
       model: row.model,
       ollamaUrl: row.ollamaUrl ?? null,
+      reasoningEffort: row.reasoningEffort ?? 'default',
       hasApiKey: row.apiKeyEncrypted !== null && row.apiKeyEncrypted !== '',
     },
   });
@@ -82,6 +92,7 @@ router.put('/config', async (c) => {
       model: data.model,
       apiKeyEncrypted,
       ollamaUrl: data.ollamaUrl ?? null,
+      reasoningEffort: data.reasoningEffort ?? 'default',
       updatedAt: now,
     })
     .onConflictDoUpdate({
@@ -91,6 +102,7 @@ router.put('/config', async (c) => {
         model: data.model,
         apiKeyEncrypted,
         ollamaUrl: data.ollamaUrl ?? null,
+        reasoningEffort: data.reasoningEffort ?? 'default',
         updatedAt: now,
       },
     });
@@ -100,8 +112,52 @@ router.put('/config', async (c) => {
       provider: data.provider,
       model: data.model,
       ollamaUrl: data.ollamaUrl ?? null,
+      reasoningEffort: data.reasoningEffort ?? 'default',
       hasApiKey: apiKeyEncrypted !== null && apiKeyEncrypted !== '',
     },
+  });
+});
+
+/** How many models the dropdown leads with, newest first. */
+const LATEST = 5;
+
+/**
+ * POST /models — the models a user can pick for one provider (BRG-232).
+ *
+ * POST rather than GET so a key typed into the form, not yet saved, can be
+ * used to check access without landing in a URL or a log. The catalogue answers
+ * what exists and what each model can do; the provider's own list, with the
+ * key, answers which of those this key may call. `available` is null when that
+ * could not be asked (no key, or the provider did not answer), and the form
+ * then shows the catalogue without marking anything unavailable.
+ */
+router.post('/models', async (c) => {
+  const session = requireSession(c);
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = llmModelsRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+  const provider: CatalogueProvider = parsed.data.provider;
+
+  const { models: catalogue, source } = await loadCatalogue();
+  const models = modelsFor(catalogue, provider);
+
+  let apiKey = parsed.data.apiKey || undefined;
+  if (!apiKey && !(await isDemoUser(c.env.DB, session.userId))) {
+    const db = createDb(c.env.DB);
+    const [row] = await db.select().from(llmConfigs).where(eq(llmConfigs.userId, session.userId));
+    if (row?.provider === provider && row.apiKeyEncrypted) {
+      apiKey = await decrypt(row.apiKeyEncrypted, c.env.ENCRYPTION_SECRET).catch(() => undefined);
+    }
+  }
+  const available = apiKey ? await listModelIds(provider, apiKey).catch(() => null) : null;
+
+  return c.json({
+    models,
+    latest: models.slice(0, LATEST).map((m) => m.id),
+    available,
+    source,
   });
 });
 
@@ -191,10 +247,19 @@ extractRouter.post('/', async (c) => {
   });
 
   try {
+    // Extraction is short, but on a reasoning model the cap covers thinking
+    // too, and the old implicit 1024 would be spent before any answer.
+    const info = await lookupModel(row.provider, row.model);
+    const reasoningEffort = effortFor(info, row.reasoningEffort);
     const result = await makeProvider(config).extractJSON(
       'Extract the job details from the following job posting content:',
       extractedJobSchema,
       content,
+      {
+        maxTokens: budgetFor(info, 1024),
+        timeoutMs: 60_000,
+        ...(reasoningEffort ? { reasoningEffort } : {}),
+      },
     );
 
     generation?.update({ output: result }).end();
