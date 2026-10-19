@@ -145,3 +145,36 @@ describe('missing sections', () => {
     expect(skills?.items).toHaveLength(2);
   });
 });
+
+describe('bullets from a moderncv PDF', () => {
+  // Text layer of a moderncv PDF: `{` is the itemize glyph, lines wrap at the
+  // page edge. Each wrap used to become its own fact, glyph included.
+  const source = [
+    'Ada Lovelace',
+    'Experience',
+    '2025–current Full-Stack Developer, Acme, Berlin',
+    '{ Built an MCP server bridging Claude and the CMS: versioned eval-backed prompts, embedded keyword',
+    'research, auto-generated backlinks and schema on publish.',
+    '{ Proposed and led test automation: UI coverage across 8 applications and 180+ pages, cutting a',
+    '3-minute automated run.',
+    '{ Built tracemate, an internal CLI triage tool.',
+  ].join('\n');
+
+  it('drops the glyph and joins a bullet the page wrapped', () => {
+    expect(parseTextCv(source).roles[0]?.bullets).toEqual([
+      'Built an MCP server bridging Claude and the CMS: versioned eval-backed prompts, embedded keyword research, auto-generated backlinks and schema on publish.',
+      'Proposed and led test automation: UI coverage across 8 applications and 180+ pages, cutting a 3-minute automated run.',
+      'Built tracemate, an internal CLI triage tool.',
+    ]);
+  });
+
+  it('does not merge unmarked bullets that simply lack a full stop', () => {
+    const plainCv = [
+      'Experience',
+      '2020–2024 Engineer, Acme, Berlin',
+      'Automated routine maintenance with CRON jobs across every payroll system we ran, reducing monitoring',
+      'Built dashboards and admin tools for enterprise clients across three regions and teams',
+    ].join('\n');
+    expect(parseTextCv(plainCv).roles[0]?.bullets).toHaveLength(2);
+  });
+});

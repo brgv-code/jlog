@@ -91,3 +91,19 @@ describe('toImportedCv', () => {
     expect(toImportedCv(noisy, SOURCE).chrome.sections).toEqual([]);
   });
 });
+
+describe('bullets a model copied from a PDF', () => {
+  it('are stored without the list glyph or the page line breaks', () => {
+    const source = 'Experience\nAcme\n{ Built tracemate, an internal CLI\ntriage tool.';
+    const cv = toImportedCv(
+      {
+        roles: [
+          { employer: 'Acme', bullets: ['{ Built tracemate, an internal CLI\ntriage tool.'] },
+        ],
+      },
+      source,
+    );
+    expect(cv.roles[0]?.bullets).toEqual(['Built tracemate, an internal CLI triage tool.']);
+    expect(cv.unplaced).toEqual([]);
+  });
+});

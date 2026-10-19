@@ -23,8 +23,12 @@ import {
 } from './markdown';
 import { EMPTY_CHROME, type ImportedChrome, type ImportedCv, type ImportedRole } from './types';
 
-/** Bullet markers survive PDF extraction as any of these. */
-const BULLET = /^\s*[-*+•‣·▪—–]\s+/;
+/**
+ * Bullet markers survive PDF extraction as any of these. `{` is moderncv's
+ * itemize glyph as its text layer reads it; without it here, every bullet of
+ * a moderncv PDF was stored with "{ " on the front.
+ */
+const BULLET = /^\s*[-*+•‣·▪◦●{—–]\s+/;
 /** A year, or a range of them, anywhere in the line. */
 const DATES =
   /((?:19|20)\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*(?:19|20)\d{2})\s*(?:--+|[–—]|-|to|until|–)?\s*((?:19|20)\d{2}|present|current|ongoing|now)?/i;
@@ -111,6 +115,8 @@ export function parseTextCv(source: string): ImportedCv {
 
   let section = '';
   let current: ImportedRole | null = null;
+  /** Whether the bullet being read began with a list mark. */
+  let lastMarked = false;
   const sectionLines = new Map<string, string[]>();
 
   for (const raw of lines) {
@@ -138,10 +144,27 @@ export function parseTextCv(source: string): ImportedCv {
         continue;
       }
       const text = plain(line.replace(BULLET, ''));
+      // A PDF wraps a bullet at the page edge. An unmarked line after a
+      // bullet that stops mid sentence, or that starts in lower case, is the
+      // rest of that bullet, not a bullet of its own: stored apart, each half
+      // became its own fact.
+      // Only a CV that marks its bullets says which unmarked line is a
+      // continuation; in one that does not, a long bullet without a full stop
+      // would swallow the next, so there only a lower case start joins.
+      const last = current?.bullets[current.bullets.length - 1];
+      const continues = lastMarked
+        ? runsOn(last ?? '') || /^[a-z]/.test(text)
+        : /^[a-z]/.test(text);
+      if (current && last !== undefined && !BULLET.test(line) && continues) {
+        current.bullets[current.bullets.length - 1] = `${last} ${text}`;
+        continue;
+      }
       // Short unbulleted lines under a job are usually a location or a client
       // name, not an achievement.
-      if (current && (BULLET.test(line) || text.length > 40)) current.bullets.push(text);
-      else if (!current && (BULLET.test(line) || text.length > 40)) unplaced.push(text);
+      if (current && (BULLET.test(line) || text.length > 40)) {
+        current.bullets.push(text);
+        lastMarked = BULLET.test(line);
+      } else if (!current && (BULLET.test(line) || text.length > 40)) unplaced.push(text);
       continue;
     }
 

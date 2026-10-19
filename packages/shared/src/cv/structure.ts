@@ -95,7 +95,11 @@ export function toImportedCv(parsed: CvStructure, source: string): ImportedCv {
   const roles = (parsed.roles ?? []).map((role) => {
     const kept: string[] = [];
     for (const bullet of role.bullets ?? []) {
-      const text = str(bullet);
+      // A model copies the PDF's text faithfully, glyph and line breaks
+      // included; neither is part of what the owner wrote.
+      const text = str(bullet)
+        .replace(/\s+/g, ' ')
+        .replace(/^(?:[{•·▪◦‣●*–—-]\s+)+/, '');
       if (!text) continue;
       if (isQuoted(haystack, text)) kept.push(text);
       else dropped.push(text);
