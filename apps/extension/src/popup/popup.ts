@@ -3,6 +3,7 @@ import {
   DASHBOARD_URL,
   RENEW_WARNING_MS,
   SETTINGS_URL,
+  WELCOME_URL,
   clearToken,
   describeExpiry,
   formatDate,
@@ -289,6 +290,18 @@ function renderConnect(root: HTMLElement, conn: Connection | null): void {
   root.appendChild(saveBtn);
   root.appendChild(error);
   root.appendChild(settingsBtn);
+
+  // A first open lands here with no context, so point at the guide that walks
+  // through account, key and AI provider in order.
+  if (status === 'no-key') {
+    const guide = h(
+      'button',
+      { class: 'link', style: 'margin-top:10px' },
+      'New to jlog? Follow the setup guide',
+    );
+    guide.addEventListener('click', () => void chrome.tabs.create({ url: WELCOME_URL }));
+    root.appendChild(guide);
+  }
 
   if (status !== 'no-key') {
     const forget = h('button', { class: 'link', style: 'margin-top:10px' }, 'Forget this key');
