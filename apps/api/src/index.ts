@@ -115,6 +115,13 @@ export interface Env {
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_PRICE_ID?: string;
   /**
+   * "true" turns paid plans on: the Pro routes check the plan column
+   * (@jlog/pro's requirePro) and Settings offers an upgrade. Unset, the
+   * hosted instance is free for everyone with their own AI key, even with
+   * Stripe configured.
+   */
+  PAID_PLANS?: string;
+  /**
    * "true" lets anyone open a throwaway demo account from the landing page
    * (lib/demo). Off unless set. Demo accounts live a day and are swept by the
    * nightly cleanup.

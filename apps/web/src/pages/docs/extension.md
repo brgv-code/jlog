@@ -9,7 +9,7 @@ description: What the extension does, how to install it, and how its key works.
 - **Records applications** on LinkedIn, Greenhouse, Lever, Ashby, Wellfound and YC's job board as you submit them.
 - **Reads any other posting** when you press **Extract with AI** in its popup.
 - **Fills application forms** on Greenhouse, Lever and Ashby with a **Fill with jlog** button. See [autofill](/docs/autofill).
-- **Drafts answers** to open questions on those forms, on Pro. See [drafted answers](/docs/drafted-answers).
+- **Drafts answers** to open questions on those forms. See [drafted answers](/docs/drafted-answers).
 
 It never submits a form or presses a button on a page.
 

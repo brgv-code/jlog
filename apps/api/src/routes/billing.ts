@@ -49,7 +49,9 @@ function notConfigured(missing: string) {
  * without settling the business model either way.
  */
 router.get('/config', (c) => {
-  const enabled = Boolean(c.env.STRIPE_SECRET_KEY && c.env.STRIPE_PRICE_ID);
+  const enabled = Boolean(
+    c.env.PAID_PLANS === 'true' && c.env.STRIPE_SECRET_KEY && c.env.STRIPE_PRICE_ID,
+  );
   return c.json({ enabled });
 });
 

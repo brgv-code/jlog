@@ -13,7 +13,7 @@ On the hosted jlog, in its database:
 - **Your account:** name, email, and how you signed in.
 - **Your applications:** company, role, link, status, notes, the job description, and the timeline of changes.
 - **Your CV:** the facts you ticked on import, your profile details, and the original file when you imported a PDF.
-- **Generated documents**, on Pro.
+- **Generated documents**.
 - **Your application answers**, from Settings.
 - **Your AI provider key**, encrypted with AES-GCM.
 - **Extension keys**, with their names and expiry dates.
@@ -23,7 +23,7 @@ On the hosted jlog, in its database:
 - On the six boards: the company, role and link of an application, when you submit it. Nothing else from the page.
 - On any other page: the page's text, only when you press **Extract with AI**, sent to the API and on to your AI provider.
 - On application forms: it fills fields in your browser from your account. Nothing from the form is sent back.
-- When you press **Draft** on Pro: the question, and the posting's text if the application is not in jlog yet, are sent to draft the answer.
+- When you press **Draft**: the question, and the posting's text if the application is not in jlog yet, are sent to draft the answer.
 
 ## Who else sees it
 

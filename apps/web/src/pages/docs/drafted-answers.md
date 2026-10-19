@@ -1,10 +1,10 @@
 ---
 layout: ../../layouts/DocsLayout.astro
 title: Drafted answers
-description: Drafts for open questions on application forms, from your real experience, with the facts listed. Pro.
+description: Drafts for open questions on application forms, from your real experience, with the facts listed.
 ---
 
-> Drafted answers are part of **Pro**. See [plans and billing](/docs/plans).
+> Free on the hosted jlog, with [your own AI key](/docs/ai-providers). See [plans](/docs/plans).
 
 ## Where it works
 
