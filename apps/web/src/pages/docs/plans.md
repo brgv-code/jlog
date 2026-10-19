@@ -1,35 +1,28 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: Plans and billing
-description: What Free includes, what Pro adds, and how billing works.
+title: Plans
+description: Every feature is free on the hosted jlog, with your own AI key. A cloud plan with the AI included is coming.
 ---
 
-## Free
+## Free, with your own AI key
 
-Everything that runs a search, with no time limit and no card:
+Every feature, with no time limit and no card:
 
 - automatic capture on six job boards, and Extract on any page
 - autofill on Greenhouse, Lever and Ashby forms
 - unlimited applications, notes and follow-ups
 - Home, and every chart behind it
 - CV import, and the facts it reads out
-
-## Pro
-
-**€9 a month.** Everything in Free, plus documents built from your facts:
-
 - a [tailored CV](/docs/tailored-cv) for each posting, in six designs, typeset as real PDFs
 - a cover letter from the same facts
 - [drafted answers](/docs/drafted-answers) to open questions, with the facts they used
 
-Pro uses [your own AI provider](/docs/ai-providers), billed by the provider at cost.
+The AI features use [your own AI provider](/docs/ai-providers), billed by the provider at cost. A whole job search usually costs under €2 in model usage; with Ollama it costs nothing.
 
-## Upgrading and cancelling
+## Cloud, coming soon
 
-**Settings → Plan → Upgrade to Pro** opens Stripe's checkout. Once payment goes through, Pro is active; if it has not arrived after a minute, reload the page.
-
-**Manage billing** in the same place opens Stripe's portal, where you can update your card, see invoices and cancel. You can cancel any time. Deleting your account also cancels the subscription.
+The same jlog with the AI included: no provider account and no key to manage. Everything in Free stays free.
 
 ## Self-hosted
 
-A self-hosted jlog has everything in Free. The Pro features come from a private package that is not part of the open-source repository, so on your own deployment they stay locked. See [self-hosting](/docs/self-hosting).
+A self-hosted jlog has capture, autofill, tracking and CV import. Tailored CVs, cover letters and drafted answers come from a private package that is not part of the open-source repository, so on your own deployment they stay locked. See [self-hosting](/docs/self-hosting).

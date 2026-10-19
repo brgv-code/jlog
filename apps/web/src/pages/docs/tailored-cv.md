@@ -1,14 +1,13 @@
 ---
 layout: ../../layouts/DocsLayout.astro
 title: Tailored CVs
-description: A CV for one posting, built only from facts you already wrote, with the source of every line. Pro.
+description: A CV for one posting, built only from facts you already wrote, with the source of every line.
 ---
 
-> Tailored CVs and cover letters are part of **Pro**. See [plans and billing](/docs/plans).
+> Free on the hosted jlog, with [your own AI key](/docs/ai-providers). See [plans](/docs/plans).
 
 ## What you need
 
-- A **Pro** plan.
 - An [AI provider](/docs/ai-providers) set in Settings.
 - Your CV [imported as facts](/docs/cv).
 - Your name and contact details on the CV page, for the header.
@@ -37,7 +36,7 @@ Each line links back to its source: the line of your CV it was read from, highli
 
 | Message | What it means |
 |---|---|
-| Tailoring is a Pro feature | The account is on the Free plan. |
+| Tailoring is a Pro feature | Only on a self-hosted instance: the open-source build does not include it. |
 | No model configured | Add an AI provider in Settings. |
 | The model could not be reached | Your provider rejected the request; its reason is shown. |
 | The model could not settle on a selection | It kept referring to facts that do not exist. What it got wrong is listed; try again. |

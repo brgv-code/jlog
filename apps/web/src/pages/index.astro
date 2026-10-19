@@ -6,7 +6,7 @@
  * into one list. Below: how it works (pinned), the six features, then the
  * four layers of one application as an exploded 3D stack that separates as
  * you scroll, each layer labelled by an arrow, leading into the tailored-CV
- * trace (the top layer). Then pricing, open source, FAQ.
+ * trace (the top layer). Then setup, pricing, open source, FAQ.
  *
  * Every claim is what the product does. Companies and people are invented.
  * The FAQ and the structured data are built from one list.
@@ -130,7 +130,6 @@ const features = [
     id: 'answers',
     title: 'Drafted answers',
     body: '“Why do you want to work here?” gets a draft from your real experience, with the facts it used listed underneath.',
-    pro: true,
   },
   {
     n: '05',
@@ -153,8 +152,8 @@ const faqs = [
     a: 'No. It records applications you make, and on Greenhouse, Lever and Ashby it fills empty fields from your profile. It never presses submit: you read the form and send it yourself.',
   },
   {
-    q: 'Is the free plan really free?',
-    a: 'Yes. Capture, tracking, the dashboard, form filling and CV import are free with no time limit and no card. Pro, at €9 a month, adds tailored CVs, cover letters and drafted answers.',
+    q: 'Is it really free?',
+    a: 'Yes. Every feature is free, with no time limit and no card: capture, tracking, form filling, CV import, tailored CVs, cover letters and drafted answers. The AI features run on your own provider key. A cloud plan with the AI included is coming.',
   },
   {
     q: 'Which job boards does it work with?',
@@ -184,10 +183,7 @@ const jsonLd = [
     operatingSystem: 'Web, Chrome',
     description:
       'Open-source job application tracker with a Chrome extension that captures applications and builds tailored CVs from your real experience.',
-    offers: [
-      { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'EUR' },
-      { '@type': 'Offer', name: 'Pro', price: '9', priceCurrency: 'EUR' },
-    ],
+    offers: [{ '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'EUR' }],
   },
   {
     '@context': 'https://schema.org',
@@ -437,7 +433,6 @@ const jsonLd = [
             <span class="meta feature-n">{f.n}</span>
             <h3 class="h3">
               {f.title}
-              {f.pro && <span class="tag">Pro</span>}
             </h3>
             <p class="feature-body">{f.body}</p>
             {f.href ? (
@@ -624,51 +619,51 @@ const jsonLd = [
     </ol>
 
     <!-- ─────────────── Pricing ─────────────── -->
+    <!-- Free while the hosted instance has no paid plan (PAID_PLANS unset in
+         the API). The receipt is what a search really costs: model usage on
+         the user's own key, at the provider's price. -->
     <section class="row pricing-head" id="pricing">
       <div>
         <div class="kicker"><span class="kicker-n">€</span><span class="meta">Pricing</span></div>
-        <h2 class="h2">Tracking is free,<br /><span class="dim">and stays free.</span></h2>
+        <h2 class="h2">Free.<br /><span class="dim">Bring your own AI key.</span></h2>
       </div>
-      <!-- What a whole search costs on Pro, itemised like a receipt. -->
-      <div class="receipt reveal" aria-label="A typical job search on Pro: €9 a month for jlog, and under €2 of model usage billed by your AI provider.">
-        <p class="meta receipt-h">A typical search on Pro</p>
-        <p class="receipt-l" style="--d:0"><span>jlog Pro, one month</span><b>€9.00</b></p>
+      <div class="receipt reveal" aria-label="A typical job search: nothing for jlog, and under €2 of model usage billed by your AI provider.">
+        <p class="meta receipt-h">A typical job search</p>
+        <p class="receipt-l" style="--d:0"><span>jlog, every feature</span><b>€0.00</b></p>
         <p class="receipt-l" style="--d:1"><span>Model usage, your key <em>billed by your provider</em></span><b>&lt; €2.00</b></p>
         <p class="receipt-l" style="--d:2"><span>Markup on model usage</span><b>€0.00</b></p>
-        <p class="receipt-l receipt-t" style="--d:3"><span>Tracking, capture, autofill</span><b>free</b></p>
+        <p class="receipt-l receipt-t" style="--d:3"><span>With Ollama, on your machine</span><b>free</b></p>
       </div>
     </section>
     <div class="plans">
       <article class="plan">
-        <p class="meta">Free</p>
+        <p class="meta">Free · available now</p>
         <p class="plan-price">€0</p>
-        <p class="plan-lead">Everything that runs a search.</p>
+        <p class="plan-lead">Everything, with your own AI key.</p>
         <ul>
           <li>Automatic capture on six job boards</li>
           <li>Application forms filled, never submitted</li>
           <li>Unlimited applications, notes and follow-ups</li>
-          <li>Home, and every chart behind it</li>
-          <li>CV import, and the facts it reads out</li>
+          <li>A tailored CV and cover letter for each posting</li>
+          <li>Drafted answers, with the facts they used</li>
           <li>Self-host it on your own Cloudflare account</li>
         </ul>
-        <a class="btn btn-line" href="/login">Start for free</a>
+        <a class="btn btn-ink" href="/login">Start for free</a>
+        <p class="plan-note">
+          Your key, from Anthropic, OpenAI or Gemini, is billed by your provider at cost: typically
+          under €2 for a whole job search. jlog never marks it up.
+        </p>
       </article>
       <article class="plan">
-        <p class="meta">Pro</p>
-        <p class="plan-price">€9<span> / month</span></p>
-        <p class="plan-lead">Everything in Free, plus documents.</p>
+        <p class="meta">Cloud · coming soon</p>
+        <p class="plan-price">Soon</p>
+        <p class="plan-lead">The same jlog, with the AI included.</p>
         <ul>
-          <li>A tailored CV for each posting</li>
-          <li>A cover letter from the same facts</li>
-          <li>Drafted answers, with the facts they used</li>
-          <li>Six CV designs, typeset as real PDFs</li>
-          <li>Every line traceable to its source</li>
+          <li>Everything in Free</li>
+          <li>No provider account, no key to manage</li>
+          <li>Model usage included</li>
         </ul>
-        <a class="btn btn-ink" href="/login">Start with Pro</a>
-        <p class="plan-note">
-          Uses your own AI provider key, billed by your provider at cost: typically under €2 for
-          a whole job search. jlog never marks it up.
-        </p>
+        <span class="tag">Coming soon</span>
       </article>
     </div>
 
@@ -2046,9 +2041,12 @@ const jsonLd = [
     opacity: 0.55;
   }
 
+  /* Taller than one pill (about 1.3rem with its border), or the clip that
+     hides the status change also shaves the pill's bottom edge. */
   .mini-status {
     display: grid;
-    height: 1.2rem;
+    align-items: center;
+    height: 1.5rem;
     overflow: hidden;
   }
 

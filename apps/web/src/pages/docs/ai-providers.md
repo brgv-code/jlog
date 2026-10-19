@@ -23,7 +23,7 @@ You can change the model name for any of them. For Ollama, set the server's URL 
 
 - **Extract with AI** in the extension, to read a posting. See [capturing applications](/docs/capture).
 - **CV import**, to structure the text of a PDF. Without a provider, jlog's own rules do it.
-- **Tailored CVs** and **drafted answers**, on Pro.
+- **Tailored CVs** and **drafted answers**.
 
 Tracking, capture on the six boards, and autofill never call a model.
 
