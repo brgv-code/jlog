@@ -12,14 +12,8 @@
  * The FAQ and the structured data are built from one list.
  */
 import { APPLICATIONS, STATUS_LABEL, shortRole } from '../data/demo';
+import { SETUP_GUIDE_URL, STORE_URL } from '../data/extension';
 import SiteLayout from '../layouts/SiteLayout.astro';
-
-/*
- * The Chrome Web Store listing. Empty until the extension is published: the
- * store assigns the URL on first upload, and a button that 404s is worse than
- * none. Set it and the install buttons appear.
- */
-const STORE_URL = '';
 const GITHUB_URL = 'https://github.com/brgv-code/jlog';
 
 /*
@@ -32,6 +26,38 @@ const SOURCES = [
   { name: 'Company sites', note: 'careers pages and their portals', how: '1 click' },
   { name: 'Any job page', note: 'a posting anywhere on the web', how: '1 click' },
   { name: 'Referrals', note: 'a friend, a recruiter, an event', how: 'by hand' },
+];
+
+/* The setup guide's four steps, as the landing page summarises them. */
+const setupSteps = [
+  {
+    n: '01',
+    id: 'account',
+    title: 'Create your account',
+    body: 'Free, with Google, GitHub, Apple or an emailed link.',
+    link: 'Sign up',
+  },
+  {
+    n: '02',
+    id: 'connect',
+    title: 'Connect the extension',
+    body: 'Install it, then paste a key from Settings into its popup.',
+    link: 'Connect it',
+  },
+  {
+    n: '03',
+    id: 'provider',
+    title: 'Add your AI key',
+    body: 'Anthropic, OpenAI, Gemini or a local Ollama, billed at cost.',
+    link: 'Pick a provider',
+  },
+  {
+    n: '04',
+    id: 'first',
+    title: 'Apply as usual',
+    body: 'Applications on six boards are recorded as you submit them.',
+    link: 'See how',
+  },
 ];
 
 /* The four layers, bottom to top, and what each arrow says about it. */
@@ -190,8 +216,8 @@ const jsonLd = [
           Job applications,<br /><span class="dim">without the busywork.</span>
         </h1>
         <p class="lead hero-lead">
-          jlog records every application you make, fills in the forms, and builds a tailored CV
-          (résumé) from your real experience.
+          jlog's Chrome extension records every application you make and fills in the forms, and
+          jlog builds a tailored CV (résumé) from your real experience.
         </p>
         <div class="cta">
           <a href="/login" class="btn btn-ink">Get started for free</a>
@@ -541,6 +567,47 @@ const jsonLd = [
         </div>
       </div>
     </section>
+
+    <!-- ─────────────── Setup ─────────────── -->
+    <!-- The path from here to a first captured job, step by step. Each card
+         is a section of the setup guide, which the extension also opens on
+         install. -->
+    <section class="row setup-head" id="setup">
+      <div>
+        <div class="kicker"><span class="kicker-n">→</span><span class="meta">Get set up</span></div>
+        <h2 class="h2">Running in five minutes.<br /><span class="dim">Account, extension, AI key.</span></h2>
+      </div>
+      <div class="setup-cta">
+        <p class="body">
+          The Chrome extension does the recording and the filling. The setup guide walks through
+          connecting it, one step at a time, and ticks each step off as you go.
+        </p>
+        <div class="cta cta-left">
+          {
+            STORE_URL && (
+              <a href={STORE_URL} class="btn btn-ink" target="_blank" rel="noopener noreferrer">
+                Add to Chrome
+              </a>
+            )
+          }
+          <a href={SETUP_GUIDE_URL} class:list={['btn', STORE_URL ? 'btn-line' : 'btn-ink']}>Read the setup guide</a>
+        </div>
+      </div>
+    </section>
+    <ol class="setup">
+      {
+        setupSteps.map((s) => (
+          <li class="setup-step reveal">
+            <span class="meta feature-n">{s.n}</span>
+            <h3 class="h3">{s.title}</h3>
+            <p class="feature-body">{s.body}</p>
+            <a class="feature-link" href={`${SETUP_GUIDE_URL}#${s.id}`}>
+              {s.link} <span aria-hidden="true">→</span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
 
     <!-- ─────────────── Pricing ─────────────── -->
     <section class="row pricing-head" id="pricing">
@@ -1688,6 +1755,39 @@ const jsonLd = [
     }
   }
 
+  /* ---------- Setup: heading beside its call to action, then four ruled steps ---------- */
+
+  .setup-head {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+    align-items: end;
+  }
+
+  .setup-cta {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .setup {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid var(--line);
+  }
+
+  .setup-step {
+    display: grid;
+    align-content: start;
+    gap: 0.625rem;
+    padding: 2rem clamp(1.25rem, 3vw, 2rem) 2.25rem;
+    border-right: 1px solid var(--line);
+  }
+
+  .setup-step:last-child {
+    border-right: none;
+  }
+
   /* ---------- Features: a ruled grid, cells share borders ---------- */
 
   .features {
@@ -2702,6 +2802,18 @@ const jsonLd = [
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .setup {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .setup-step:nth-child(2n) {
+      border-right: none;
+    }
+
+    .setup-step:nth-child(-n + 2) {
+      border-bottom: 1px solid var(--line);
+    }
+
     .feature:nth-child(3n) {
       border-right: 1px solid var(--line);
     }
@@ -2749,6 +2861,8 @@ const jsonLd = [
     }
 
     .trace-row,
+    .setup-head,
+    .setup,
     .pricing-head,
     .plans,
     .oss,
@@ -2773,6 +2887,15 @@ const jsonLd = [
     .plan + .plan {
       border-left: none;
       border-top: 1px solid var(--line);
+    }
+
+    .setup-step {
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .setup-step:last-child {
+      border-bottom: none;
     }
 
     .trace {

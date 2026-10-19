@@ -1,194 +1,652 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-
 /*
- * The tab the extension opens once, on a fresh install (background/index.ts).
+ * The setup guide, and the tab the extension opens once, on a fresh install
+ * (background/index.ts).
  *
- * A store install otherwise ends on a puzzle piece in the toolbar. Connecting
- * happens in the popup, with a key from Settings, and neither of those is
- * something a new user would find by looking. This page says the three steps
- * and links the one that needs the web app.
+ * A store install otherwise ends on a puzzle piece in the toolbar, and the old
+ * version of this page was three terse steps that left out the AI key. This is
+ * the whole path in order: what jlog is, an account, the extension connected
+ * with a key, a provider key, then a first application. The landing page links
+ * here too, so the install itself is a step rather than an assumption.
  *
- * "Open Settings" goes to /settings#extension, not /login: Settings sends a
- * signed-out visitor through sign-in and back to that anchor (lib/next.ts), and
- * a signed-in one straight to it, so one link serves both.
+ * Each step checks itself off. The page asks the API whether you are signed
+ * in, whether a key exists and whether a provider is set, and asks again when
+ * the tab regains focus, because the work happens in Settings in another tab.
+ * Whether the key was pasted into the popup cannot be seen from here, so a key
+ * existing is what counts.
+ *
+ * Settings links open a new tab and keep this one, so the guide is still here
+ * after each step. Signed out, Settings sends people through sign in and back
+ * to the same anchor (lib/next.ts).
  */
-const settingsHref = '/settings#extension';
+import { SETUP_GUIDE_URL, STORE_URL } from '../../data/extension';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+
+const signUpHref = `/login?next=${encodeURIComponent(`${SETUP_GUIDE_URL}#connect`)}`;
+const extensionKeyHref = '/settings#extension';
+const providerHref = '/settings#llm';
+
+const steps = [
+  { id: 'account', title: 'Create your account' },
+  { id: 'connect', title: 'Connect the extension' },
+  { id: 'provider', title: 'Add your AI key' },
+  { id: 'first', title: 'Track your first job' },
+];
+
+const PROVIDERS = [
+  {
+    name: 'Anthropic',
+    where: 'console.anthropic.com',
+    href: 'https://console.anthropic.com/settings/keys',
+  },
+  { name: 'OpenAI', where: 'platform.openai.com', href: 'https://platform.openai.com/api-keys' },
+  { name: 'Gemini', where: 'aistudio.google.com', href: 'https://aistudio.google.com/apikey' },
+  { name: 'Ollama', where: 'runs on your machine, no key', href: 'https://ollama.com/download' },
+];
 ---
 
-<Layout
-  title="jlog is installed"
-  description="Three steps to connect the jlog Chrome extension to your account."
+<SiteLayout
+  title="Set up jlog · Getting started guide"
+  description="Set up jlog in four steps: create an account, connect the Chrome extension with its key, add your AI provider key, and track your first application."
 >
-  <main class="prose">
-    <p class="back"><a href="/">← jlog</a></p>
+  <div class="rail">
+    <header class="row guide-head">
+      <div class="kicker"><span class="kicker-n">Guide</span><span class="meta">Getting started · about 5 minutes</span></div>
+      <h1 class="display">Set up jlog.<br /><span class="dim">Four steps, in order.</span></h1>
+      <p class="lead">
+        jlog keeps your job search in one place. The Chrome extension records the jobs you apply to,
+        fills in application forms from your profile, and your own AI key reads postings and builds a
+        CV tailored to each one from your real experience.
+      </p>
 
-    <h1>jlog is installed</h1>
-    <p class="lede">
-      Three steps and it starts recording the jobs you apply to. Two minutes, most of it signing in.
-    </p>
+      <div class="before">
+        <p class="meta">Before you start</p>
+        <ul>
+          <li><span class="tick" aria-hidden="true">✓</span> Chrome, or any Chromium browser</li>
+          <li><span class="tick" aria-hidden="true">✓</span> A Google, GitHub or Apple account, or just an email</li>
+          <li><span class="tick" aria-hidden="true">✓</span> An API key from Anthropic, OpenAI or Gemini (or Ollama, free and local)</li>
+        </ul>
+      </div>
+    </header>
 
-    <ol class="steps">
-      <li>
-        <h2>Pin it to your toolbar</h2>
-        <p>
-          Click the puzzle piece at the top right of Chrome, then the pin next to <strong>jlog</strong>.
-          The popup is where you connect it, and where <em>Extract with AI</em> lives, so it is worth
-          having in reach.
-        </p>
-      </li>
-      <li>
-        <h2>Make a key</h2>
-        <p>
-          Sign in, or create a free account, and generate a key under
-          <strong>Settings → Chrome extension</strong>. It is shown once, so copy it before you leave
-          the page.
-        </p>
-        <p><a class="button" href={settingsHref}>Open Settings</a></p>
-      </li>
-      <li>
-        <h2>Paste it into the popup</h2>
-        <p>
-          Click the jlog icon, paste the key and press <strong>Connect</strong>. The popup shows the
-          account it is linked to, so you can tell you picked the right one.
-        </p>
-      </li>
-    </ol>
+    <div class="guide">
+      <!-- The progress index. Sticky beside the steps on wide screens, a plain
+           list above them on a phone. -->
+      <aside class="progress" aria-label="Setup progress">
+        <p class="meta" data-progress-label>Your progress</p>
+        <ol>
+          {
+            steps.map((s, i) => (
+              <li data-index={s.id} data-state="todo">
+                <a href={`#${s.id}`}>
+                  <span class="dot" aria-hidden="true">{i + 1}</span>
+                  <span>{s.title}</span>
+                </a>
+              </li>
+            ))
+          }
+        </ol>
+      </aside>
 
-    <h2>What happens next</h2>
-    <ul>
-      <li>
-        On <strong>LinkedIn, Wellfound, Ashby, Greenhouse, Lever</strong> and
-        <strong>Y Combinator's job board</strong>, applications are recorded as you submit them.
-      </li>
-      <li>
-        On any other careers page, open the popup and press <strong>Extract with AI</strong>. You
-        confirm what it read before anything is saved.
-      </li>
-      <li>
-        On Greenhouse, Lever and Ashby forms, a <strong>Fill with jlog</strong> button fills the fields
-        it recognises from your profile. It never submits; you do.
-      </li>
-    </ul>
-    <p>
-      Everything lands in <a href="/applications">your applications</a>. The
-      <a href="/docs/extension">extension guide</a> has the detail, and the
-      <a href="/privacy">privacy policy</a> says exactly what the extension reads and where it goes.
-    </p>
-  </main>
-</Layout>
+      <ol class="steps">
+        <!-- 1 · Account -->
+        <li class="step" id="account" data-step="account" data-state="todo">
+          <div class="step-marker" aria-hidden="true"><span class="dot">1</span></div>
+          <div class="step-body">
+            <p class="meta step-meta">Step 1 · <span data-status>To do</span></p>
+            <h2 class="h3 step-title">Create your account</h2>
+            <p class="body">
+              Your applications, CV and keys live in your jlog account, so start there. Sign up with
+              Google, GitHub, Apple or an emailed link. It is free, and tracking stays free.
+            </p>
+            <p class="body done-note" data-signed-in hidden>
+              Signed in as <b data-email></b>.
+            </p>
+            <div class="actions" data-todo-only>
+              <a class="btn btn-ink" href={signUpHref}>Create a free account</a>
+              <a class="btn btn-line" href={signUpHref}>I already have one</a>
+            </div>
+          </div>
+        </li>
+
+        <!-- 2 · Extension -->
+        <li class="step" id="connect" data-step="connect" data-state="todo">
+          <div class="step-marker" aria-hidden="true"><span class="dot">2</span></div>
+          <div class="step-body">
+            <p class="meta step-meta">Step 2 · <span data-status>To do</span></p>
+            <h2 class="h3 step-title">Connect the Chrome extension</h2>
+            <p class="body">
+              The extension signs in with a key, not your password. The key links this browser to your
+              account, so every job it records lands in your list.
+            </p>
+
+            <ol class="substeps">
+              <li>
+                <b>Install it.</b>
+                {
+                  STORE_URL ? (
+                    <>
+                      If Chrome opened this page, it is already installed. Otherwise
+                      <a href={STORE_URL} target="_blank" rel="noopener noreferrer">add it from the Chrome Web Store</a>.
+                    </>
+                  ) : (
+                    <>
+                      If Chrome opened this page, it is already installed. Otherwise, until the store
+                      listing is live, <a href="/docs/extension#install-it">load it from source</a>.
+                    </>
+                  )
+                }
+              </li>
+              <li>
+                <b>Pin it.</b> Click the puzzle piece at the top right of Chrome, then the pin next to
+                <b>jlog</b>, so the popup is one click away.
+              </li>
+              <li>
+                <b>Generate a key.</b> In <b>Settings → Chrome extension</b>, press
+                <b>Generate key</b> and copy it. It is shown once.
+              </li>
+              <li>
+                <b>Paste it into the popup.</b> Click the jlog icon, paste the key and press
+                <b>Connect</b>. The popup shows the account it is linked to.
+              </li>
+            </ol>
+
+            <p class="body done-note" data-key-note hidden>A key exists on your account. If the popup says connected, you are done.</p>
+            <div class="actions">
+              <a class="btn btn-ink" href={extensionKeyHref} target="_blank" rel="noopener">Generate a key in Settings</a>
+              <a class="btn btn-line" href="/docs/extension">Extension guide</a>
+            </div>
+          </div>
+        </li>
+
+        <!-- 3 · Provider -->
+        <li class="step" id="provider" data-step="provider" data-state="todo">
+          <div class="step-marker" aria-hidden="true"><span class="dot">3</span></div>
+          <div class="step-body">
+            <p class="meta step-meta">Step 3 · <span data-status>To do</span></p>
+            <h2 class="h3 step-title">Add your AI key</h2>
+            <p class="body">
+              jlog uses your own model, billed by your provider at cost and never marked up. It reads
+              postings when you press <b>Extract with AI</b>, structures your CV on import, and writes
+              tailored CVs on Pro. A whole job search usually costs under €2.
+            </p>
+
+            <ol class="substeps">
+              <li><b>Get a key</b> from one provider:</li>
+            </ol>
+            <ul class="providers">
+              {
+                PROVIDERS.map((p) => (
+                  <li>
+                    <a href={p.href} target="_blank" rel="noopener noreferrer">
+                      <b>{p.name}</b>
+                      <span>{p.where}</span>
+                      <span class="arrow" aria-hidden="true">↗</span>
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+            <ol class="substeps" start="2">
+              <li>
+                <b>Save it.</b> In <b>Settings → LLM provider</b>, pick the provider and a model, paste
+                the key and save. Keys are encrypted at rest and only ever sent to that provider.
+              </li>
+            </ol>
+
+            <p class="body done-note" data-provider-note hidden>Provider set: <b data-provider></b>.</p>
+            <div class="actions">
+              <a class="btn btn-ink" href={providerHref} target="_blank" rel="noopener">Add a key in Settings</a>
+              <a class="btn btn-line" href="/docs/ai-providers">Which provider?</a>
+            </div>
+            <p class="aside-note">
+              Skipping this is fine for now: capture on the six boards, tracking and autofill never call
+              a model.
+            </p>
+          </div>
+        </li>
+
+        <!-- 4 · First job -->
+        <li class="step" id="first" data-step="first" data-state="todo">
+          <div class="step-marker" aria-hidden="true"><span class="dot">4</span></div>
+          <div class="step-body">
+            <p class="meta step-meta">Step 4 · <span data-status>Next</span></p>
+            <h2 class="h3 step-title">Track your first job</h2>
+            <p class="body">Apply the way you already do. jlog writes it down.</p>
+            <ul class="ways">
+              <li>
+                <p class="meta">Automatic</p>
+                <p>
+                  On LinkedIn, Greenhouse, Lever, Ashby, Wellfound and YC's job board, an application is
+                  recorded as you submit it.
+                </p>
+              </li>
+              <li>
+                <p class="meta">One click</p>
+                <p>
+                  On any other careers page, open the popup and press <b>Extract with AI</b>. You confirm
+                  what it read before anything is saved.
+                </p>
+              </li>
+              <li>
+                <p class="meta">Forms</p>
+                <p>
+                  On Greenhouse, Lever and Ashby, <b>Fill with jlog</b> fills the fields it recognises.
+                  It never submits; you do.
+                </p>
+              </li>
+            </ul>
+            <div class="actions">
+              <a class="btn btn-ink" href="/cv">Import your CV</a>
+              <a class="btn btn-line" href="/applications">Open your applications</a>
+            </div>
+            <p class="aside-note">
+              Importing your CV first gives autofill your details and tailoring your real experience.
+            </p>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <section class="row row-tight guide-foot">
+      <p class="body">
+        Stuck? <a href="/docs/troubleshooting">Troubleshooting</a> covers the usual snags, and the
+        <a href="/privacy">privacy policy</a> says exactly what the extension reads and where it goes.
+      </p>
+    </section>
+  </div>
+</SiteLayout>
+
+<script>
+  import { apiFetch } from '../../lib/api';
+
+  type State = 'done' | 'current' | 'todo';
+
+  const PROVIDER_NAME: Record<string, string> = {
+    anthropic: 'Anthropic',
+    openai: 'OpenAI',
+    gemini: 'Gemini',
+    ollama: 'Ollama',
+  };
+
+  async function json<T>(path: string): Promise<T | null> {
+    try {
+      const res = await apiFetch(path);
+      return res.ok ? ((await res.json()) as T) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function setState(id: string, state: State): void {
+    for (const el of document.querySelectorAll<HTMLElement>(`[data-step="${id}"], [data-index="${id}"]`)) {
+      el.dataset.state = state;
+    }
+    const status = document.querySelector<HTMLElement>(`[data-step="${id}"] [data-status]`);
+    if (status && id !== 'first') status.textContent = state === 'done' ? 'Done' : 'To do';
+  }
+
+  function reveal(selector: string, show: boolean): void {
+    const el = document.querySelector<HTMLElement>(selector);
+    if (el) el.hidden = !show;
+  }
+
+  async function check(): Promise<void> {
+    const me = await json<{ user: { email: string } }>('/api/auth/me');
+    const signedIn = me !== null;
+
+    // Signed out, the other two cannot be asked about, and are not done.
+    const [tokens, llm] = signedIn
+      ? await Promise.all([
+          json<{ tokens: unknown[] }>('/api/extension/tokens'),
+          json<{ config: { provider: string } | null }>('/api/llm/config'),
+        ])
+      : [null, null];
+
+    const done: Record<string, boolean> = {
+      account: signedIn,
+      connect: (tokens?.tokens.length ?? 0) > 0,
+      provider: Boolean(llm?.config),
+      first: false,
+    };
+
+    // The first unfinished step is the one to do now.
+    const current = ['account', 'connect', 'provider', 'first'].find((id) => !done[id]);
+    for (const id of Object.keys(done)) {
+      setState(id, done[id] ? 'done' : id === current ? 'current' : 'todo');
+    }
+
+    reveal('[data-signed-in]', signedIn);
+    const email = document.querySelector<HTMLElement>('[data-email]');
+    if (email && me) email.textContent = me.user.email;
+    for (const el of document.querySelectorAll<HTMLElement>('[data-todo-only]')) el.hidden = signedIn;
+
+    reveal('[data-key-note]', done.connect ?? false);
+    reveal('[data-provider-note]', done.provider ?? false);
+    const provider = document.querySelector<HTMLElement>('[data-provider]');
+    if (provider && llm?.config) provider.textContent = PROVIDER_NAME[llm.config.provider] ?? llm.config.provider;
+
+    const count = ['account', 'connect', 'provider'].filter((id) => done[id]).length;
+    const label = document.querySelector<HTMLElement>('[data-progress-label]');
+    if (label) label.textContent = count === 3 ? 'Set up · all done' : `Your progress · ${count} of 3`;
+  }
+
+  void check();
+  // The steps happen in Settings, in another tab. Coming back here re-checks.
+  window.addEventListener('focus', () => void check());
+</script>
 
 <style>
-  .prose {
+  .guide-head {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .guide-head .display {
+    font-size: clamp(2.25rem, 5vw, 3.75rem);
+  }
+
+  .before {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--bg-2);
     max-width: 44rem;
-    margin: 0 auto;
-    padding: var(--space-12) var(--space-6) var(--space-16);
-    color: var(--color-text-primary);
-    font-size: var(--text-base);
-    line-height: 1.7;
   }
 
-  .back {
-    margin-bottom: var(--space-8);
-    font-size: var(--text-sm);
-  }
-
-  .back a {
-    color: var(--color-text-secondary);
-    text-decoration: none;
-  }
-
-  .back a:hover {
-    color: var(--color-text-primary);
-  }
-
-  h1 {
-    font-size: var(--text-3xl);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin-bottom: var(--space-2);
-  }
-
-  .lede {
-    font-size: var(--text-lg);
-    color: var(--color-text-secondary);
-    margin-bottom: var(--space-10);
-  }
-
-  h2 {
-    font-size: var(--text-xl);
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    margin-top: var(--space-10);
-    margin-bottom: var(--space-3);
-  }
-
-  p {
-    margin-bottom: var(--space-4);
-  }
-
-  ul {
-    margin: 0 0 var(--space-4) var(--space-6);
-  }
-
-  li {
-    margin-bottom: var(--space-3);
-  }
-
-  a {
-    color: var(--color-primary);
-  }
-
-  /* Numbered by hand so the number can sit in its own column, beside a heading
-     rather than before a paragraph. */
-  .steps {
+  .before ul {
     list-style: none;
-    margin: 0;
-    padding: 0;
-    counter-reset: step;
+    display: grid;
+    gap: 0.5rem;
+    font-size: var(--t-small);
+    color: var(--ink-2);
   }
 
-  .steps > li {
-    counter-increment: step;
-    position: relative;
-    padding-left: var(--space-12);
-    margin-bottom: var(--space-8);
+  .tick {
+    display: inline-block;
+    width: 1.25rem;
+    color: var(--ink);
   }
 
-  .steps > li::before {
-    content: counter(step);
-    position: absolute;
-    left: 0;
-    top: 0.1em;
-    width: 2rem;
-    height: 2rem;
-    border-radius: var(--radius-full);
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text-secondary);
-    font-size: var(--text-sm);
-    font-weight: 600;
+  /* ---------- Layout: progress index beside the steps ---------- */
+
+  .guide {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    border-top: 1px solid var(--line);
+  }
+
+  .progress {
+    position: sticky;
+    top: 80px;
+    align-self: start;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .progress ol {
+    list-style: none;
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 1rem;
+  }
+
+  .progress a {
     display: flex;
     align-items: center;
-    justify-content: center;
-  }
-
-  .steps h2 {
-    margin-top: 0;
-    font-size: var(--text-lg);
-  }
-
-  .button {
-    display: inline-block;
-    background: var(--color-primary);
-    color: var(--color-primary-fg);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    padding: var(--space-2) var(--space-5);
-    border-radius: var(--radius-md);
+    gap: 0.625rem;
+    padding: 0.375rem 0.5rem;
+    margin-left: -0.5rem;
+    border-radius: 8px;
+    font-size: var(--t-small);
+    color: var(--grey);
     text-decoration: none;
   }
 
-  .button:hover {
-    opacity: 0.9;
+  .progress a:hover {
+    background: var(--bg-2);
+    color: var(--ink);
+  }
+
+  .progress [data-state='current'] a {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .progress [data-state='done'] a {
+    color: var(--ink-2);
+  }
+
+  /* ---------- Number dots: a ring to do, ink for now, a check when done ---------- */
+
+  .dot {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--line-2);
+    background: var(--bg);
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--grey);
+  }
+
+  [data-state='current'] > a .dot,
+  .step[data-state='current'] .step-marker .dot {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  [data-state='done'] > a .dot,
+  .step[data-state='done'] .step-marker .dot {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: transparent;
+    position: relative;
+  }
+
+  [data-state='done'] > a .dot::after,
+  .step[data-state='done'] .step-marker .dot::after {
+    content: '✓';
+    position: absolute;
+    color: #fff;
+    font-size: 0.75rem;
+  }
+
+  /* ---------- Steps: a numbered spine down the left ---------- */
+
+  .steps {
+    list-style: none;
+    border-left: 1px solid var(--line);
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 1rem;
+    padding: 2.5rem clamp(1.25rem, 4vw, 3rem) 2.75rem;
+    border-bottom: 1px solid var(--line);
+    scroll-margin-top: 72px;
+  }
+
+  .step:last-child {
+    border-bottom: none;
+  }
+
+  .step[data-state='current'] {
+    background: var(--bg-2);
+  }
+
+  .step-marker .dot {
+    width: 2rem;
+    height: 2rem;
+    font-size: var(--t-meta);
+  }
+
+  .step[data-state='done'] .step-marker .dot::after {
+    font-size: 0.875rem;
+  }
+
+  .step-body {
+    display: grid;
+    gap: 1rem;
+    justify-items: start;
+    max-width: 40rem;
+  }
+
+  .step-title {
+    font-size: 1.375rem;
+    letter-spacing: -0.02em;
+    margin-top: -0.5rem;
+  }
+
+  .step[data-state='done'] .step-meta {
+    color: var(--st-offer);
+  }
+
+  .substeps {
+    list-style: decimal;
+    display: grid;
+    gap: 0.625rem;
+    padding-left: 1.25rem;
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+  }
+
+  .substeps li::marker {
+    font-family: var(--mono);
+    font-size: var(--t-meta);
+    color: var(--grey);
+  }
+
+  .substeps b,
+  .body b,
+  .ways b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .step a:not(.btn),
+  .guide-foot a {
+    color: var(--ink);
+    text-underline-offset: 3px;
+  }
+
+  .done-note {
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgb(21 128 61 / 0.25);
+    background: rgb(21 128 61 / 0.06);
+    font-size: var(--t-small);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+    margin-top: 0.25rem;
+  }
+
+  .actions[hidden] {
+    display: none;
+  }
+
+  .aside-note {
+    font-size: var(--t-small);
+    color: var(--grey);
+  }
+
+  .providers {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .providers a {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    background: var(--bg);
+    text-decoration: none;
+    transition: border-color 150ms var(--ease);
+  }
+
+  .providers a:hover {
+    border-color: var(--grey-2);
+  }
+
+  .providers b {
+    font-size: var(--t-small);
+  }
+
+  .providers span:not(.arrow) {
+    grid-column: 1;
+    font-size: var(--t-meta);
+    color: var(--grey);
+  }
+
+  .providers .arrow {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    color: var(--grey);
+  }
+
+  .ways {
+    list-style: none;
+    display: grid;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .ways li {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    font-size: 0.9375rem;
+    color: var(--ink-2);
+  }
+
+  .guide-foot {
+    background: var(--bg-2);
+  }
+
+  @media (max-width: 900px) {
+    .guide {
+      grid-template-columns: 1fr;
+    }
+
+    .progress {
+      position: static;
+      padding: 1.5rem clamp(1.25rem, 4vw, 3rem);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .steps {
+      border-left: none;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .step {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .providers {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

@@ -258,8 +258,8 @@ export default function SettingsShell() {
             </div>
           </section>
 
-          {/* LLM provider */}
-          <section style={sectionStyle}>
+          {/* LLM provider. Anchored, for the setup guide's "Add a key in Settings". */}
+          <section id="llm" style={{ ...sectionStyle, scrollMarginTop: 'var(--space-6)' }}>
             <p style={headingStyle}>LLM provider</p>
             <p style={helpStyle}>
               The model used to extract job details from postings. API keys are encrypted at rest

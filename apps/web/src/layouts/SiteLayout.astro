@@ -10,6 +10,7 @@
 import geistMono from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url';
 import geist from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
 import '../styles/site.css';
+import { SETUP_GUIDE_URL } from '../data/extension';
 import Layout from './Layout.astro';
 
 interface Props {
@@ -29,6 +30,7 @@ const product = [
 ];
 
 const resources = [
+  { href: SETUP_GUIDE_URL, label: 'Setup guide', note: 'account, extension and AI key' },
   { href: '/docs', label: 'Docs', note: 'using jlog, and self-hosting it' },
   { href: GITHUB_URL, label: 'GitHub', note: 'the source, MIT licensed' },
   { href: '/privacy', label: 'Privacy', note: 'what is stored, in plain words' },
@@ -138,6 +140,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
         <a href="/features/tracking">Tracking</a>
         <a href="/features/tailored-cv">Tailored CV</a>
         <a href="/#pricing">Pricing</a>
+        <a href={SETUP_GUIDE_URL}>Setup guide</a>
         <a href="/docs">Docs</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
