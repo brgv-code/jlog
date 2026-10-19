@@ -46,4 +46,4 @@ When it is unsure, it leaves the field empty. A gap you can see is better than a
 
 ## What it does not fill
 
-Experience, education, file uploads such as your CV, and open questions. On Pro, open questions get a draft button of their own: see [drafted answers](/docs/drafted-answers).
+Experience, education, file uploads such as your CV, and open questions. Open questions get a draft button of their own: see [drafted answers](/docs/drafted-answers).

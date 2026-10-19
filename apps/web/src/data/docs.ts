@@ -39,7 +39,7 @@ export const DOCS: DocGroup[] = [
     pages: [
       { title: 'AI providers', href: '/docs/ai-providers' },
       { title: 'Application answers', href: '/docs/application-answers' },
-      { title: 'Plans and billing', href: '/docs/plans' },
+      { title: 'Plans', href: '/docs/plans' },
     ],
   },
   {

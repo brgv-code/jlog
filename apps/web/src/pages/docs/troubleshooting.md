@@ -81,9 +81,9 @@ Stripe tells jlog about a payment separately from sending you back. Reload in a 
 
 Apple does not work on `http://localhost`. Set it up on your deployed HTTPS origin.
 
-### Pro features say Pro is required
+### Tailoring says Pro is required
 
-They are not part of the open-source build. See [plans and billing](/docs/plans#self-hosted).
+On a self-hosted instance: tailored CVs, cover letters and drafted answers are not part of the open-source build. See [plans](/docs/plans#self-hosted).
 
 ## Still stuck
 

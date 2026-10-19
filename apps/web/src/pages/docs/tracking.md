@@ -32,7 +32,7 @@ Open a row to see everything about it:
 - **Timeline.** When it was added and from where, each status change, and each follow-up you log.
 - **Details** you can edit: company, role, location, link.
 
-On Pro, this is also where you build a [tailored CV](/docs/tailored-cv) for the posting.
+This is also where you build a [tailored CV](/docs/tailored-cv) for the posting.
 
 ## Home
 
