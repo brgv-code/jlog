@@ -222,7 +222,21 @@ const jsonLd = [
         <div class="cta">
           <a href="/login" class="btn btn-ink">Get started for free</a>
           <a href="/demo" class="btn btn-line">Try a demo account</a>
-          <a href="#how" class="btn btn-line">See how it works</a>
+          <!-- The extension does the capturing, so it gets a door from the hero.
+               The store listing once it is live; until then the guide's
+               install step, which says how to load it. -->
+          <a
+            href={STORE_URL || `${SETUP_GUIDE_URL}#connect`}
+            class="btn btn-line btn-chrome"
+            {...(STORE_URL ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.75" />
+              <circle cx="12" cy="12" r="3.75" fill="none" stroke="currentColor" stroke-width="1.75" />
+              <path d="M12 8.25h9.2M8.75 13.9 4.1 5.9M15.25 13.9l-4.6 8" fill="none" stroke="currentColor" stroke-width="1.75" />
+            </svg>
+            {STORE_URL ? 'Add to Chrome' : 'Get the Chrome extension'}
+          </a>
         </div>
         <p class="meta cta-note">The demo needs no sign-up: a sample search with 200 applications.</p>
       </div>
@@ -1184,6 +1198,11 @@ const jsonLd = [
 
   .cta-left {
     justify-content: flex-start;
+  }
+
+  .btn-chrome svg {
+    width: 1rem;
+    height: 1rem;
   }
 
   .cta-note {
