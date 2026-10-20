@@ -23,8 +23,14 @@ import {
   FileTextIcon,
   HistoryIcon,
   LinkIcon,
+  Loader2Icon,
+  PencilIcon,
+  RefreshCwIcon,
   SparklesIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
   UnlinkIcon,
+  XIcon,
 } from 'lucide-react';
 import {
   Fragment,
@@ -36,6 +42,7 @@ import {
   useState,
 } from 'react';
 import type { CvDocument, CvSpan, FactOrigins } from '../../lib/cvSource';
+import type { LineActions } from '../../lib/useTailor';
 import { Button } from '../ui/button';
 import { PdfPaper } from './PdfPaper';
 
@@ -95,6 +102,8 @@ interface Props {
   copied: boolean;
   /** A failure that happened with this result already on screen. */
   notice?: string | null;
+  /** What the owner can do to a line. Absent: the lines are read only. */
+  lines?: LineActions;
   onDismissNotice?: () => void;
 }
 
@@ -134,6 +143,8 @@ const GROUNDING: Record<Grounding, { label: string; className: string }> = {
 type Claim = {
   key: string;
   roleIndex: number;
+  /** Position within its role, which is how a line is addressed for an action. */
+  bulletIndex: number;
   text: string;
   factId: string;
   variantId?: string;
@@ -234,6 +245,7 @@ function buildClaims(selected: SelectedRole[], cv: CvDocument, origins: FactOrig
       return {
         key: `${bullet.factId}:${bullet.variantId ?? ''}:${roleIndex}:${i}`,
         roleIndex,
+        bulletIndex: i,
         text: bullet.text,
         factId: bullet.factId,
         ...(bullet.variantId ? { variantId: bullet.variantId } : {}),
@@ -314,6 +326,206 @@ function Paper({
  * verifier's sentence: they are what the owner can act on, and the action that
  * adds one to the profile (ADR-015, step 4) hangs off exactly this list.
  */
+const DISLIKE_REASONS = [
+  ['wording', 'The wording is off'],
+  ['inflated', 'It sounds inflated'],
+  ['untrue', 'It isn’t true'],
+  ['irrelevant', 'Not relevant to this job'],
+] as const;
+
+type ToolMode =
+  | { kind: 'idle'; note?: string }
+  | { kind: 'reasons' }
+  | { kind: 'disliked' }
+  | { kind: 'busy'; what: string }
+  | { kind: 'editing'; text: string; problem?: { reason: string; unsupported: string[] } };
+
+/**
+ * What the owner can do to the selected line (ADR-015): keep it, say what is
+ * wrong with it, have it rewritten, edit it, or drop it from this CV. Each is
+ * recorded, and a dislike also steers every later regenerate away from it.
+ */
+function LineTools({ claim, lines }: { claim: Claim; lines: LineActions }) {
+  const [mode, setMode] = useState<ToolMode>({ kind: 'idle' });
+  const ref = { role: claim.roleIndex, bullet: claim.bulletIndex };
+  const small =
+    'inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 [&_svg]:size-3.5';
+
+  async function regenerate() {
+    setMode({ kind: 'busy', what: 'Rewriting and checking this line…' });
+    const r = await lines.regenerate(ref);
+    setMode(
+      r.ok
+        ? { kind: 'idle', note: 'Rewritten and checked against your facts.' }
+        : {
+            kind: 'idle',
+            note: r.unsupported.length
+              ? `Kept as it was: the new wording needed ${r.unsupported.join(', ')}, which your facts don’t back.`
+              : `Kept as it was: ${r.reason}`,
+          },
+    );
+  }
+
+  async function saveEdit(text: string) {
+    setMode({ kind: 'busy', what: 'Checking your wording…' });
+    const r = await lines.edit(ref, text);
+    if (r.ok) setMode({ kind: 'idle', note: 'Saved as your wording. Used first next time.' });
+    else
+      setMode({ kind: 'editing', text, problem: { reason: r.reason, unsupported: r.unsupported } });
+  }
+
+  if (mode.kind === 'busy') {
+    return (
+      <div className="text-muted-foreground mb-2 ml-8 flex items-center gap-2 text-[12px]">
+        <Loader2Icon className="size-3.5 animate-spin" /> {mode.what}
+      </div>
+    );
+  }
+
+  if (mode.kind === 'editing') {
+    return (
+      <div className="mb-2 ml-8 space-y-2 rounded-lg bg-card p-2.5 shadow-[0_0_0_1px_var(--color-border-strong)]">
+        <textarea
+          // biome-ignore lint/a11y/noAutofocus: the editor opens on an explicit Edit
+          autoFocus
+          rows={3}
+          aria-label="Edit this line"
+          className="w-full resize-none border-0 bg-transparent text-[12.5px] leading-relaxed"
+          style={{ outline: 'none' }}
+          value={mode.text}
+          onChange={(e) => setMode({ kind: 'editing', text: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setMode({ kind: 'idle' });
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              saveEdit(mode.text);
+            }
+          }}
+        />
+        {mode.problem && (
+          <div className="space-y-2 rounded-md bg-[var(--color-warning-subtle,#fffbeb)] px-2.5 py-2 text-[12px] leading-relaxed">
+            <p className="m-0">
+              {mode.problem.unsupported.length
+                ? `Your facts for this bullet don’t back ${mode.problem.unsupported.join(', ')}.`
+                : mode.problem.reason}{' '}
+              If it’s true, update the bullet itself and every CV can use it.
+            </p>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  const text = mode.text;
+                  setMode({ kind: 'busy', what: 'Updating your bullet…' });
+                  const ok = await lines.rewriteFact(ref, text);
+                  setMode({
+                    kind: 'idle',
+                    note: ok
+                      ? 'Bullet updated on your CV page and used here.'
+                      : 'Could not update the bullet.',
+                  });
+                }}
+              >
+                Update the bullet too
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMode({ kind: 'editing', text: mode.text })}
+              >
+                Keep editing
+              </Button>
+            </div>
+          </div>
+        )}
+        {!mode.problem && (
+          <div className="flex items-center justify-between gap-2">
+            <small className="text-muted-foreground text-[11.5px]">
+              Checked against your facts, never rewritten
+            </small>
+            <span className="flex gap-1.5">
+              <Button variant="ghost" size="sm" onClick={() => setMode({ kind: 'idle' })}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={() => saveEdit(mode.text)} disabled={!mode.text.trim()}>
+                Save
+              </Button>
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (mode.kind === 'reasons') {
+    return (
+      <div
+        role="menu"
+        className="mb-2 ml-8 flex flex-col rounded-lg bg-card p-1 shadow-[0_0_0_1px_var(--color-border),0_8px_20px_-8px_rgba(24,24,27,0.18)]"
+      >
+        {DISLIKE_REASONS.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="menuitem"
+            className="rounded-md px-2.5 py-1.5 text-left text-[12.5px] hover:bg-muted"
+            onClick={() => {
+              lines.dislike(ref, id);
+              setMode({ kind: 'disliked' });
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-2 ml-8 space-y-1.5">
+      {mode.kind === 'disliked' && (
+        <p className="text-muted-foreground m-0 text-[12px]">
+          Noted. Rewrite it, or take it off this CV?
+        </p>
+      )}
+      {mode.kind === 'idle' && mode.note && (
+        <p className="text-muted-foreground m-0 text-[12px]">{mode.note}</p>
+      )}
+      <div className="flex flex-wrap gap-0.5">
+        {mode.kind === 'idle' && (
+          <>
+            <button
+              type="button"
+              className={small}
+              onClick={() => {
+                lines.like(ref);
+                setMode({ kind: 'idle', note: 'This wording is preferred from now on.' });
+              }}
+            >
+              <ThumbsUpIcon /> Good
+            </button>
+            <button type="button" className={small} onClick={() => setMode({ kind: 'reasons' })}>
+              <ThumbsDownIcon /> Not good
+            </button>
+          </>
+        )}
+        <button type="button" className={small} onClick={regenerate}>
+          <RefreshCwIcon /> Rewrite
+        </button>
+        <button
+          type="button"
+          className={small}
+          onClick={() => setMode({ kind: 'editing', text: claim.text })}
+        >
+          <PencilIcon /> Edit
+        </button>
+        <button type="button" className={small} onClick={() => lines.remove(ref)}>
+          <XIcon /> Remove from this CV
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function KeptWording({ claim }: { claim: Claim }) {
   return (
     <div className="mb-2 ml-8 space-y-1.5 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[12px] leading-relaxed">
@@ -360,6 +572,7 @@ export function GroundedCvView({
   copied,
   notice,
   onDismissNotice,
+  lines,
 }: Props) {
   const [sel, setSel] = useState(0);
   const [tab, setTab] = useState<Tab>('cv');
@@ -508,6 +721,8 @@ export function GroundedCvView({
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    // Arrows inside the line editor move the caret, not the selection.
+    if ((e.target as HTMLElement).matches('textarea, input')) return;
     e.preventDefault();
     const next = e.key === 'ArrowDown' ? sel + 1 : sel - 1;
     if (next < 0 || next >= claims.length) return;
@@ -583,7 +798,7 @@ export function GroundedCvView({
             <div key={r.roleFactId} className="mb-5">
               <div className="mb-2 flex items-baseline gap-2.5 px-1">
                 <span className="text-muted-foreground font-mono text-[10.5px] tabular-nums">
-                  {r.dates}
+                  {r.dates?.replace(/--/g, ' – ')}
                 </span>
                 <span className="text-[12.5px] font-medium">{r.roleTitle}</span>
                 <span className="text-muted-foreground text-[12.5px]">{r.employer}</span>
@@ -597,7 +812,7 @@ export function GroundedCvView({
                 // pointing at nothing.
                 const linked = tab === 'cv' && c.grounding === 'page';
                 return (
-                  <Fragment key={c.key}>
+                  <Fragment key={`${c.roleIndex}:${c.bulletIndex}`}>
                     <button
                       ref={(el) => {
                         rowRefs.current[i] = el;
@@ -655,6 +870,14 @@ export function GroundedCvView({
                       </span>
                     </button>
                     {i === sel && c.check === 'fell-back' && <KeptWording claim={c} />}
+                    {i === sel && lines && (
+                      <LineTools
+                        // By position: a rewrite changes the line's wording, not which line it is.
+                        key={`${c.roleIndex}:${c.bulletIndex}`}
+                        claim={c}
+                        lines={lines}
+                      />
+                    )}
                   </Fragment>
                 );
               })}

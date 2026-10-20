@@ -257,6 +257,11 @@ export const documents = sqliteTable('documents', {
     .default('draft'),
   pdfKey: text('pdf_key'),
   compileLog: text('compile_log'),
+  /**
+   * For a tailored CV (`type = 'tailored-cv'`): what the tailoring page shows,
+   * so reopening it needs no model call. The spec names facts by id only.
+   */
+  data: text('data', { mode: 'json' }).$type<Record<string, unknown>>(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
@@ -467,5 +472,30 @@ export const uninstallFeedback = sqliteTable('uninstall_feedback', {
   message: text('message'),
   email: text('email'),
   extensionVersion: text('extension_version'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * What the owner did to a line of a tailored CV (ADR-015): like, dislike,
+ * regenerate, remove or edit. Likes and dislikes steer which wordings tailoring
+ * offers; the whole log is the eval set. Not keyed to a fact by foreign key:
+ * the record should outlive a fact the owner later archives or rewords.
+ */
+export const lineFeedback = sqliteTable('line_feedback', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  applicationId: text('application_id').references(() => applications.id, {
+    onDelete: 'set null',
+  }),
+  factId: text('fact_id').notNull(),
+  variantId: text('variant_id'),
+  action: text('action', {
+    enum: ['like', 'dislike', 'regenerate', 'remove', 'edit'],
+  }).notNull(),
+  reason: text('reason'),
+  beforeText: text('before_text'),
+  afterText: text('after_text'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });

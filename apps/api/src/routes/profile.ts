@@ -11,10 +11,12 @@
  * visible before it is stored, not after.
  */
 import {
+  applications,
   autofillValues,
   createDb,
   cvProfiles,
   cvSources,
+  lineFeedback,
   profileFactVariants,
   profileFacts,
 } from '@jlog/db';
@@ -31,6 +33,7 @@ import {
   detectCvFormat,
   factIdFor,
   factUpdateSchema,
+  lineFeedbackSchema,
   locateAll,
   missingSections,
   parseLatexCv,
@@ -489,6 +492,52 @@ router.post('/facts', async (c) => {
   ]);
 
   return c.json({ id, text: canonical, status: 'active', origin: 'added' }, 201);
+});
+
+/**
+ * POST /feedback — record what the owner did to a line of a tailored CV
+ * (ADR-015): like, dislike (with a reason), regenerate, remove, or edit.
+ *
+ * Append only. The tailoring catalogue reads likes and dislikes back, newest
+ * wins, so changing your mind is another row rather than an update.
+ */
+router.post('/feedback', async (c) => {
+  const session = requireSession(c);
+  const body = await c.req.json().catch(() => {
+    throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+  });
+  const parsed = lineFeedbackSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+  const f = parsed.data;
+  const db = createDb(c.env.DB);
+
+  // Only an application the owner has: a foreign id would link their feedback
+  // to someone else's application.
+  let applicationId: string | null = null;
+  if (f.applicationId) {
+    const [app] = await db
+      .select({ id: applications.id })
+      .from(applications)
+      .where(and(eq(applications.id, f.applicationId), eq(applications.userId, session.userId)));
+    applicationId = app?.id ?? null;
+  }
+
+  const id = `lf_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+  await db.insert(lineFeedback).values({
+    id,
+    userId: session.userId,
+    applicationId,
+    factId: f.factId,
+    variantId: f.variantId ?? null,
+    action: f.action,
+    reason: f.reason ?? null,
+    beforeText: f.before ?? null,
+    afterText: f.after ?? null,
+    createdAt: new Date(),
+  });
+  return c.json({ id }, 201);
 });
 
 /**
