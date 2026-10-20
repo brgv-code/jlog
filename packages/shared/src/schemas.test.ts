@@ -8,7 +8,9 @@ import {
   extensionTokenSchema,
   findTraversingAssetRefs,
   isNeverExpiring,
+  lineFeedbackSchema,
   normaliseVariantContent,
+  tailoredCvSchema,
   uninstallFeedbackSchema,
 } from './schemas';
 
@@ -94,6 +96,23 @@ describe('profile facts', () => {
       canonical: '  Ran planning.  ',
     });
     expect(res.success && res.data.canonical).toBe('Ran planning.');
+  });
+
+  it('records a dislike with its reason, and refuses an action it does not know', () => {
+    const ok = lineFeedbackSchema.safeParse({
+      factId: 'pf_b1',
+      action: 'dislike',
+      reason: 'inflated',
+    });
+    expect(ok.success).toBe(true);
+    expect(lineFeedbackSchema.safeParse({ factId: 'pf_b1', action: 'shrug' }).success).toBe(false);
+  });
+
+  it('keeps a tailored CV only with a spec and its lines', () => {
+    expect(tailoredCvSchema.safeParse({ spec: { experience: [] }, selected: [] }).success).toBe(
+      true,
+    );
+    expect(tailoredCvSchema.safeParse({ selected: [] }).success).toBe(false);
   });
 
   it('refuses a hand-added bullet with no role or no words', () => {

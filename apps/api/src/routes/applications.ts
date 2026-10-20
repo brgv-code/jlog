@@ -1,8 +1,9 @@
-import { events, applications, createDb } from '@jlog/db';
+import { events, applications, createDb, documents } from '@jlog/db';
 import {
   HttpError,
   createApplicationSchema,
   paginationSchema,
+  tailoredCvSchema,
   updateApplicationSchema,
 } from '@jlog/shared';
 import { and, desc, eq, isNotNull, like, lt, or, sql } from 'drizzle-orm';
@@ -238,6 +239,89 @@ router.get('/:id', async (c) => {
   }
 
   return c.json({ application });
+});
+
+/** The application, if it is this user's. A missing one and someone else's answer the same. */
+async function ownApplication(db: ReturnType<typeof createDb>, id: string, userId: string) {
+  const [application] = await db
+    .select({ id: applications.id })
+    .from(applications)
+    .where(and(eq(applications.id, id), eq(applications.userId, userId)));
+  if (!application) throw new HttpError(404, 'NOT_FOUND', 'Application not found');
+}
+
+/**
+ * GET /:id/tailored — the CV tailored for this application, as last saved.
+ *
+ * What makes reopening the tailoring page instant: it shows this, and only
+ * generates when the owner asks or there is nothing yet (ADR-015). `null` when
+ * nothing was tailored for this application.
+ */
+router.get('/:id/tailored', async (c) => {
+  const session = requireSession(c);
+  const { id } = c.req.param();
+  const db = createDb(c.env.DB);
+  await ownApplication(db, id, session.userId);
+
+  const [doc] = await db
+    .select({ data: documents.data, content: documents.content, updatedAt: documents.updatedAt })
+    .from(documents)
+    .where(and(eq(documents.applicationId, id), eq(documents.type, 'tailored-cv')))
+    .orderBy(desc(documents.updatedAt))
+    .limit(1);
+
+  return c.json({
+    tailored: doc?.data ? { ...doc.data, tex: doc.content, savedAt: doc.updatedAt } : null,
+  });
+});
+
+/**
+ * PUT /:id/tailored — keep the tailored CV for this application.
+ *
+ * Called after a generation and after every change to a line, so what is
+ * stored is what the owner last saw. One per application: a newer one replaces
+ * the older rather than piling up versions nobody can tell apart.
+ */
+router.put('/:id/tailored', async (c) => {
+  const session = requireSession(c);
+  const { id } = c.req.param();
+  const body = await c.req.json().catch(() => {
+    throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+  });
+  const parsed = tailoredCvSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+
+  const db = createDb(c.env.DB);
+  await ownApplication(db, id, session.userId);
+  const { tex, ...data } = parsed.data;
+  const now = new Date();
+
+  const [existing] = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(and(eq(documents.applicationId, id), eq(documents.type, 'tailored-cv')))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(documents)
+      .set({ data, content: tex ?? '', updatedAt: now })
+      .where(eq(documents.id, existing.id));
+  } else {
+    await db.insert(documents).values({
+      id: `doc_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`,
+      applicationId: id,
+      type: 'tailored-cv',
+      content: tex ?? '',
+      data,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  return c.json({ savedAt: now });
 });
 
 // PATCH /:id — partial update

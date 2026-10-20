@@ -350,6 +350,34 @@ export const bulletCreateSchema = z.object({
   canonical: z.string().trim().min(1).max(1000),
 });
 
+/** One thing the owner did to a line of a tailored CV (ADR-015). */
+export const LINE_ACTIONS = ['like', 'dislike', 'regenerate', 'remove', 'edit'] as const;
+export const LINE_DISLIKE_REASONS = ['wording', 'inflated', 'untrue', 'irrelevant'] as const;
+
+export const lineFeedbackSchema = z.object({
+  applicationId: z.string().min(1).optional(),
+  factId: z.string().min(1),
+  variantId: z.string().min(1).optional(),
+  action: z.enum(LINE_ACTIONS),
+  reason: z.string().trim().max(500).optional(),
+  before: z.string().max(1000).optional(),
+  after: z.string().max(1000).optional(),
+});
+export type LineFeedbackInput = z.infer<typeof lineFeedbackSchema>;
+
+/**
+ * A tailored CV as the tailoring page keeps it. Shapes are checked loosely on
+ * purpose: the spec is resolved against the owner's own facts again at compile
+ * time, which is the gate that matters; this only stops a malformed save.
+ */
+export const tailoredCvSchema = z.object({
+  spec: z.object({ experience: z.array(z.unknown()) }).passthrough(),
+  selected: z.array(z.unknown()),
+  reasoning: z.string().max(4000).optional(),
+  tex: z.string().max(200_000).optional(),
+});
+export type TailoredCvInput = z.infer<typeof tailoredCvSchema>;
+
 export const cvImportCommitSchema = z.object({
   /**
    * The document these roles were read out of, kept so a generated bullet can

@@ -1,5 +1,5 @@
 import { templateConfig, templateStyle } from '@jlog/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SelectedRole } from '../components/applications/GroundedCvView';
 import { apiFetch } from './api';
 import type { CvProfile } from './cvProfile';
@@ -10,6 +10,7 @@ import {
   loadCvDocument,
   loadFactOrigins,
 } from './cvSource';
+import { updateFact } from './facts';
 import { photoAsset } from './photo';
 
 export type TailorResponse = {
@@ -24,6 +25,34 @@ export type TailorResponse = {
 };
 
 export type TailorError = { code: string; message: string; corrections?: string[] };
+
+/** A line of the tailored CV, by role and position. */
+export type LineRef = { role: number; bullet: number };
+type LineAction = 'like' | 'dislike' | 'regenerate' | 'remove' | 'edit';
+export type LineOutcome = { ok: true } | { ok: false; reason: string; unsupported: string[] };
+
+/**
+ * What the owner can do to one line (ADR-015). Every action is recorded; like
+ * and dislike steer which wordings tailoring offers next time.
+ */
+export type LineActions = {
+  like: (ref: LineRef) => void;
+  dislike: (ref: LineRef, reason: string) => void;
+  remove: (ref: LineRef) => void;
+  /** One new wording of the same fact, avoiding every one rejected. */
+  regenerate: (ref: LineRef) => Promise<LineOutcome>;
+  /** The owner's words, checked against their facts and never rewritten. */
+  edit: (ref: LineRef, text: string) => Promise<LineOutcome>;
+  /** The owner vouches for the new words: the fact itself now says this. */
+  rewriteFact: (ref: LineRef, text: string) => Promise<boolean>;
+};
+
+type SavedTailored = {
+  spec: unknown;
+  selected: SelectedRole[];
+  reasoning?: string;
+  tex?: string;
+};
 
 /** Copy tuned per failure so the page never says "something went wrong". */
 export const ERROR_COPY: Record<string, { title: string; body: string }> = {
@@ -58,16 +87,22 @@ export const ERROR_COPY: Record<string, { title: string; body: string }> = {
  * the spec already shown and never generates again.
  */
 export function useTailor({
+  applicationId,
   company,
   role,
   jobDescription,
   profile,
 }: {
+  applicationId: string;
   company: string;
   role: string;
   jobDescription: string;
   profile: CvProfile;
 }) {
+  const [restoring, setRestoring] = useState(true);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  /** Wordings the owner rejected this session, per fact, so a regenerate steers away from all of them. */
+  const rejected = useRef(new Map<string, string[]>());
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TailorResponse | null>(null);
   const [cv, setCv] = useState<CvDocument | null>(null);
@@ -97,6 +132,235 @@ export function useTailor({
       ...(profile.socials.length ? { socials: profile.socials } : {}),
       ...(profile.summary ? { summary: profile.summary } : {}),
       ...(profile.sections.length ? { sections: profile.sections } : {}),
+    },
+  };
+
+  // Reopening shows what was last tailored for this application, with no model
+  // call: waiting for a generation every visit was the slowest part of tailoring.
+  useEffect(() => {
+    let live = true;
+    Promise.all([
+      apiFetch(`/api/applications/${encodeURIComponent(applicationId)}/tailored`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null) as Promise<{
+        tailored: (SavedTailored & { savedAt: string }) | null;
+      } | null>,
+      loadCvDocument(),
+      loadFactOrigins(),
+    ])
+      .then(([saved, cvDoc, factOrigins]) => {
+        if (!live) return;
+        setCv(cvDoc);
+        setOrigins(factOrigins);
+        const t = saved?.tailored;
+        if (t?.spec && Array.isArray(t.selected)) {
+          setResult({
+            spec: t.spec,
+            selected: t.selected,
+            tex: t.tex ?? '',
+            ...(t.reasoning ? { reasoning: t.reasoning } : {}),
+            attempts: 1,
+            corrections: [],
+          });
+          setSavedAt(t.savedAt);
+        }
+      })
+      .finally(() => {
+        if (live) setRestoring(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [applicationId]);
+
+  /** Keep what is on screen, so reopening shows it. A failed save is said, not hidden. */
+  async function persist(next: TailorResponse) {
+    const res = await apiFetch(`/api/applications/${encodeURIComponent(applicationId)}/tailored`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        spec: next.spec,
+        selected: next.selected,
+        tex: next.tex,
+        ...(next.reasoning ? { reasoning: next.reasoning } : {}),
+      }),
+    }).catch(() => null);
+    if (res?.ok) setSavedAt(new Date().toISOString());
+    else
+      setError({
+        code: 'SAVE_FAILED',
+        message: 'This CV could not be saved. It is still on screen.',
+      });
+  }
+
+  function record(
+    ref: LineRef,
+    action: LineAction,
+    extra: { reason?: string; after?: string } = {},
+  ) {
+    const b = result?.selected[ref.role]?.bullets[ref.bullet];
+    if (!b) return;
+    apiFetch('/api/profile/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        applicationId,
+        factId: b.factId,
+        ...(b.variantId ? { variantId: b.variantId } : {}),
+        action,
+        before: b.text,
+        ...extra,
+      }),
+    }).catch(() => {});
+  }
+
+  /** Change one line in both the lines and the spec, then keep the result. */
+  function patchLine(
+    ref: LineRef,
+    next: { text: string; variantId?: string; check?: 'reworded' } | null,
+  ) {
+    if (!result) return;
+    const selected = result.selected.map((r, i) =>
+      i !== ref.role
+        ? r
+        : {
+            ...r,
+            bullets: r.bullets.flatMap((b, j) => {
+              if (j !== ref.bullet) return [b];
+              if (!next) return [];
+              // The check that produced the old line no longer describes the new one.
+              return [
+                {
+                  factId: b.factId,
+                  text: next.text,
+                  ...(next.variantId ? { variantId: next.variantId } : {}),
+                  ...(next.check ? { check: next.check } : {}),
+                  ...(b.jd ? { jd: b.jd } : {}),
+                },
+              ];
+            }),
+          },
+    );
+    const spec = result.spec as {
+      experience: { bullets: { factId: string; variantId?: string }[] }[];
+    };
+    const nextSpec = {
+      ...spec,
+      experience: spec.experience.map((e, i) =>
+        i !== ref.role
+          ? e
+          : {
+              ...e,
+              bullets: e.bullets.flatMap((b, j) => {
+                if (j !== ref.bullet) return [b];
+                if (!next) return [];
+                return [
+                  { factId: b.factId, ...(next.variantId ? { variantId: next.variantId } : {}) },
+                ];
+              }),
+            },
+      ),
+    };
+    const updated = { ...result, selected, spec: nextSpec };
+    setResult(updated);
+    void persist(updated);
+  }
+
+  async function applyLine(
+    ref: LineRef,
+    res: Response | null,
+    action: 'regenerate' | 'edit',
+  ): Promise<LineOutcome> {
+    if (!res) return { ok: false, reason: 'Could not reach the API.', unsupported: [] };
+    const payload = (await res.json().catch(() => null)) as {
+      status?: string;
+      text?: string;
+      variantId?: string;
+      reason?: string;
+      unsupported?: string[];
+      error?: TailorError;
+    } | null;
+    if (!res.ok || !payload) {
+      return {
+        ok: false,
+        reason: payload?.error?.message ?? 'That did not work.',
+        unsupported: [],
+      };
+    }
+    if (payload.status === 'fell-back' || !payload.text || !payload.variantId) {
+      return {
+        ok: false,
+        reason: payload.reason ?? 'Not backed by your facts.',
+        unsupported: payload.unsupported ?? [],
+      };
+    }
+    record(ref, action, { after: payload.text });
+    // A rewrite passed the same check as tailoring, so it is labelled the same;
+    // the owner's own edit is theirs and needs no label.
+    patchLine(ref, {
+      text: payload.text,
+      variantId: payload.variantId,
+      ...(action === 'regenerate' ? { check: 'reworded' as const } : {}),
+    });
+    return { ok: true };
+  }
+
+  const bulletAt = (ref: LineRef) => result?.selected[ref.role]?.bullets[ref.bullet];
+
+  const lines: LineActions = {
+    like(ref) {
+      record(ref, 'like');
+    },
+    dislike(ref, reason) {
+      const b = bulletAt(ref);
+      if (b) rejected.current.set(b.factId, [...(rejected.current.get(b.factId) ?? []), b.text]);
+      record(ref, 'dislike', { reason });
+    },
+    remove(ref) {
+      record(ref, 'remove');
+      patchLine(ref, null);
+    },
+    async regenerate(ref) {
+      const b = bulletAt(ref);
+      if (!b) return { ok: false, reason: 'That line is gone.', unsupported: [] };
+      const res = await apiFetch('/api/pro/lines/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          factId: b.factId,
+          ...(b.variantId ? { variantId: b.variantId } : {}),
+          current: b.text,
+          jobDescription,
+          avoid: rejected.current.get(b.factId) ?? [],
+          targetRole: role,
+          targetCompany: company,
+        }),
+      }).catch(() => null);
+      return applyLine(ref, res, 'regenerate');
+    },
+    async edit(ref, text) {
+      const b = bulletAt(ref);
+      if (!b) return { ok: false, reason: 'That line is gone.', unsupported: [] };
+      const res = await apiFetch('/api/pro/lines/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          factId: b.factId,
+          ...(b.variantId ? { variantId: b.variantId } : {}),
+          current: b.text,
+          text,
+        }),
+      }).catch(() => null);
+      return applyLine(ref, res, 'edit');
+    },
+    async rewriteFact(ref, text) {
+      const b = bulletAt(ref);
+      if (!b) return false;
+      if (!(await updateFact(b.factId, { canonical: text }))) return false;
+      record(ref, 'edit', { after: text, reason: 'fact updated' });
+      // The fact now says this, and its old phrasings went with the edit.
+      patchLine(ref, { text });
+      return true;
     },
   };
 
@@ -133,7 +397,10 @@ export function useTailor({
       // Rendering reduces and maps over `selected`. A response without it is a
       // server bug, but reading it off undefined throws during render and takes
       // the whole page down.
-      setResult({ ...payload, selected: payload.selected ?? [] });
+      const next = { ...payload, selected: payload.selected ?? [] };
+      setResult(next);
+      rejected.current.clear();
+      void persist(next);
     } catch {
       setError({ code: 'NETWORK', message: 'Could not reach the API.' });
     } finally {
@@ -195,13 +462,15 @@ export function useTailor({
   }
 
   const grounded = result !== null && cv !== null;
-  const phase: 'idle' | 'generating' | 'review' | 'failed' = grounded
-    ? 'review'
-    : loading
-      ? 'generating'
-      : error
-        ? 'failed'
-        : 'idle';
+  const phase: 'restoring' | 'idle' | 'generating' | 'review' | 'failed' = restoring
+    ? 'restoring'
+    : grounded
+      ? 'review'
+      : loading
+        ? 'generating'
+        : error
+          ? 'failed'
+          : 'idle';
 
   return {
     phase,
@@ -217,6 +486,8 @@ export function useTailor({
     downloading,
     copied,
     elapsed,
+    savedAt,
+    lines,
   };
 }
 

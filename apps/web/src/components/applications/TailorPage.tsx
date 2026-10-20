@@ -112,7 +112,13 @@ export default function TailorPage() {
 
 function Workspace({ app, profile }: { app: Application; profile: CvProfile }) {
   const jobDescription = app.jobDescription ?? '';
-  const t = useTailor({ company: app.company, role: app.role, jobDescription, profile });
+  const t = useTailor({
+    applicationId: app.id,
+    company: app.company,
+    role: app.role,
+    jobDescription,
+    profile,
+  });
   const billingEnabled = useBillingEnabled();
   const back = `/applications?id=${encodeURIComponent(app.id)}`;
 
@@ -138,7 +144,7 @@ function Workspace({ app, profile }: { app: Application; profile: CvProfile }) {
     const notice = t.error ? (ERROR_COPY[t.error.code]?.title ?? t.error.message) : null;
     return (
       <>
-        <Crumbs back={back} company={app.company} role={app.role} />
+        <Crumbs back={back} company={app.company} role={app.role} savedAt={t.savedAt} />
         <div className="min-h-0 flex-1">
           <GroundedCvView
             company={app.company}
@@ -157,6 +163,7 @@ function Workspace({ app, profile }: { app: Application; profile: CvProfile }) {
             copied={t.copied}
             notice={notice}
             onDismissNotice={t.clearError}
+            lines={t.lines}
           />
         </div>
       </>
@@ -192,6 +199,12 @@ function Workspace({ app, profile }: { app: Application; profile: CvProfile }) {
                   <SparklesIcon /> Generate
                 </Button>
               )}
+            </div>
+          )}
+
+          {t.phase === 'restoring' && (
+            <div className="flex justify-center py-16">
+              <JlogMark mode="think" size={28} label="Loading your CV" />
             </div>
           )}
 
@@ -261,7 +274,12 @@ function Workspace({ app, profile }: { app: Application; profile: CvProfile }) {
   );
 }
 
-function Crumbs({ back, company, role }: { back: string; company: string; role: string }) {
+function Crumbs({
+  back,
+  company,
+  role,
+  savedAt,
+}: { back: string; company: string; role: string; savedAt?: string | null }) {
   return (
     <nav
       aria-label="Breadcrumb"
@@ -276,6 +294,13 @@ function Crumbs({ back, company, role }: { back: string; company: string; role: 
       </a>
       <span className="text-muted-foreground/60">/</span>
       <span className="font-medium">CV</span>
+      {savedAt && (
+        <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-[12px]">
+          <i className="size-1.5 rounded-full bg-[#16a34a]" />
+          Saved{' '}
+          {new Date(savedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+        </span>
+      )}
     </nav>
   );
 }
