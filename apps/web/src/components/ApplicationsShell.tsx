@@ -69,6 +69,9 @@ export default function ApplicationsShell() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    // The tailoring page links back to the application it was opened from.
+    const id = params.get('id');
+    if (id) setSelectedId(id);
     const status = params.get('status');
     if (status && (APPLICATION_STATUSES as readonly string[]).includes(status)) {
       setStatusFilter(status as ApplicationStatus);

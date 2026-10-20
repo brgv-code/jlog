@@ -2,12 +2,9 @@ import { ArrowRightIcon, SparklesIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type CvProfile, EMPTY_PROFILE, isProfileUsable, loadCvProfile } from '../../lib/cvProfile';
 import { Button } from '../ui/button';
-import { TailorCvDialog } from './TailorCvDialog';
 
 interface Props {
   applicationId: string;
-  company: string;
-  role: string;
   jobDescription: string | null;
 }
 
@@ -18,8 +15,7 @@ interface Props {
  * fixes it. A disabled button with no reason is the worst version of this: the
  * user can see the feature and cannot find out why it will not run.
  */
-export function TailorCvCard({ applicationId, company, role, jobDescription }: Props) {
-  const [open, setOpen] = useState(false);
+export function TailorCvCard({ applicationId, jobDescription }: Props) {
   const [profile, setProfile] = useState<CvProfile | null>(null);
 
   // Fetched rather than read locally, and only in an effect: there is no
@@ -62,30 +58,19 @@ export function TailorCvCard({ applicationId, company, role, jobDescription }: P
               Settings <ArrowRightIcon />
             </a>
           </Button>
+        ) : ready ? (
+          // Tailoring is a page now (ADR-015); the rail only leads to it.
+          <Button size="sm" className="w-full" asChild>
+            <a href={`/applications/cv?id=${encodeURIComponent(applicationId)}`}>
+              <SparklesIcon /> Tailor
+            </a>
+          </Button>
         ) : (
-          <Button
-            size="sm"
-            className="w-full"
-            variant={ready ? 'default' : 'secondary'}
-            disabled={!ready}
-            onClick={() => setOpen(true)}
-          >
+          <Button size="sm" className="w-full" variant="secondary" disabled>
             <SparklesIcon /> Tailor
           </Button>
         )}
       </div>
-
-      {ready && profile && (
-        <TailorCvDialog
-          open={open}
-          onOpenChange={setOpen}
-          applicationId={applicationId}
-          company={company}
-          role={role}
-          jobDescription={jobDescription ?? ''}
-          profile={profile}
-        />
-      )}
     </>
   );
 }

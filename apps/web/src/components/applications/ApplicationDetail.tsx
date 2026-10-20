@@ -724,12 +724,7 @@ ${userName}`);
                 </div>
 
                 <div className="jd-rail-section">
-                  <TailorCvCard
-                    applicationId={app.id}
-                    company={app.company}
-                    role={app.role}
-                    jobDescription={app.jobDescription}
-                  />
+                  <TailorCvCard applicationId={app.id} jobDescription={app.jobDescription} />
                 </div>
               </div>
             </aside>

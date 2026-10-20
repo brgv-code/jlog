@@ -1,32 +1,29 @@
-import { CheckIcon, PlusIcon, Trash2Icon, UploadIcon, UserRoundIcon } from 'lucide-react';
+/**
+ * The non-claim parts of a CV, as editable pieces: the photo, and the
+ * label/value sections (skills, education, languages).
+ *
+ * Lifted out of the old profile card when the CV page became one workspace
+ * (ADR-015), so the workspace can place them where they read best.
+ */
+import { PlusIcon, Trash2Icon, UploadIcon, UserRoundIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import {
-  CV_PROFILE_CHANGED,
-  type CvProfile,
-  type CvSection,
-  EMPTY_PROFILE,
-  loadCvProfile,
-  saveCvProfile,
-} from '../../lib/cvProfile';
+import type { CvSection } from '../../lib/cvProfile';
 import { deletePhoto, loadPhotoUrl, uploadPhoto } from '../../lib/photo';
 import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Separator } from '../ui/separator';
-import { TemplateGallery } from './TemplateGallery';
 
 type ItemDraft = { id: string; left: string; right: string };
-type SectionDraft = { id: string; heading: string; items: ItemDraft[] };
+export type SectionDraft = { id: string; heading: string; items: ItemDraft[] };
 
-const newId = () => crypto.randomUUID();
+export const newId = () => crypto.randomUUID();
 
-const toDrafts = (sections: CvSection[]): SectionDraft[] =>
+export const toDrafts = (sections: CvSection[]): SectionDraft[] =>
   sections.map((s) => ({
     id: newId(),
     heading: s.heading,
     items: s.items.map((i) => ({ id: newId(), left: i.left, right: i.right })),
   }));
 
-const fromDrafts = (drafts: SectionDraft[]): CvSection[] =>
+export const fromDrafts = (drafts: SectionDraft[]): CvSection[] =>
   drafts.map((d) => ({
     heading: d.heading,
     items: d.items.map((i) => ({ left: i.left, right: i.right })),
@@ -35,34 +32,8 @@ const fromDrafts = (drafts: SectionDraft[]): CvSection[] =>
 const inputClass =
   'h-9 w-full rounded-md border border-input bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/25';
 
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-        {label}
-      </span>
-      <input
-        className={inputClass}
-        value={value}
-        placeholder={placeholder ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </label>
-  );
-}
-
 /** Skills, Education and Languages are all label/value rows — one editor does all three. */
-function SectionEditor({
+export function SectionEditor({
   section,
   onChange,
   onRemove,
@@ -144,7 +115,7 @@ function SectionEditor({
  * regional convention, not a preference, and it is decided per render rather
  * than here. This only stores it.
  */
-function PhotoField() {
+export function PhotoField() {
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -249,148 +220,5 @@ function PhotoField() {
       </div>
       {error && <p className="text-destructive text-[11px]">{error}</p>}
     </div>
-  );
-}
-
-export function CvProfileForm() {
-  const [profile, setProfile] = useState<CvProfile>(EMPTY_PROFILE);
-  const [sections, setSections] = useState<SectionDraft[]>([]);
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const load = () =>
-      loadCvProfile()
-        .then((loaded) => {
-          setProfile(loaded);
-          setSections(toDrafts(loaded.sections));
-        })
-        .catch(() => setError('Could not load your CV profile.'));
-    load();
-    window.addEventListener(CV_PROFILE_CHANGED, load);
-    return () => window.removeEventListener(CV_PROFILE_CHANGED, load);
-  }, []);
-
-  function set<K extends keyof CvProfile>(key: K, value: CvProfile[K]) {
-    setProfile((p) => ({ ...p, [key]: value }));
-    setSaved(false);
-  }
-
-  function editSections(next: SectionDraft[]) {
-    setSections(next);
-    setSaved(false);
-  }
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      await saveCvProfile({ ...profile, sections: fromDrafts(sections) });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch {
-      // Silence here would look exactly like a successful save.
-      setError('Could not save your CV profile.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>CV profile</CardTitle>
-        <CardDescription>
-          The parts of your CV that are not career claims — your header, and the skills, education
-          and language blocks. Your experience bullets come from your stored facts and are chosen
-          per application.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid grid-cols-2 gap-3">
-          <Field
-            label="First name"
-            value={profile.firstName}
-            onChange={(v) => set('firstName', v)}
-          />
-          <Field label="Last name" value={profile.lastName} onChange={(v) => set('lastName', v)} />
-          <Field
-            label="Title"
-            value={profile.title}
-            onChange={(v) => set('title', v)}
-            placeholder="Full-Stack Engineer"
-          />
-          <Field
-            label="Location"
-            value={profile.address}
-            onChange={(v) => set('address', v)}
-            placeholder="Berlin, Germany"
-          />
-          <Field label="Email" value={profile.email} onChange={(v) => set('email', v)} />
-          <Field
-            label="Homepage"
-            value={profile.homepage}
-            onChange={(v) => set('homepage', v)}
-            placeholder="yourname.com"
-          />
-        </div>
-
-        <TemplateGallery value={profile.template} onChange={(t) => set('template', t)} />
-
-        <PhotoField />
-
-        <label className="flex flex-col gap-1.5">
-          <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-            Summary
-          </span>
-          <textarea
-            className={`${inputClass} h-24 resize-y py-2 leading-relaxed`}
-            value={profile.summary}
-            onChange={(e) => set('summary', e.target.value)}
-          />
-        </label>
-
-        <Separator />
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-              Sections
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                editSections([
-                  ...sections,
-                  { id: newId(), heading: '', items: [{ id: newId(), left: '', right: '' }] },
-                ])
-              }
-            >
-              <PlusIcon /> Section
-            </Button>
-          </div>
-          {sections.map((section) => (
-            <SectionEditor
-              key={section.id}
-              section={section}
-              onChange={(next) => editSections(sections.map((x) => (x.id === next.id ? next : x)))}
-              onRemove={() => editSections(sections.filter((x) => x.id !== section.id))}
-            />
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3 pt-1">
-          <Button size="sm" onClick={save} disabled={saving}>
-            {saved ? <CheckIcon /> : null}
-            {saving ? 'Saving…' : saved ? 'Saved' : 'Save profile'}
-          </Button>
-          <span className="text-muted-foreground text-xs">
-            {error ?? 'Stored on your account, not in this browser.'}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

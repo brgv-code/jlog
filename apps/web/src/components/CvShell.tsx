@@ -1,11 +1,8 @@
-import { FileUserIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { loginUrlFor } from '../lib/next';
 import { Sidebar } from './Sidebar';
-import { CvProfileForm } from './settings/CvProfileForm';
-import { ImportCvForm } from './settings/ImportCvForm';
-import { StoredFacts } from './settings/StoredFacts';
+import { CvWorkspace } from './cv/CvWorkspace';
 import { JlogMark } from './ui/JlogMark';
 
 interface User {
@@ -74,7 +71,8 @@ export default function CvShell() {
     <div
       style={{
         display: 'flex',
-        minHeight: '100vh',
+        height: '100vh',
+        overflow: 'hidden',
         backgroundColor: 'var(--color-bg)',
         fontFamily: 'var(--font-sans)',
         color: 'var(--color-text-primary)',
@@ -82,59 +80,10 @@ export default function CvShell() {
     >
       <Sidebar user={auth.user} active="cv" onSignOut={handleSignOut} />
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <header
-          style={{
-            height: '56px',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 var(--space-8)',
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              fontSize: 'var(--text-sm)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            <FileUserIcon size={14} strokeWidth={1.75} style={{ color: 'var(--color-icon-cv)' }} />
-            CV
-          </span>
-        </header>
-
-        <main
-          style={{
-            flex: 1,
-            padding: 'var(--space-6) var(--space-8) var(--space-16)',
-            maxWidth: '820px',
-            width: '100%',
-            margin: '0 auto',
-            display: 'grid',
-            gap: 'var(--space-6)',
-            alignContent: 'start',
-          }}
-        >
-          <p
-            style={{
-              fontSize: 'var(--text-sm)',
-              color: 'var(--color-text-secondary)',
-              lineHeight: 1.6,
-              maxWidth: '62ch',
-            }}
-          >
-            Import a CV once and jlog keeps two things from it: the header details below, and the
-            stored facts every tailored CV and cover letter is built from. Nothing here is sent
-            anywhere until you tailor against a specific application.
-          </p>
-
-          <ImportCvForm />
-          <StoredFacts />
-          <CvProfileForm />
-        </main>
+      {/* The workspace fills the height: editor and page side by side, each
+          scrolling on its own, so the page stays in view while you edit. */}
+      <div style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex' }}>
+        <CvWorkspace />
       </div>
     </div>
   );

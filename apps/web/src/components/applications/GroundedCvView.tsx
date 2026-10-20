@@ -26,7 +26,15 @@ import {
   SparklesIcon,
   UnlinkIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { CvDocument, CvSpan, FactOrigins } from '../../lib/cvSource';
 import { Button } from '../ui/button';
 import { PdfPaper } from './PdfPaper';
@@ -36,6 +44,29 @@ type SelectedBullet = {
   variantId?: string;
   text: string;
   jd?: { text: string; start: number; end: number };
+  /** What the verifier did with the model's rewording; absent when there was none. */
+  check?: Check;
+  /** On `fell-back`: why, in the verifier's words. */
+  reason?: string;
+  /** On `fell-back`: the terms nothing in the profile backs, e.g. ["Redis"]. */
+  unsupported?: string[];
+  /** On `fell-back`: the rewording that was refused. */
+  attempted?: string;
+};
+
+type Check = 'reworded' | 'repaired' | 'fell-back';
+
+/**
+ * The verifier's outcome per line, made visible (ADR-015).
+ *
+ * Before this, a rewording that failed its check fell back to the stored words
+ * silently, and a thin profile read as "jlog writes flat CVs" with no way to
+ * see why. Ink on a 10% wash of itself, like the status pills.
+ */
+const CHECK: Record<Check, { label: string; ink: string }> = {
+  reworded: { label: 'Tailored', ink: 'var(--color-success)' },
+  repaired: { label: 'Tailored, softened', ink: 'var(--color-success)' },
+  'fell-back': { label: 'Your wording', ink: 'var(--color-warning)' },
 };
 
 export type SelectedRole = {
@@ -111,6 +142,10 @@ type Claim = {
   grounding: Grounding;
   /** One sentence naming where this line comes from. Always something true. */
   provenance: string;
+  check?: Check;
+  reason?: string;
+  unsupported: string[];
+  attempted?: string;
 };
 
 /**
@@ -206,6 +241,10 @@ function buildClaims(selected: SelectedRole[], cv: CvDocument, origins: FactOrig
         jd: bullet.jd,
         grounding,
         provenance,
+        ...(bullet.check ? { check: bullet.check } : {}),
+        ...(bullet.reason ? { reason: bullet.reason } : {}),
+        unsupported: bullet.unsupported ?? [],
+        ...(bullet.attempted ? { attempted: bullet.attempted } : {}),
       } satisfies Claim;
     }),
   );
@@ -268,6 +307,42 @@ function Paper({
   );
 }
 
+/**
+ * Why a line kept the owner's own words, under the selected line.
+ *
+ * Names the missing terms on their own rather than leaving them inside the
+ * verifier's sentence: they are what the owner can act on, and the action that
+ * adds one to the profile (ADR-015, step 4) hangs off exactly this list.
+ */
+function KeptWording({ claim }: { claim: Claim }) {
+  return (
+    <div className="mb-2 ml-8 space-y-1.5 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[12px] leading-relaxed">
+      {claim.unsupported.length > 0 ? (
+        <p>
+          The rewording was refused because your profile doesn’t back{' '}
+          {claim.unsupported.map((term, i) => (
+            <Fragment key={term}>
+              {i > 0 && (i === claim.unsupported.length - 1 ? ' or ' : ', ')}
+              <strong className="font-medium">{term}</strong>
+            </Fragment>
+          ))}{' '}
+          for this role, so your own wording was kept.
+        </p>
+      ) : (
+        <p>The rewording was refused, so your own wording was kept.</p>
+      )}
+      {claim.attempted && (
+        <p className="text-muted-foreground">
+          Refused: <span className="line-through">{claim.attempted}</span>
+        </p>
+      )}
+      {claim.reason && claim.unsupported.length === 0 && (
+        <p className="text-muted-foreground">{claim.reason}</p>
+      )}
+    </div>
+  );
+}
+
 export function GroundedCvView({
   company,
   role,
@@ -323,6 +398,8 @@ export function GroundedCvView({
   const claim = claims[sel];
   const onPage = claims.filter((c) => c.grounding === 'page').length;
   const fromHistory = claims.filter((c) => c.grounding === 'history').length;
+  const tailored = claims.filter((c) => c.check === 'reworded' || c.check === 'repaired').length;
+  const kept = claims.filter((c) => c.check === 'fell-back').length;
 
   const span: CvSpan | null =
     tab === 'cv' ? (claim?.cvSpan ?? null) : claim?.jd ? [claim.jd.start, claim.jd.end] : null;
@@ -446,7 +523,7 @@ export function GroundedCvView({
       style={{ '--cite': accent, '--cite-fill': fill } as React.CSSProperties}
     >
       {/* Top bar: what this is, how well it is grounded, and what to do with it. */}
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border py-3 pr-12 pl-5">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-5 py-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">
             {role} <span className="text-muted-foreground">at {company}</span>
@@ -457,6 +534,8 @@ export function GroundedCvView({
             {onPage ? ` · ${onPage} shown on your CV` : ''}
             {fromHistory ? ` · ${fromHistory} from applications you sent` : ''}
             {attempts > 1 ? ` · settled on attempt ${attempts}` : ''}
+            {tailored ? ` · ${tailored} tailored` : ''}
+            {kept ? ` · ${kept} kept your wording` : ''}
           </p>
         </div>
         {notice && (
@@ -518,50 +597,65 @@ export function GroundedCvView({
                 // pointing at nothing.
                 const linked = tab === 'cv' && c.grounding === 'page';
                 return (
-                  <button
-                    key={c.key}
-                    ref={(el) => {
-                      rowRefs.current[i] = el;
-                    }}
-                    type="button"
-                    aria-pressed={i === sel}
-                    onClick={() => select(i)}
-                    className={`mb-1.5 flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                      i !== sel
-                        ? 'border-transparent hover:bg-muted/50'
-                        : linked
-                          ? 'border-[var(--cite)] bg-card shadow-[var(--shadow-md)]'
-                          : 'border-muted-foreground/40 bg-card'
-                    }`}
-                  >
-                    <span
-                      className={`grid size-5 flex-none place-items-center rounded font-mono text-[10px] ${
-                        i === sel && linked
-                          ? 'bg-[var(--cite)] text-background'
-                          : 'bg-muted text-muted-foreground'
+                  <Fragment key={c.key}>
+                    <button
+                      ref={(el) => {
+                        rowRefs.current[i] = el;
+                      }}
+                      type="button"
+                      aria-pressed={i === sel}
+                      onClick={() => select(i)}
+                      className={`mb-1.5 flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                        i !== sel
+                          ? 'border-transparent hover:bg-muted/50'
+                          : linked
+                            ? 'border-[var(--cite)] bg-card shadow-[var(--shadow-md)]'
+                            : 'border-muted-foreground/40 bg-card'
                       }`}
                     >
-                      {i + 1}
-                    </span>
-                    <span className="flex-1 text-[12.5px] leading-relaxed">{c.text}</span>
-                    <span className="flex flex-none items-center gap-1.5">
-                      {c.jd && (
-                        <span
-                          title="The model matched this to a line of the posting"
-                          className="text-muted-foreground/70 rounded px-1 font-mono text-[9.5px] tracking-wide"
-                        >
-                          jd?
-                        </span>
-                      )}
-                      {c.grounding === 'page' ? (
-                        <LinkIcon className="size-3 text-[var(--color-cite-cv)]" />
-                      ) : c.grounding === 'history' ? (
-                        <HistoryIcon className="text-muted-foreground size-3" />
-                      ) : (
-                        <UnlinkIcon className="text-muted-foreground/50 size-3" />
-                      )}
-                    </span>
-                  </button>
+                      <span
+                        className={`grid size-5 flex-none place-items-center rounded font-mono text-[10px] ${
+                          i === sel && linked
+                            ? 'bg-[var(--cite)] text-background'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="flex-1">
+                        {c.check && (
+                          <span
+                            className="mb-1 inline-block rounded px-1.5 py-px text-[10.5px] font-medium"
+                            style={{
+                              color: CHECK[c.check].ink,
+                              backgroundColor: `color-mix(in srgb, ${CHECK[c.check].ink} 10%, transparent)`,
+                            }}
+                          >
+                            {CHECK[c.check].label}
+                          </span>
+                        )}
+                        <span className="block text-[12.5px] leading-relaxed">{c.text}</span>
+                      </span>
+                      <span className="flex flex-none items-center gap-1.5">
+                        {c.jd && (
+                          <span
+                            title="The model matched this to a line of the posting"
+                            className="text-muted-foreground/70 rounded px-1 font-mono text-[9.5px] tracking-wide"
+                          >
+                            jd?
+                          </span>
+                        )}
+                        {c.grounding === 'page' ? (
+                          <LinkIcon className="size-3 text-[var(--color-cite-cv)]" />
+                        ) : c.grounding === 'history' ? (
+                          <HistoryIcon className="text-muted-foreground size-3" />
+                        ) : (
+                          <UnlinkIcon className="text-muted-foreground/50 size-3" />
+                        )}
+                      </span>
+                    </button>
+                    {i === sel && c.check === 'fell-back' && <KeptWording claim={c} />}
+                  </Fragment>
                 );
               })}
             </div>
