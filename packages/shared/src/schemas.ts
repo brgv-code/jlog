@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CV_TEMPLATES, DEFAULT_TEMPLATE } from './cv/templates';
+import { stripBulletMarker } from './cv/text';
 import { REASONING_EFFORTS } from './models/efforts';
 
 export const githubUserSchema = z.object({
@@ -393,7 +394,12 @@ export const cvImportCommitSchema = z.object({
         roleTitle: z.string().max(200).default(''),
         dates: z.string().max(64).default(''),
         location: z.string().max(200).default(''),
-        bullets: z.array(z.string().min(1).max(2000)).max(200),
+        // Without the list marker a PDF left on the line, and dropped if that
+        // was all there was.
+        bullets: z
+          .array(z.string().max(2000).transform(stripBulletMarker))
+          .max(200)
+          .transform((bs) => bs.filter(Boolean)),
       }),
     )
     .max(50),

@@ -31,7 +31,32 @@ export type StoredRole = {
   bullets: StoredBullet[];
 };
 
-export type StoredFacts = { roles: StoredRole[]; orphans: StoredBullet[] };
+export type StoredFacts = {
+  roles: StoredRole[];
+  orphans: StoredBullet[];
+  /** The latest imported CV's layout: its roles and their bullets, in order. */
+  base?: { roleId: string; bulletIds: string[] }[];
+};
+
+/** The most recently tailored CV, and which application it was for. */
+export type LatestTailored = {
+  selected: {
+    roleFactId: string;
+    employer: string | null;
+    roleTitle: string | null;
+    dates: string | null;
+    bullets: { factId: string; text: string }[];
+  }[];
+  application: { id: string; company: string; role: string };
+  savedAt: string;
+};
+
+export async function loadLatestTailored(): Promise<LatestTailored | null> {
+  const res = await apiFetch('/api/profile/latest-tailored').catch(() => null);
+  if (!res?.ok) return null;
+  const body = (await res.json()) as { tailored: LatestTailored | null };
+  return body.tailored;
+}
 
 /** Fired after an import, so the list shows what was just stored. */
 export const FACTS_CHANGED = 'jlog:facts-changed';
