@@ -8,11 +8,12 @@
 import { apiFetch } from './api';
 
 /**
- * cv: from a CV imported here. edited: corrected by the owner. kept: from older
- * applications, and kept by the owner. history: from older applications and
- * not kept yet, which tailoring does not use.
+ * cv: from a CV imported here. edited: corrected by the owner. added: written
+ * by the owner on the CV page. kept: from older applications, and kept by the
+ * owner. history: from older applications and not kept yet, which tailoring
+ * does not use.
  */
-export type FactOrigin = 'cv' | 'edited' | 'kept' | 'history';
+export type FactOrigin = 'cv' | 'edited' | 'added' | 'kept' | 'history';
 export type FactStatus = 'active' | 'archived';
 
 export type StoredBullet = { id: string; text: string; status: FactStatus; origin: FactOrigin };
@@ -57,9 +58,21 @@ export async function updateFact(
   return Boolean(res?.ok);
 }
 
+/** Add a bullet under a role, in the owner's own words. Null when it failed. */
+export async function addBullet(roleId: string, text: string): Promise<StoredBullet | null> {
+  const res = await apiFetch('/api/profile/facts', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ parentFactId: roleId, canonical: text }),
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  return (await res.json()) as StoredBullet;
+}
+
 export const ORIGIN_LABELS: Record<FactOrigin, string> = {
   cv: 'From your CV',
   edited: 'Edited by you',
+  added: 'Added by you',
   kept: 'Kept by you',
   history: 'Unconfirmed: not used',
 };

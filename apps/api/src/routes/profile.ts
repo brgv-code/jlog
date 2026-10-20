@@ -23,6 +23,7 @@ import {
   HttpError,
   type ImportedCv,
   autofillValuesSchema,
+  bulletCreateSchema,
   cvImportCommitSchema,
   cvImportPreviewSchema,
   cvProfileSchema,
@@ -330,9 +331,10 @@ router.post('/import/commit', async (c) => {
  * `cv`: read from a CV the owner imported here (it has a position in that CV,
  * or the import stored its words). `edited`: the owner corrected it. `history`:
  * seeded from earlier applications, many of them AI tailored, so a claim may be
- * one the owner never made. The CV page shows this so those can be checked.
+ * one the owner never made. `added`: written by the owner on the CV page. The
+ * CV page shows this so those can be checked.
  */
-type FactOrigin = 'cv' | 'edited' | 'kept' | 'history';
+type FactOrigin = 'cv' | 'edited' | 'added' | 'kept' | 'history';
 
 /**
  * What is stored now, shaped the way the review screen shows it.
@@ -361,20 +363,23 @@ router.get('/facts', async (c) => {
     .where(
       and(
         eq(profileFactVariants.userId, session.userId),
-        inArray(profileFactVariants.source, ['import', 'edited']),
+        inArray(profileFactVariants.source, ['import', 'edited', 'added']),
       ),
     );
   const edited = new Set(marked.filter((m) => m.source === 'edited').map((m) => m.factId));
+  const added = new Set(marked.filter((m) => m.source === 'added').map((m) => m.factId));
   const imported = new Set(marked.filter((m) => m.source === 'import').map((m) => m.factId));
   // Only `history` is left out of tailoring; the rest says why a fact is in.
   const originOf = (row: (typeof rows)[number]): FactOrigin =>
     edited.has(row.id)
       ? 'edited'
-      : row.sourceId || imported.has(row.id)
-        ? 'cv'
-        : row.confirmedAt
-          ? 'kept'
-          : 'history';
+      : added.has(row.id)
+        ? 'added'
+        : row.sourceId || imported.has(row.id)
+          ? 'cv'
+          : row.confirmedAt
+            ? 'kept'
+            : 'history';
 
   const roles = rows.filter((r) => r.kind === 'role');
   const bullets = rows.filter((r) => r.kind === 'bullet');
@@ -407,6 +412,83 @@ router.get('/facts', async (c) => {
     // A bullet whose role was archived still belongs to the user.
     orphans: bullets.filter((b) => !roles.some((r) => r.id === b.parentFactId)).map(bulletOut),
   });
+});
+
+/**
+ * POST /facts — add a bullet under one of the owner's roles, in their own words.
+ *
+ * Confirmed on the way in: the owner typed it, so they vouch for it, and
+ * tailoring may use it straight away. The id is content addressed the same way
+ * import's is, so importing a CV that later carries the same line does not
+ * duplicate it, and adding a line that was archived restores it.
+ *
+ * The words are also stored as an `added` phrasing. That is what marks the fact
+ * as written here when the CV page lists it; it is not offered to tailoring as
+ * an alternative wording, since it is the canonical text already.
+ */
+router.post('/facts', async (c) => {
+  const session = requireSession(c);
+  const body = await c.req.json().catch(() => {
+    throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+  });
+  const parsed = bulletCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+
+  const db = createDb(c.env.DB);
+  const { parentFactId, canonical } = parsed.data;
+  const [role] = await db
+    .select()
+    .from(profileFacts)
+    .where(and(eq(profileFacts.id, parentFactId), eq(profileFacts.userId, session.userId)));
+  // Someone else's role and a missing one answer the same.
+  if (!role || role.kind !== 'role') throw new HttpError(404, 'NOT_FOUND', 'No such role');
+
+  const id = await factIdFor(role.employer ?? '', canonical);
+  const hash = await variantHashFor(canonical);
+  const now = new Date();
+  await db.batch([
+    db
+      .insert(profileFacts)
+      .values({
+        id,
+        userId: session.userId,
+        kind: 'bullet',
+        parentFactId,
+        employer: null,
+        roleTitle: null,
+        location: null,
+        startDate: null,
+        endDate: null,
+        canonical,
+        status: 'active',
+        confirmedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: profileFacts.id,
+        set: { status: 'active', confirmedAt: now, updatedAt: now },
+      }),
+    db
+      .insert(profileFactVariants)
+      .values({
+        id: variantIdFor(hash),
+        factId: id,
+        userId: session.userId,
+        content: canonical,
+        contentHash: hash,
+        source: 'added',
+        sourceRoleTitle: null,
+        sourceCompany: null,
+        usedAt: null,
+        createdAt: now,
+      })
+      .onConflictDoNothing(),
+  ]);
+
+  return c.json({ id, text: canonical, status: 'active', origin: 'added' }, 201);
 });
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   NEVER_EXPIRES_AT,
+  bulletCreateSchema,
   createBaseDocumentSchema,
   createProfileFactSchema,
   expiryFromLifetime,
@@ -85,6 +86,21 @@ describe('profile facts', () => {
 
   it('rejects an unknown kind', () => {
     expect(createProfileFactSchema.safeParse({ kind: 'vibe', canonical: 'x' }).success).toBe(false);
+  });
+
+  it('takes a hand-added bullet as written, trimmed', () => {
+    const res = bulletCreateSchema.safeParse({
+      parentFactId: 'pf_r1',
+      canonical: '  Ran planning.  ',
+    });
+    expect(res.success && res.data.canonical).toBe('Ran planning.');
+  });
+
+  it('refuses a hand-added bullet with no role or no words', () => {
+    expect(bulletCreateSchema.safeParse({ parentFactId: '', canonical: 'x' }).success).toBe(false);
+    expect(bulletCreateSchema.safeParse({ parentFactId: 'pf_r1', canonical: '   ' }).success).toBe(
+      false,
+    );
   });
 
   it('normalises variant content so dedupe ignores case and whitespace', () => {

@@ -341,6 +341,15 @@ export const factUpdateSchema = z
     message: 'Nothing to change.',
   });
 
+/**
+ * A bullet the owner adds by hand under one of their roles, on the CV page.
+ * Their own words, stored as written: there is nothing to check them against.
+ */
+export const bulletCreateSchema = z.object({
+  parentFactId: z.string().min(1),
+  canonical: z.string().trim().min(1).max(1000),
+});
+
 export const cvImportCommitSchema = z.object({
   /**
    * The document these roles were read out of, kept so a generated bullet can
