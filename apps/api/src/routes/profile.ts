@@ -16,6 +16,7 @@ import {
   createDb,
   cvProfiles,
   cvSources,
+  documents,
   lineFeedback,
   profileFactVariants,
   profileFacts,
@@ -414,6 +415,76 @@ router.get('/facts', async (c) => {
     }),
     // A bullet whose role was archived still belongs to the user.
     orphans: bullets.filter((b) => !roles.some((r) => r.id === b.parentFactId)).map(bulletOut),
+    ...(withArchived ? { base: await baseLayout(db, session.userId, rows) } : {}),
+  });
+});
+
+/**
+ * The shape of the latest imported CV: its roles, and the bullets each carried
+ * there, in document order. What the CV page previews when nothing has been
+ * tailored yet, rather than every stored fact (which for an owner with a
+ * history of applications is over a hundred lines). Empty with no import.
+ */
+async function baseLayout(
+  db: ReturnType<typeof createDb>,
+  userId: string,
+  rows: (typeof profileFacts.$inferSelect)[],
+): Promise<{ roleId: string; bulletIds: string[] }[]> {
+  const [latest] = await db
+    .select({ id: cvSources.id })
+    .from(cvSources)
+    .where(eq(cvSources.userId, userId))
+    .orderBy(desc(cvSources.createdAt))
+    .limit(1);
+  if (!latest) return [];
+  const placed = rows
+    .filter(
+      (r) =>
+        r.kind === 'bullet' &&
+        r.status === 'active' &&
+        r.confirmedAt &&
+        r.sourceId === latest.id &&
+        r.parentFactId,
+    )
+    .sort((a, b) => (a.sourceStart ?? 0) - (b.sourceStart ?? 0));
+  const out: { roleId: string; bulletIds: string[] }[] = [];
+  for (const b of placed) {
+    const roleId = b.parentFactId as string;
+    const entry = out.find((e) => e.roleId === roleId);
+    if (entry) entry.bulletIds.push(b.id);
+    else out.push({ roleId, bulletIds: [b.id] });
+  }
+  return out;
+}
+
+/**
+ * GET /latest-tailored — the most recently saved tailored CV, across all of the
+ * owner's applications, with which application it was for. The CV page shows
+ * it as the preview, since it is closest to what the owner actually sends.
+ */
+router.get('/latest-tailored', async (c) => {
+  const session = requireSession(c);
+  const db = createDb(c.env.DB);
+  const [doc] = await db
+    .select({
+      data: documents.data,
+      updatedAt: documents.updatedAt,
+      applicationId: applications.id,
+      company: applications.company,
+      role: applications.role,
+    })
+    .from(documents)
+    .innerJoin(applications, eq(applications.id, documents.applicationId))
+    .where(and(eq(applications.userId, session.userId), eq(documents.type, 'tailored-cv')))
+    .orderBy(desc(documents.updatedAt))
+    .limit(1);
+  if (!doc?.data) return c.json({ tailored: null });
+  return c.json({
+    tailored: {
+      selected: (doc.data as { selected?: unknown }).selected ?? [],
+      application: { id: doc.applicationId, company: doc.company, role: doc.role },
+      savedAt: doc.updatedAt,
+    },
   });
 });
 

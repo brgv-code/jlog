@@ -20,11 +20,13 @@ import {
 } from '../../lib/cvProfile';
 import {
   FACTS_CHANGED,
+  type LatestTailored,
   ORIGIN_LABELS,
   type StoredBullet,
   type StoredFacts,
   type StoredRole,
   addBullet,
+  loadLatestTailored,
   loadStoredFacts,
   sortRoles,
   updateFact,
@@ -32,7 +34,7 @@ import {
 import { ImportCvForm } from '../settings/ImportCvForm';
 import { TemplateGallery } from '../settings/TemplateGallery';
 import { Button } from '../ui/button';
-import { CvPreview } from './CvPreview';
+import { CvPreview, type PreviewRole } from './CvPreview';
 import {
   PhotoField,
   type SectionDraft,
@@ -43,6 +45,8 @@ import {
 } from './profileParts';
 
 type Save = 'saved' | 'saving' | 'error';
+
+const PREVIEW_KEY = 'jlog.cv.preview';
 type Sheet = null | 'import' | 'templates';
 
 /** Colour per origin. A bullet read from your CV is the default and says nothing. */
@@ -78,7 +82,28 @@ export function CvWorkspace() {
   const [adding, setAdding] = useState<{ roleId: string; text: string } | null>(null);
   const [open, setOpen] = useState({ you: false, sections: false, review: false, archived: false });
   const [sheet, setSheet] = useState<Sheet>(null);
-  const [previewOnly, setPreviewOnly] = useState(false);
+  // The page is opened when asked for: always open, it took half the screen
+  // from the thing being edited. Remembered per browser.
+  const [preview, setPreviewState] = useState(false);
+  const [pageCount, setPageCount] = useState(1);
+  const [source, setSource] = useState<'tailored' | 'base'>('tailored');
+  const [latest, setLatest] = useState<LatestTailored | null>(null);
+  useEffect(() => {
+    try {
+      setPreviewState(localStorage.getItem(PREVIEW_KEY) === '1');
+    } catch {
+      // Storage blocked: the page simply starts closed.
+    }
+    loadLatestTailored().then(setLatest);
+  }, []);
+  function setPreview(open: boolean) {
+    setPreviewState(open);
+    try {
+      localStorage.setItem(PREVIEW_KEY, open ? '1' : '0');
+    } catch {
+      // Not remembered, which is fine.
+    }
+  }
   const [notice, setNotice] = useState<string | null>(null);
 
   const say = useCallback((msg: string) => {
@@ -179,6 +204,59 @@ export function CvWorkspace() {
   );
   const order = useMemo(() => roles.flatMap((r) => r.bullets.map((b) => b.id)), [roles]);
 
+  /**
+   * What the page shows: a CV, not the fact store. The latest tailored one is
+   * closest to what the owner sends; without one, the imported CV's own
+   * layout; without an import, the confirmed bullets.
+   */
+  const previewRoles = useMemo((): PreviewRole[] => {
+    if (source === 'tailored' && latest) {
+      return latest.selected.map((r) => ({
+        id: r.roleFactId,
+        title: r.roleTitle,
+        employer: r.employer,
+        dates: r.dates,
+        bullets: r.bullets.map((b) => ({ id: b.factId, text: b.text })),
+      }));
+    }
+    const base = facts?.base ?? [];
+    if (base.length) {
+      const byId = new Map(roles.flatMap((r) => r.bullets.map((b) => [b.id, b] as const)));
+      return base.flatMap((entry) => {
+        const role = roles.find((r) => r.id === entry.roleId);
+        if (!role) return [];
+        const bullets = entry.bulletIds.flatMap((id) => {
+          const b = byId.get(id);
+          return b ? [{ id: b.id, text: b.text }] : [];
+        });
+        return bullets.length
+          ? [
+              {
+                id: role.id,
+                title: role.roleTitle,
+                employer: role.employer,
+                dates: role.dates,
+                bullets,
+              },
+            ]
+          : [];
+      });
+    }
+    return roles.map((r) => ({
+      id: r.id,
+      title: r.roleTitle,
+      employer: r.employer,
+      dates: r.dates,
+      bullets: r.bullets.map((b) => ({ id: b.id, text: b.text })),
+    }));
+  }, [source, latest, facts, roles]);
+  const showing =
+    source === 'tailored' && latest
+      ? `Tailored for ${latest.application.company}`
+      : facts?.base?.length
+        ? 'Your imported CV'
+        : 'All confirmed bullets';
+
   /** Apply a change locally first, then persist it; reload on failure. */
   async function change(
     id: string,
@@ -260,13 +338,13 @@ export function CvWorkspace() {
   const template = templateConfig(profile.template);
 
   return (
-    <div className="relative flex min-h-0 min-w-0 flex-1" data-preview={previewOnly || undefined}>
+    <div className="relative flex min-h-0 min-w-0 flex-1">
       {/* Editor */}
       <section
         aria-label="Editor"
         // Keyboard shortcuts for the list live on its container.
         onKeyDown={onKeyDown}
-        className={`relative flex min-h-0 w-full flex-col border-border lg:w-[480px] lg:flex-none lg:border-r ${previewOnly ? 'hidden lg:flex' : 'flex'}`}
+        className={`relative min-h-0 w-full flex-col border-border ${preview ? 'hidden lg:flex lg:w-[480px] lg:flex-none lg:border-r' : 'flex'}`}
       >
         <div className="flex h-[52px] flex-none items-center justify-between border-b border-border pr-4 pl-6">
           <div className="flex items-center gap-2.5">
@@ -278,10 +356,10 @@ export function CvWorkspace() {
               <UploadIcon /> Import
             </Button>
             <Button
-              variant="outline"
+              variant={preview ? 'secondary' : 'outline'}
               size="sm"
-              className="lg:hidden"
-              onClick={() => setPreviewOnly(true)}
+              aria-pressed={preview}
+              onClick={() => setPreview(!preview)}
             >
               <EyeIcon /> Preview
             </Button>
@@ -289,227 +367,78 @@ export function CvWorkspace() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto pb-6">
-          {review.length > 0 && (
-            <div className="mx-4 mt-4 ml-6 rounded-[10px] bg-[var(--color-warning-subtle,#fffbeb)] shadow-[inset_0_0_0_1px_#fde68a]">
-              <div className="flex items-center justify-between gap-3 py-2.5 pr-2.5 pl-3.5">
-                <span className="flex items-center gap-2 text-[13px] text-[#92400e]">
-                  <i className="size-1.5 flex-none rounded-full bg-[var(--color-warning)]" />
-                  {review.length} {review.length === 1 ? 'bullet' : 'bullets'} to confirm
-                </span>
-                <span className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-expanded={open.review}
-                    onClick={() => setOpen((o) => ({ ...o, review: !o.review }))}
-                  >
-                    {open.review ? 'Hide' : 'Review'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-background"
-                    onClick={async () => {
-                      const ids = review.map((b) => b.id);
-                      for (const id of ids)
-                        await change(id, { confirmed: true }, (b) => ({ ...b, origin: 'kept' }));
-                      say(`Kept ${ids.length}. Tailoring can use them now.`);
-                    }}
-                  >
-                    Keep all
-                  </Button>
-                </span>
-              </div>
-              {open.review && (
-                <ul className="m-0 list-none px-1.5 pb-1.5">
-                  {review.map((b) => (
-                    <li
-                      key={b.id}
-                      className="flex items-center gap-2 border-t border-[#fde68a] p-2 text-[13px] leading-snug"
+          {/* With the page closed the editor has the width; keep lines readable. */}
+          <div className={preview ? '' : 'mx-auto max-w-[760px]'}>
+            {review.length > 0 && (
+              <div className="mx-4 mt-4 ml-6 rounded-[10px] bg-[var(--color-warning-subtle,#fffbeb)] shadow-[inset_0_0_0_1px_#fde68a]">
+                <div className="flex items-center justify-between gap-3 py-2.5 pr-2.5 pl-3.5">
+                  <span className="flex items-center gap-2 text-[13px] text-[#92400e]">
+                    <i className="size-1.5 flex-none rounded-full bg-[var(--color-warning)]" />
+                    {review.length} {review.length === 1 ? 'bullet' : 'bullets'} to confirm
+                  </span>
+                  <span className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-expanded={open.review}
+                      onClick={() => setOpen((o) => ({ ...o, review: !o.review }))}
                     >
-                      <span className="min-w-0 flex-1">
-                        {b.text}
-                        <small className="block text-[11.5px] text-[#a16207]">{b.employer}</small>
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          change(
-                            b.id,
-                            { status: 'archived' },
-                            (x) => ({ ...x, status: 'archived' }),
-                            'Archived.',
-                          )
-                        }
-                      >
-                        Not true
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-background"
-                        onClick={() =>
-                          change(
-                            b.id,
-                            { confirmed: true },
-                            (x) => ({ ...x, origin: 'kept' }),
-                            'Kept.',
-                          )
-                        }
-                      >
-                        Keep
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {/* You */}
-          <div className="px-4 pt-4 pl-6">
-            <button
-              type="button"
-              aria-expanded={open.you}
-              onClick={() => setOpen((o) => ({ ...o, you: !o.you }))}
-              className="-mx-3 flex w-[calc(100%+24px)] items-center gap-3 rounded-[10px] border-0 bg-transparent px-3 py-2.5 text-left hover:bg-[var(--color-surface-hover)]"
-            >
-              <span className="grid size-9 flex-none place-items-center rounded-full bg-gradient-to-br from-zinc-600 to-zinc-900 text-[12.5px] font-semibold text-white">
-                {initials}
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <b className="truncate text-[14px] font-semibold tracking-[-0.01em]">
-                  {[profile.firstName, profile.lastName].filter(Boolean).join(' ') ||
-                    'Add your name'}
-                </b>
-                <span className="text-muted-foreground truncate text-[13px]">
-                  {[profile.title, profile.address].filter(Boolean).join(' · ') ||
-                    'Title, location and contact'}
-                </span>
-              </span>
-              <ChevronRightIcon
-                className={`text-muted-foreground size-4 transition-transform ${open.you ? 'rotate-90' : ''}`}
-              />
-            </button>
-            {open.you && (
-              <Panel>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {(
-                    [
-                      ['firstName', 'First name'],
-                      ['lastName', 'Last name'],
-                      ['title', 'Title'],
-                      ['address', 'Location'],
-                      ['email', 'Email'],
-                      ['homepage', 'Homepage'],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <label
-                      key={key}
-                      className="text-muted-foreground flex flex-col gap-1.5 text-[11.5px]"
+                      {open.review ? 'Hide' : 'Review'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-background"
+                      onClick={async () => {
+                        const ids = review.map((b) => b.id);
+                        for (const id of ids)
+                          await change(id, { confirmed: true }, (b) => ({ ...b, origin: 'kept' }));
+                        say(`Kept ${ids.length}. Tailoring can use them now.`);
+                      }}
                     >
-                      {label}
-                      <input
-                        className={fieldClass}
-                        value={profile[key]}
-                        onChange={(e) => setField(key, e.target.value)}
-                      />
-                    </label>
-                  ))}
+                      Keep all
+                    </Button>
+                  </span>
                 </div>
-                <label className="text-muted-foreground flex flex-col gap-1.5 text-[11.5px]">
-                  Summary
-                  <textarea
-                    rows={3}
-                    className={`${fieldClass} h-auto resize-y py-2 leading-relaxed`}
-                    value={profile.summary}
-                    onChange={(e) => setField('summary', e.target.value)}
-                  />
-                </label>
-                <PhotoField />
-              </Panel>
-            )}
-          </div>
-
-          {/* Experience */}
-          <div className="px-4 pt-5 pl-6">
-            <div className="mb-1 flex items-center justify-between">
-              <h2 className="text-muted-foreground m-0 text-[11px] font-medium tracking-[0.07em] uppercase">
-                Experience
-              </h2>
-            </div>
-            {facts === null && <p className="text-muted-foreground text-[13px]">Loading…</p>}
-            {facts !== null && roles.length === 0 && (
-              <div className="py-6 text-center">
-                <p className="m-0 text-[13px] font-medium">No experience yet</p>
-                <p className="text-muted-foreground mt-1 text-[13px]">
-                  Import a CV and jlog reads your roles and bullets out of it.
-                </p>
-                <Button className="mt-3" size="sm" onClick={() => setSheet('import')}>
-                  <UploadIcon /> Import a CV
-                </Button>
-              </div>
-            )}
-            {roles.map((role) => (
-              <RoleBlock
-                key={role.id}
-                role={role}
-                selected={selected}
-                hot={hot}
-                editing={editing}
-                adding={adding?.roleId === role.id ? adding.text : null}
-                onSelect={setSelected}
-                onHot={setHot}
-                onEdit={(b) => setEditing({ id: b.id, text: b.text })}
-                onEditText={(text) => setEditing((e) => (e ? { ...e, text } : e))}
-                onSave={saveEdit}
-                onCancel={() => setEditing(null)}
-                onArchive={(b) =>
-                  change(
-                    b.id,
-                    { status: 'archived' },
-                    (x) => ({ ...x, status: 'archived' }),
-                    'Archived. Tailoring won’t use it.',
-                  )
-                }
-                onAdd={() => setAdding({ roleId: role.id, text: '' })}
-                onAddText={(text) => setAdding((a) => (a ? { ...a, text } : a))}
-                onAddSave={saveAdd}
-                onAddCancel={() => setAdding(null)}
-              />
-            ))}
-            {archived.length > 0 && (
-              <div className="mt-4">
-                <button
-                  type="button"
-                  aria-expanded={open.archived}
-                  onClick={() => setOpen((o) => ({ ...o, archived: !o.archived }))}
-                  className="text-muted-foreground hover:text-foreground border-0 bg-transparent p-0 text-[12.5px]"
-                >
-                  {open.archived ? 'Hide archived' : `${archived.length} archived`}
-                </button>
-                {open.archived && (
-                  <ul className="m-0 mt-2 list-none p-0">
-                    {archived.map((a) => (
+                {open.review && (
+                  <ul className="m-0 list-none px-1.5 pb-1.5">
+                    {review.map((b) => (
                       <li
-                        key={a.id}
-                        className="flex items-center gap-2 border-t border-border py-2 text-[13px]"
+                        key={b.id}
+                        className="flex items-center gap-2 border-t border-[#fde68a] p-2 text-[13px] leading-snug"
                       >
-                        <span className="text-muted-foreground min-w-0 flex-1 line-through">
-                          {a.text}
+                        <span className="min-w-0 flex-1">
+                          {b.text}
+                          <small className="block text-[11.5px] text-[#a16207]">{b.employer}</small>
                         </span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={async () => {
-                            if (await updateFact(a.id, { status: 'active' })) {
-                              await reloadFacts();
-                              say('Restored.');
-                            } else say('Could not restore that.');
-                          }}
+                          onClick={() =>
+                            change(
+                              b.id,
+                              { status: 'archived' },
+                              (x) => ({ ...x, status: 'archived' }),
+                              'Archived.',
+                            )
+                          }
                         >
-                          <ArchiveRestoreIcon /> Restore
+                          Not true
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-background"
+                          onClick={() =>
+                            change(
+                              b.id,
+                              { confirmed: true },
+                              (x) => ({ ...x, origin: 'kept' }),
+                              'Kept.',
+                            )
+                          }
+                        >
+                          Keep
                         </Button>
                       </li>
                     ))}
@@ -517,57 +446,208 @@ export function CvWorkspace() {
                 )}
               </div>
             )}
-          </div>
 
-          {/* Skills and sections */}
-          <div className="px-4 pt-5 pl-6">
-            <button
-              type="button"
-              aria-expanded={open.sections}
-              onClick={() => setOpen((o) => ({ ...o, sections: !o.sections }))}
-              className="-mx-3 flex w-[calc(100%+24px)] items-center justify-between rounded-lg border-0 bg-transparent px-3 py-2.5 text-left hover:bg-[var(--color-surface-hover)]"
-            >
-              <b className="text-[13px] font-medium">Skills, education and languages</b>
-              <span className="text-muted-foreground text-[13px]">
-                {open.sections
-                  ? ''
-                  : `${sections.length} ${sections.length === 1 ? 'section' : 'sections'}`}
-              </span>
-            </button>
-            {open.sections && (
-              <Panel>
-                {sections.map((s) => (
-                  <SectionEditor
-                    key={s.id}
-                    section={s}
-                    onChange={(next) =>
-                      editSections(sections.map((x) => (x.id === next.id ? next : x)))
-                    }
-                    onRemove={() => editSections(sections.filter((x) => x.id !== s.id))}
-                  />
-                ))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="self-start"
-                  onClick={() =>
-                    editSections([
-                      ...sections,
-                      { id: newId(), heading: '', items: [{ id: newId(), left: '', right: '' }] },
-                    ])
+            {/* You */}
+            <div className="px-4 pt-4 pl-6">
+              <button
+                type="button"
+                aria-expanded={open.you}
+                onClick={() => setOpen((o) => ({ ...o, you: !o.you }))}
+                className="-mx-3 flex w-[calc(100%+24px)] items-center gap-3 rounded-[10px] border-0 bg-transparent px-3 py-2.5 text-left hover:bg-[var(--color-surface-hover)]"
+              >
+                <span className="grid size-9 flex-none place-items-center rounded-full bg-gradient-to-br from-zinc-600 to-zinc-900 text-[12.5px] font-semibold text-white">
+                  {initials}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <b className="truncate text-[14px] font-semibold tracking-[-0.01em]">
+                    {[profile.firstName, profile.lastName].filter(Boolean).join(' ') ||
+                      'Add your name'}
+                  </b>
+                  <span className="text-muted-foreground truncate text-[13px]">
+                    {[profile.title, profile.address].filter(Boolean).join(' · ') ||
+                      'Title, location and contact'}
+                  </span>
+                </span>
+                <ChevronRightIcon
+                  className={`text-muted-foreground size-4 transition-transform ${open.you ? 'rotate-90' : ''}`}
+                />
+              </button>
+              {open.you && (
+                <Panel>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {(
+                      [
+                        ['firstName', 'First name'],
+                        ['lastName', 'Last name'],
+                        ['title', 'Title'],
+                        ['address', 'Location'],
+                        ['email', 'Email'],
+                        ['homepage', 'Homepage'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <label
+                        key={key}
+                        className="text-muted-foreground flex flex-col gap-1.5 text-[11.5px]"
+                      >
+                        {label}
+                        <input
+                          className={fieldClass}
+                          value={profile[key]}
+                          onChange={(e) => setField(key, e.target.value)}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <label className="text-muted-foreground flex flex-col gap-1.5 text-[11.5px]">
+                    Summary
+                    <textarea
+                      rows={3}
+                      className={`${fieldClass} h-auto resize-y py-2 leading-relaxed`}
+                      value={profile.summary}
+                      onChange={(e) => setField('summary', e.target.value)}
+                    />
+                  </label>
+                  <PhotoField />
+                </Panel>
+              )}
+            </div>
+
+            {/* Experience */}
+            <div className="px-4 pt-5 pl-6">
+              <div className="mb-1 flex items-center justify-between">
+                <h2 className="text-muted-foreground m-0 text-[11px] font-medium tracking-[0.07em] uppercase">
+                  Experience
+                </h2>
+              </div>
+              {facts === null && <p className="text-muted-foreground text-[13px]">Loading…</p>}
+              {facts !== null && roles.length === 0 && (
+                <div className="py-6 text-center">
+                  <p className="m-0 text-[13px] font-medium">No experience yet</p>
+                  <p className="text-muted-foreground mt-1 text-[13px]">
+                    Import a CV and jlog reads your roles and bullets out of it.
+                  </p>
+                  <Button className="mt-3" size="sm" onClick={() => setSheet('import')}>
+                    <UploadIcon /> Import a CV
+                  </Button>
+                </div>
+              )}
+              {roles.map((role) => (
+                <RoleBlock
+                  key={role.id}
+                  role={role}
+                  selected={selected}
+                  hot={hot}
+                  editing={editing}
+                  adding={adding?.roleId === role.id ? adding.text : null}
+                  onSelect={setSelected}
+                  onHot={setHot}
+                  onEdit={(b) => setEditing({ id: b.id, text: b.text })}
+                  onEditText={(text) => setEditing((e) => (e ? { ...e, text } : e))}
+                  onSave={saveEdit}
+                  onCancel={() => setEditing(null)}
+                  onArchive={(b) =>
+                    change(
+                      b.id,
+                      { status: 'archived' },
+                      (x) => ({ ...x, status: 'archived' }),
+                      'Archived. Tailoring won’t use it.',
+                    )
                   }
-                >
-                  <PlusIcon /> Section
-                </Button>
-                <p className="text-muted-foreground m-0 text-[11.5px]">
-                  Not career claims, so they are not checked. Tailoring reorders skills toward a
-                  posting and never adds one.
-                </p>
-              </Panel>
-            )}
+                  onAdd={() => setAdding({ roleId: role.id, text: '' })}
+                  onAddText={(text) => setAdding((a) => (a ? { ...a, text } : a))}
+                  onAddSave={saveAdd}
+                  onAddCancel={() => setAdding(null)}
+                />
+              ))}
+              {archived.length > 0 && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    aria-expanded={open.archived}
+                    onClick={() => setOpen((o) => ({ ...o, archived: !o.archived }))}
+                    className="text-muted-foreground hover:text-foreground border-0 bg-transparent p-0 text-[12.5px]"
+                  >
+                    {open.archived ? 'Hide archived' : `${archived.length} archived`}
+                  </button>
+                  {open.archived && (
+                    <ul className="m-0 mt-2 list-none p-0">
+                      {archived.map((a) => (
+                        <li
+                          key={a.id}
+                          className="flex items-center gap-2 border-t border-border py-2 text-[13px]"
+                        >
+                          <span className="text-muted-foreground min-w-0 flex-1 line-through">
+                            {a.text}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (await updateFact(a.id, { status: 'active' })) {
+                                await reloadFacts();
+                                say('Restored.');
+                              } else say('Could not restore that.');
+                            }}
+                          >
+                            <ArchiveRestoreIcon /> Restore
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Skills and sections */}
+            <div className="px-4 pt-5 pl-6">
+              <button
+                type="button"
+                aria-expanded={open.sections}
+                onClick={() => setOpen((o) => ({ ...o, sections: !o.sections }))}
+                className="-mx-3 flex w-[calc(100%+24px)] items-center justify-between rounded-lg border-0 bg-transparent px-3 py-2.5 text-left hover:bg-[var(--color-surface-hover)]"
+              >
+                <b className="text-[13px] font-medium">Skills, education and languages</b>
+                <span className="text-muted-foreground text-[13px]">
+                  {open.sections
+                    ? ''
+                    : `${sections.length} ${sections.length === 1 ? 'section' : 'sections'}`}
+                </span>
+              </button>
+              {open.sections && (
+                <Panel>
+                  {sections.map((s) => (
+                    <SectionEditor
+                      key={s.id}
+                      section={s}
+                      onChange={(next) =>
+                        editSections(sections.map((x) => (x.id === next.id ? next : x)))
+                      }
+                      onRemove={() => editSections(sections.filter((x) => x.id !== s.id))}
+                    />
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="self-start"
+                    onClick={() =>
+                      editSections([
+                        ...sections,
+                        { id: newId(), heading: '', items: [{ id: newId(), left: '', right: '' }] },
+                      ])
+                    }
+                  >
+                    <PlusIcon /> Section
+                  </Button>
+                  <p className="text-muted-foreground m-0 text-[11.5px]">
+                    Not career claims, so they are not checked. Tailoring reorders skills toward a
+                    posting and never adds one.
+                  </p>
+                </Panel>
+              )}
+            </div>
           </div>
         </div>
-
         <div className="text-muted-foreground hidden flex-none items-center gap-3.5 border-t border-border px-6 py-2.5 text-[11.5px] lg:flex">
           <span className="flex items-center gap-1">
             <Kbd>↑</Kbd>
@@ -615,7 +695,7 @@ export function CvWorkspace() {
       {/* Page */}
       <main
         aria-label="Preview"
-        className={`min-h-0 min-w-0 flex-1 flex-col bg-[var(--color-surface-raised)] ${previewOnly ? 'flex' : 'hidden lg:flex'}`}
+        className={`min-h-0 min-w-0 flex-1 flex-col bg-[var(--color-surface-raised)] ${preview ? 'flex' : 'hidden'}`}
         style={{
           backgroundImage:
             'radial-gradient(circle at 1px 1px, rgba(24,24,27,0.045) 1px, transparent 0)',
@@ -623,6 +703,24 @@ export function CvWorkspace() {
         }}
       >
         <div className="flex h-[52px] flex-none items-center justify-between gap-3 border-b border-border bg-[var(--color-surface)]/85 px-4 backdrop-blur">
+          <div className="flex min-w-0 items-center gap-2">
+            {latest && (
+              <select
+                aria-label="What the page shows"
+                className="h-8 max-w-[220px] truncate rounded-md border border-border bg-background px-2 text-[13px]"
+                value={source}
+                onChange={(e) => setSource(e.target.value as 'tailored' | 'base')}
+              >
+                <option value="tailored">Tailored for {latest.application.company}</option>
+                <option value="base">
+                  {facts?.base?.length ? 'Your imported CV' : 'All confirmed bullets'}
+                </option>
+              </select>
+            )}
+            {!latest && (
+              <span className="text-muted-foreground truncate text-[13px]">{showing}</span>
+            )}
+          </div>
           <label className="flex items-center gap-2 text-[13px]">
             <span className="text-muted-foreground">Template</span>
             <select
@@ -641,17 +739,25 @@ export function CvWorkspace() {
             <Button variant="ghost" size="sm" onClick={() => setSheet('templates')}>
               <LayoutTemplateIcon /> Browse
             </Button>
-            {previewOnly && (
-              <Button variant="outline" size="sm" onClick={() => setPreviewOnly(false)}>
-                Close
-              </Button>
-            )}
+            <span className="text-muted-foreground font-mono text-[11.5px] tabular-nums">
+              {pageCount} {pageCount === 1 ? 'page' : 'pages'}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Close the preview"
+              onClick={() => setPreview(false)}
+            >
+              <XIcon />
+            </Button>
           </div>
         </div>
         <CvPreview
           profile={profile}
           sections={sections}
-          roles={roles}
+          roles={previewRoles}
+          template={profile.template}
+          onPages={setPageCount}
           selected={selected}
           hot={hot}
           onSelect={(id) => {
@@ -663,7 +769,7 @@ export function CvWorkspace() {
           onHot={setHot}
         />
         <p className="text-muted-foreground m-0 flex-none pb-3 text-center text-[11.5px]">
-          Layout preview. Your PDF uses the {template.label} design.
+          Close to the {template.label} design. Browse shows its real render.
         </p>
       </main>
 

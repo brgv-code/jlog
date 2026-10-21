@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { missingSections, parseTextCv, withSections } from './text';
+import { missingSections, parseTextCv, stripBulletMarker, withSections } from './text';
 import { EMPTY_CHROME, type ImportedCv } from './types';
 
 /** What unpdf actually returns for a one-page CV, layout flattened to lines. */
@@ -176,5 +176,22 @@ describe('bullets from a moderncv PDF', () => {
       'Built dashboards and admin tools for enterprise clients across three regions and teams',
     ].join('\n');
     expect(parseTextCv(plainCv).roles[0]?.bullets).toHaveLength(2);
+  });
+});
+
+describe('stripBulletMarker', () => {
+  it('drops the glyph a moderncv PDF leaves on a bullet, with or without a space', () => {
+    expect(stripBulletMarker('{ Shipped onboarding for MagicBand+')).toBe(
+      'Shipped onboarding for MagicBand+',
+    );
+    expect(stripBulletMarker('{Shipped onboarding')).toBe('Shipped onboarding');
+    expect(stripBulletMarker('  • Led the migration')).toBe('Led the migration');
+  });
+
+  it('keeps a leading sign that is part of the claim', () => {
+    expect(stripBulletMarker('-40% hosting cost after the move')).toBe(
+      '-40% hosting cost after the move',
+    );
+    expect(stripBulletMarker('- Cut hosting cost by 40%')).toBe('Cut hosting cost by 40%');
   });
 });

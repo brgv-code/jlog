@@ -29,6 +29,19 @@ import { EMPTY_CHROME, type ImportedChrome, type ImportedCv, type ImportedRole }
  * a moderncv PDF was stored with "{ " on the front.
  */
 const BULLET = /^\s*[-*+•‣·▪◦●{—–]\s+/;
+
+/**
+ * A bullet's text without the list marker a PDF's text layer left on it.
+ *
+ * Applied to every bullet an import commits, whichever reader produced it:
+ * the rule above guards this parser only, and bullets that reached the store
+ * through the model-structured path or before that rule existed kept their
+ * "{ ". Glyphs go with or without a space after them; a dash or asterisk only
+ * with one, so "-40% cost" keeps its sign.
+ */
+export function stripBulletMarker(text: string): string {
+  return text.replace(/^\s*(?:[•‣·▪◦●{}]\s*|[-*+—–]\s+)+/, '').trim();
+}
 /** A year, or a range of them, anywhere in the line. */
 const DATES =
   /((?:19|20)\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*(?:19|20)\d{2})\s*(?:--+|[–—]|-|to|until|–)?\s*((?:19|20)\d{2}|present|current|ongoing|now)?/i;
