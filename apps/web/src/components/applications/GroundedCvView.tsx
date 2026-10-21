@@ -336,6 +336,7 @@ const DISLIKE_REASONS = [
 type ToolMode =
   | { kind: 'idle'; note?: string }
   | { kind: 'reasons' }
+  | { kind: 'other'; text: string }
   | { kind: 'disliked' }
   | { kind: 'busy'; what: string }
   | { kind: 'editing'; text: string; problem?: { reason: string; unsupported: string[] } };
@@ -476,6 +477,47 @@ function LineTools({ claim, lines }: { claim: Claim; lines: LineActions }) {
             {label}
           </button>
         ))}
+        <button
+          type="button"
+          role="menuitem"
+          className="text-muted-foreground rounded-md px-2.5 py-1.5 text-left text-[12.5px] hover:bg-muted"
+          onClick={() => setMode({ kind: 'other', text: '' })}
+        >
+          Something else…
+        </button>
+      </div>
+    );
+  }
+
+  // The four reasons do not cover everything; the owner's own words are the
+  // most useful signal there is, so they go into the record as written.
+  if (mode.kind === 'other') {
+    const send = () => {
+      const note = mode.text.trim();
+      if (!note) return;
+      lines.dislike(ref, note);
+      setMode({ kind: 'disliked' });
+    };
+    return (
+      <div className="mb-2 ml-8 flex items-center gap-1.5 rounded-lg bg-card p-1.5 shadow-[0_0_0_1px_var(--color-border-strong)]">
+        <input
+          // biome-ignore lint/a11y/noAutofocus: the field opens on an explicit choice
+          autoFocus
+          aria-label="What is wrong with this line"
+          placeholder="What’s wrong with it? e.g. too vague, wrong focus"
+          maxLength={500}
+          className="min-w-0 flex-1 border-0 bg-transparent px-1.5 text-[12.5px]"
+          style={{ outline: 'none' }}
+          value={mode.text}
+          onChange={(e) => setMode({ kind: 'other', text: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') send();
+            if (e.key === 'Escape') setMode({ kind: 'idle' });
+          }}
+        />
+        <Button size="sm" onClick={send} disabled={!mode.text.trim()}>
+          Send
+        </Button>
       </div>
     );
   }
