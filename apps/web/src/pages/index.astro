@@ -169,7 +169,7 @@ const faqs = [
   },
   {
     q: 'Why do I need my own AI key?',
-    a: 'So you pay the provider directly, at cost, and jlog never marks it up. A whole job search usually costs under €2 in model usage. With Ollama, nothing leaves your machine.',
+    a: 'So you pay the provider directly, at cost, and jlog never marks it up. A whole job search usually costs under €2 in model usage. With Ollama there is no model bill, and if you run jlog yourself the model calls never leave your machine.',
   },
 ];
 
@@ -179,6 +179,12 @@ const jsonLd = [
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: 'jlog',
+    url: 'https://jlog.ai/',
+    // The other places that are jlog, so an answer engine can tell this jlog
+    // from anything else of the same name.
+    sameAs: ['https://github.com/brgv-code/jlog'],
+    license: 'https://opensource.org/licenses/MIT',
+    isAccessibleForFree: true,
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'Web, Chrome',
     description:

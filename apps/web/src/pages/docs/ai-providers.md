@@ -6,7 +6,7 @@ description: Which model jlog uses, what it is used for, and how your key is kep
 
 ## Bring your own model
 
-jlog does not resell model access. You choose a provider in **Settings → LLM provider** and use your own key, billed by that provider at their price. jlog never marks it up. A whole job search usually costs under €2 in model usage.
+jlog does not resell model access. You choose a provider in **Settings → LLM provider** and use your own key, billed by that provider at their price. jlog never marks it up. A whole job search usually costs under €2 in model usage. The short version, with what is sent where: [your own AI key](/bring-your-own-ai-key).
 
 ## Supported providers
 

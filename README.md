@@ -1,6 +1,8 @@
 # jlog
 
-> Self-hostable job application tracker with a Chrome extension that auto-captures from LinkedIn, Wellfound, Ashby, Greenhouse, Lever, and YC Jobs.
+> Free, open-source job application tracker. Captures applications from LinkedIn, Greenhouse and Lever, then builds a tailored CV from your real experience. Hosted at [jlog.ai](https://jlog.ai), or self-host it on Cloudflare.
+>
+> The Chrome extension auto-captures from LinkedIn, Wellfound, Ashby, Greenhouse, Lever, and YC Jobs.
 
 ---
 
