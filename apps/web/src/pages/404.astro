@@ -1,0 +1,94 @@
+---
+/*
+ * The page Cloudflare Pages serves, with a 404 status, for any path that
+ * matches nothing.
+ *
+ * Without a top-level 404.html, Pages assumes a single-page app and answers
+ * every unknown path with the homepage and a 200. A crawler following a stale
+ * or mistyped link then files a second copy of the homepage under that address
+ * (a soft 404) instead of learning the page is gone, and a guess like
+ * /sitemap.xml or /llms.txt comes back as HTML that claims to be the file.
+ */
+import SiteLayout from '../layouts/SiteLayout.astro';
+
+const pages = [
+  { href: '/', label: 'jlog', note: 'what it is and what it costs' },
+  { href: '/features/job-capture', label: 'Job capture', note: 'saved as you apply' },
+  { href: '/features/autofill', label: 'Autofill', note: 'fills forms, never submits' },
+  { href: '/docs', label: 'Docs', note: 'using jlog, and self-hosting it' },
+];
+---
+
+<SiteLayout
+  title="Page not found · jlog"
+  description="There is no page at this address on jlog. Links to the homepage, the features and the docs."
+  noindex
+>
+  <div class="rail">
+    <header class="row nf">
+      <div class="kicker"><span class="kicker-n">404</span><span class="meta">Page not found</span></div>
+      <h1 class="display">Nothing here.<br /><span class="dim">The page may have moved.</span></h1>
+      <p class="lead">
+        If a link brought you here, it is out of date. One of these is probably what you were after.
+      </p>
+      <ul class="nf-links">
+        {
+          pages.map((p) => (
+            <li>
+              <a href={p.href}>
+                <b>{p.label}</b>
+                <span>{p.note}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </header>
+  </div>
+</SiteLayout>
+
+<style>
+  .nf {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .nf-links {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    max-width: 40rem;
+  }
+
+  .nf-links a {
+    display: grid;
+    gap: 0.125rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    background: var(--bg);
+    text-decoration: none;
+    color: var(--ink);
+    transition: border-color 150ms var(--ease);
+  }
+
+  .nf-links a:hover {
+    border-color: var(--grey-2);
+  }
+
+  .nf-links b {
+    font-size: var(--t-small);
+  }
+
+  .nf-links span {
+    font-size: var(--t-meta);
+    color: var(--grey);
+  }
+
+  @media (max-width: 560px) {
+    .nf-links {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -16,9 +16,11 @@ import Layout from './Layout.astro';
 interface Props {
   title: string;
   description: string;
+  /** Passed through to Layout: robots noindex, no canonical. */
+  noindex?: boolean;
 }
 
-const { title, description } = Astro.props;
+const { title, description, noindex = false } = Astro.props;
 
 const GITHUB_URL = 'https://github.com/brgv-code/jlog';
 
@@ -39,7 +41,7 @@ const resources = [
 const path = Astro.url.pathname.replace(/\/$/, '');
 ---
 
-<Layout title={title} description={description} bodyClass="site">
+<Layout title={title} description={description} bodyClass="site" noindex={noindex}>
   <!--
     Both faces are needed for the first paint. Fetched late, their swap
     reflows text that is already laid out, which is most of the layout shift a
