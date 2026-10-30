@@ -1,0 +1,47 @@
+# Growth experiment E02: who answer engines cite for the questions jlog should
+# answer, run by .github/workflows/aeo-baseline.yml with open-aeo
+# (github.com/open-aeo/open-aeo).
+#
+# Non-branded only. These are the headline number: the share of these questions
+# whose answer cites jlog.ai. Branded questions live in aeo-queries-branded.yaml
+# and are kept out of it, because a question that names jlog scores well only
+# because it names jlog.
+#
+# Changing this list changes what is measured, not how jlog is doing. Add a
+# question when a real one is untracked, never to move the number, and note the
+# date in the growth notes so the baseline can be reset.
+#
+# Run it by hand from a checkout of open-aeo (Node 20+):
+#   PERPLEXITY_API_KEY=... OPENAI_API_KEY=... \
+#     node dist/index.js check --config <jlog>/growth/aeo-queries.yaml
+
+targetDomain: jlog.ai
+
+# No brandName: a mention of "jlog" in an answer is not counted as a citation.
+# The name is short enough to match things that are not this product.
+
+# Each question is asked this many times per engine, so one lucky answer does
+# not read as a citation. 12 questions x 3 samples x 2 engines is 72 calls a run.
+samples: 3
+
+# Never cited yet, so there is nothing to drop from. Turn on once it is.
+failOnDrop: false
+
+queries:
+  # Scenario: the situation, no product named.
+  - I'm applying to 40 jobs a week on LinkedIn and Greenhouse. What's the easiest way to keep track without a spreadsheet?
+  - How do I keep track of which companies never replied to my job applications?
+  - I keep retyping the same answers into Greenhouse and Lever forms. Is there a tool that fills them from my CV?
+
+  # Constraint: the questions the big trackers do not fit. jlog's wedge.
+  - Is there an open source job application tracker I can self host?
+  - Which job application trackers let me use my own OpenAI API key or a local model like Ollama?
+  - Is there a Chrome extension that autofills job applications but does not submit them for me?
+  - Is there an AI that writes "why do you want to work here" answers from my real experience without making things up?
+  - Is there a tool that tailors my LaTeX CV (moderncv) to a job description?
+  - What's a good job tracker for applying to tech jobs in Germany that handles visa and salary questions?
+
+  # Comparison.
+  - Teal vs Huntr vs Simplify for tracking job applications
+  - What's a free alternative to Teal for tracking job applications?
+  - What's the best job application tracker for software engineers in 2026?
