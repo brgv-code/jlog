@@ -87,6 +87,17 @@ const ogImageUrl = site ? new URL(ogImage, site).href : undefined;
   </body>
 </html>
 
+<script>
+  /*
+   * Every page, so whichever one a browser opens first is the one remembered
+   * (growth experiment E01). It stays in this browser until sign-up; see
+   * lib/attribution.ts and the privacy page.
+   */
+  import { rememberFirstTouch } from '../lib/attribution';
+
+  rememberFirstTouch();
+</script>
+
 <style is:global>
   * {
     box-sizing: border-box;

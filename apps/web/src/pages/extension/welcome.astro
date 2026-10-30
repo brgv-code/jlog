@@ -19,6 +19,7 @@
  * after each step. Signed out, Settings sends people through sign in and back
  * to the same anchor (lib/next.ts).
  */
+import { HEARD_FROM, type HeardFrom } from '@jlog/shared';
 import { SETUP_GUIDE_URL, STORE_URL } from '../../data/extension';
 import SiteLayout from '../../layouts/SiteLayout.astro';
 
@@ -32,6 +33,23 @@ const steps = [
   { id: 'provider', title: 'Add your AI key' },
   { id: 'first', title: 'Track your first job' },
 ];
+
+/*
+ * "How did you find jlog?" (growth experiment E01). Typed against HEARD_FROM so
+ * an answer added to the schema without a label here fails the build.
+ */
+const heardFromLabels: Record<HeardFrom, string> = {
+  google: 'Google search',
+  ai_assistant: 'ChatGPT or another AI assistant',
+  reddit: 'Reddit',
+  github: 'GitHub',
+  x: 'X',
+  linkedin: 'LinkedIn',
+  chrome_web_store: 'Chrome Web Store',
+  friend: 'A friend or colleague',
+  other: 'Somewhere else',
+};
+const heardFromChoices = HEARD_FROM.map((value) => ({ value, label: heardFromLabels[value] }));
 
 const PROVIDERS = [
   {
@@ -102,6 +120,37 @@ const PROVIDERS = [
             <p class="body done-note" data-signed-in hidden>
               Signed in as <b data-email></b>.
             </p>
+            <!-- Asked once, after sign-up. A referrer cannot see an AI answer
+                 or a friend's recommendation; only the person can. -->
+            <form class="heard" data-heard hidden>
+              <fieldset>
+                <legend class="meta">One question · How did you find jlog?</legend>
+                <div class="chips">
+                  {
+                    heardFromChoices.map(({ value, label }) => (
+                      <label class="chip">
+                        <input type="radio" name="heardFrom" value={value} required />
+                        <span>{label}</span>
+                      </label>
+                    ))
+                  }
+                </div>
+              </fieldset>
+              <input
+                class="heard-detail"
+                type="text"
+                name="detail"
+                maxlength="200"
+                aria-label="Where exactly? (optional)"
+                placeholder="Where exactly? A subreddit, a post, a name (optional)"
+              />
+              <button type="submit" class="btn btn-line">Send</button>
+              <p class="aside-note">
+                Optional. It is the only way jlog can count people who heard about it in an AI answer
+                or from a friend.
+              </p>
+            </form>
+            <p class="body done-note" data-heard-thanks hidden>Thanks, that helps.</p>
             <div class="actions" data-todo-only>
               <a class="btn btn-ink" href={signUpHref}>Create a free account</a>
               <a class="btn btn-line" href={signUpHref}>I already have one</a>
@@ -259,6 +308,7 @@ const PROVIDERS = [
 
 <script>
   import { apiFetch } from '../../lib/api';
+  import { sendFirstTouch } from '../../lib/attribution';
 
   type State = 'done' | 'current' | 'todo';
 
@@ -291,17 +341,26 @@ const PROVIDERS = [
     if (el) el.hidden = !show;
   }
 
+  /** Set once the question is answered, so a re-check on focus cannot bring it back. */
+  let answered = false;
+
   async function check(): Promise<void> {
-    const me = await json<{ user: { email: string } }>('/api/auth/me');
+    const me = await json<{ user: { email: string; demo?: boolean } }>('/api/auth/me');
     const signedIn = me !== null;
+    const demo = me?.user.demo === true;
+
+    // Sign-up from this guide returns here, not to the app, so this can be the
+    // first signed-in page: hand over where this browser first came from.
+    if (signedIn && !demo) void sendFirstTouch();
 
     // Signed out, the other two cannot be asked about, and are not done.
-    const [tokens, llm] = signedIn
+    const [tokens, llm, attribution] = signedIn
       ? await Promise.all([
           json<{ tokens: unknown[] }>('/api/extension/tokens'),
           json<{ config: { provider: string } | null }>('/api/llm/config'),
+          json<{ heardFrom: string | null }>('/api/attribution'),
         ])
-      : [null, null];
+      : [null, null, null];
 
     const done: Record<string, boolean> = {
       account: signedIn,
@@ -317,6 +376,7 @@ const PROVIDERS = [
     }
 
     reveal('[data-signed-in]', signedIn);
+    reveal('[data-heard]', !answered && !demo && attribution !== null && attribution.heardFrom === null);
     const email = document.querySelector<HTMLElement>('[data-email]');
     if (email && me) email.textContent = me.user.email;
     for (const el of document.querySelectorAll<HTMLElement>('[data-todo-only]')) el.hidden = signedIn;
@@ -330,6 +390,34 @@ const PROVIDERS = [
     const label = document.querySelector<HTMLElement>('[data-progress-label]');
     if (label) label.textContent = count === 3 ? 'Set up · all done' : `Your progress · ${count} of 3`;
   }
+
+  const heard = document.querySelector<HTMLFormElement>('[data-heard]');
+  heard?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = new FormData(heard);
+    const heardFrom = data.get('heardFrom');
+    if (typeof heardFrom !== 'string') return;
+    const detail = String(data.get('detail') ?? '').trim();
+
+    const button = heard.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      const res = await apiFetch('/api/attribution/answer', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heardFrom, detail: detail || undefined }),
+      });
+      if (res.ok) {
+        answered = true;
+        heard.hidden = true;
+        reveal('[data-heard-thanks]', true);
+      }
+    } catch {
+      // Left on screen to send again. Nothing else on the page depends on it.
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
 
   void check();
   // The steps happen in Settings, in another tab. Coming back here re-checks.
@@ -559,6 +647,83 @@ const PROVIDERS = [
   .aside-note {
     font-size: var(--t-small);
     color: var(--grey);
+  }
+
+  /* ---------- "How did you find jlog?" ---------- */
+
+  .heard {
+    display: grid;
+    gap: 0.75rem;
+    justify-items: start;
+    width: 100%;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius);
+    background: var(--bg);
+  }
+
+  .heard[hidden] {
+    display: none;
+  }
+
+  .heard fieldset {
+    display: grid;
+    gap: 0.625rem;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: border-color 150ms var(--ease);
+  }
+
+  .chip:hover {
+    border-color: var(--grey-2);
+  }
+
+  .chip:has(input:checked) {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
+
+  /* The pill is the control; the radio stays for keyboards and validation. */
+  .chip input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+  }
+
+  .heard-detail {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--t-small);
   }
 
   .providers {

@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 // Google's OAuth consent screen requires a reachable privacy policy URL before
 // an external app can leave testing mode. It is also just the honest thing to
 // publish for a product that holds someone's job search.
-const lastUpdated = '16 October 2026';
+const lastUpdated = '30 October 2026';
 
 // Where data access and deletion requests land. Also what is given to Google as
 // the app's support email, so the two agree.
@@ -86,6 +86,20 @@ const contactEmail = 'support@jlog.ai';
       revoke them from Settings.
     </p>
 
+    <h3>How you found jlog</h3>
+    <p>
+      When you create an account, jlog stores where your first visit came from: the domain of the
+      site that linked to jlog (the site only, never the page), any campaign tags on that link
+      (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>), the first jlog
+      page you opened, and when. If you answer <em>How did you find jlog?</em> in the setup guide,
+      your answer is stored too. It is used only to see which places bring people to jlog, and it is
+      deleted with your account.
+    </p>
+    <p>
+      Until you sign up, this stays in your browser and is never sent anywhere. It is sent once, the
+      first time you open jlog signed in, and kept only if your account was created that day.
+    </p>
+
     <h2>The Chrome extension</h2>
     <p>
       The extension is the one part of jlog that runs inside pages you visit, so it is worth being
@@ -159,7 +173,15 @@ const contactEmail = 'support@jlog.ai';
       it is deleted after a year.
     </p>
 
-    <h2>Analytics, which currently do nothing</h2>
+    <h2>Analytics</h2>
+    <p>
+      The site counts visits with <strong>Cloudflare Web Analytics</strong>, which sets no cookies,
+      stores nothing in your browser and does not follow you to other sites. jlog sees totals: how
+      many visits a page had and which sites sent them, never who made them. Together with where
+      accounts came from (above), that is all jlog measures about how people find it.
+    </p>
+
+    <h3>The analytics setting, which currently does nothing</h3>
     <p>
       jlog has a single analytics setting, in Settings, and it is <strong>off by default</strong>.
       It is worth being exact about what it does today: <strong>it records your preference and
@@ -173,8 +195,8 @@ const contactEmail = 'support@jlog.ai';
       this page will say so before it starts rather than after.
     </p>
     <p>
-      There is no third-party analytics script on this site, no advertising pixel, and no
-      cross-site tracking.
+      Apart from Cloudflare's visit counter, there is no analytics script on this site, no
+      advertising pixel, and no cross-site tracking.
     </p>
 
     <h2>Cookies</h2>
@@ -190,7 +212,8 @@ const contactEmail = 'support@jlog.ai';
     </p>
     <p>
       Your light/dark theme preference is kept in your browser's local storage and never sent
-      anywhere. That is the lot — no tracking cookies of any kind.
+      anywhere. Where your first visit came from is kept there too, and sent once if you sign up, as
+      described under <em>How you found jlog</em>. That is the lot — no tracking cookies of any kind.
     </p>
 
     <h2>Who else sees your data</h2>
@@ -198,7 +221,7 @@ const contactEmail = 'support@jlog.ai';
     <ul>
       <li>
         <strong>Cloudflare</strong> — hosts the site, the API, the database and any uploaded CV
-        files.
+        files, and counts visits to the site.
       </li>
       <li>
         <strong>GitHub, Google or Apple</strong> — only when you choose to sign in with them. jlog
@@ -246,7 +269,7 @@ const contactEmail = 'support@jlog.ai';
     <p>
       Deletion is permanent and covers your applications and their timelines, your imported CV and
       the facts taken from it, every generated document, your saved application answers, your
-      stored provider key and your extension keys — including <strong>the uploaded and generated files themselves</strong>,
+      stored provider key, your extension keys and the record of how you found jlog — including <strong>the uploaded and generated files themselves</strong>,
       which live outside the database and are removed with it rather than left behind. If you are
       on the paid plan, the subscription is cancelled at the same time, so deleting your account
       does not leave you being billed for it.

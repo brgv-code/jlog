@@ -203,7 +203,13 @@ router.post('/', async (c) => {
       id: crypto.randomUUID(),
       applicationId: id,
       type: 'created',
-      payload: JSON.stringify({ company: data.company, role: data.role }),
+      // `via` says whether the extension saved it or a person typed it in. The
+      // first extension save is jlog's activation event (growth experiment E01).
+      payload: JSON.stringify({
+        company: data.company,
+        role: data.role,
+        via: c.var.session?.type ?? null,
+      }),
       createdAt: now,
     }),
   ]);
