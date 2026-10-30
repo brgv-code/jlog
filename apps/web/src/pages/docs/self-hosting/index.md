@@ -6,7 +6,7 @@ description: Run jlog on your own Cloudflare account. What you get, what it runs
 
 ## What you get
 
-Everything in the Free plan: capture, Extract, autofill, tracking, Home and CV import, with your data in your own database. jlog is MIT licensed.
+Everything in the Free plan: capture, Extract, autofill, tracking, Home and CV import, with your data in your own database. jlog is MIT licensed. For a side-by-side of self-hosted and hosted, see [the open-source job tracker](/open-source-job-tracker).
 
 **The Pro features stay locked.** Tailored CVs, cover letters and drafted answers come from a private package that is not in the public repository. The open-source build carries a stub in its place, so those routes answer that Pro is required. Everything else works.
 

@@ -1,0 +1,255 @@
+---
+/*
+ * A page that answers one question someone asks about job trackers (growth
+ * experiment E04): "is there an open source one I can self host", "can I use my
+ * own AI key". Written to be quoted, by a person or by an answer engine:
+ *
+ *   - the question is the heading and the answer is the first sentence under
+ *     it, so a page that is cut off after one paragraph still answered;
+ *   - claims are facts with a link to where they can be checked (the docs,
+ *     the code), never adjectives;
+ *   - the FAQ is also written out as FAQPage structured data;
+ *   - the date it was last checked is on the page.
+ *
+ * Markdown pages use it as their layout and pass everything in frontmatter.
+ */
+import SiteLayout from './SiteLayout.astro';
+
+interface Faq {
+  q: string;
+  a: string;
+}
+
+interface Frontmatter {
+  /** The page title in search results and the tab. */
+  title: string;
+  description: string;
+  /** The question this page answers, as the H1. */
+  question: string;
+  /** The answer, in one or two sentences, straight under the question. */
+  answer: string;
+  /**
+   * When the facts on the page were last checked, YYYY-MM-DD. YAML reads an
+   * unquoted date as a Date, so either arrives.
+   */
+  updated: string | Date;
+  faqs?: Faq[];
+  related?: { href: string; label: string }[];
+}
+
+const { frontmatter } = Astro.props as { frontmatter: Frontmatter };
+const { title, description, question, answer, updated, faqs = [], related = [] } = frontmatter;
+
+const updatedIso =
+  updated instanceof Date ? updated.toISOString().slice(0, 10) : String(updated).slice(0, 10);
+const updatedLabel = new Date(`${updatedIso}T00:00:00Z`).toLocaleDateString('en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+const jsonLd = faqs.length
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqs.map((f) => ({
+        '@type': 'Question',
+        name: f.q,
+        acceptedAnswer: { '@type': 'Answer', text: f.a },
+      })),
+    }
+  : null;
+---
+
+<SiteLayout title={title} description={description}>
+  <div class="rail">
+    <article class="row answer">
+      <header class="answer-head">
+        <div class="kicker">
+          <span class="kicker-n">Q</span>
+          <span class="meta">Updated <time datetime={updatedIso}>{updatedLabel}</time></span>
+        </div>
+        <h1 class="answer-q">{question}</h1>
+        <p class="lead answer-a">{answer}</p>
+      </header>
+
+      <div class="answer-body">
+        <slot />
+      </div>
+
+      {
+        faqs.length > 0 && (
+          <section class="answer-faq" aria-labelledby="faq">
+            <h2 id="faq">Questions people ask</h2>
+            <dl>
+              {faqs.map((f) => (
+                <div>
+                  <dt>{f.q}</dt>
+                  <dd>{f.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )
+      }
+
+      {
+        related.length > 0 && (
+          <nav class="answer-next" aria-label="Read next">
+            <p class="meta">Read next</p>
+            <ul>
+              {related.map((r) => (
+                <li>
+                  <a href={r.href}>{r.label}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
+    </article>
+  </div>
+  {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+</SiteLayout>
+
+<style>
+  .answer {
+    display: grid;
+    gap: 2.5rem;
+    max-width: 46rem;
+  }
+
+  .answer-head {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .answer-q {
+    font-size: clamp(1.875rem, 4vw, 2.75rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .answer-a {
+    color: var(--ink-2);
+  }
+
+  /* The markdown body. */
+  .answer-body {
+    color: var(--ink-2);
+    font-size: var(--t-body);
+    line-height: 1.7;
+  }
+
+  .answer-body :global(h2),
+  .answer-faq h2 {
+    margin: 2.5rem 0 0.75rem;
+    font-size: 1.375rem;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .answer-body :global(h2:first-child) {
+    margin-top: 0;
+  }
+
+  .answer-body :global(p),
+  .answer-body :global(ul),
+  .answer-body :global(ol),
+  .answer-body :global(table) {
+    margin-bottom: 1rem;
+  }
+
+  .answer-body :global(ul),
+  .answer-body :global(ol) {
+    padding-left: 1.25rem;
+  }
+
+  /* The site's reset strips list markers; prose needs them back. */
+  .answer-body :global(ul) {
+    list-style: disc;
+  }
+
+  .answer-body :global(ol) {
+    list-style: decimal;
+  }
+
+  .answer-body :global(li) {
+    margin-bottom: 0.375rem;
+  }
+
+  .answer-body :global(strong) {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .answer-body :global(a),
+  .answer-next a {
+    color: var(--ink);
+    text-underline-offset: 3px;
+  }
+
+  .answer-body :global(code) {
+    font-family: var(--mono);
+    font-size: 0.875em;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    background: var(--bg-3);
+  }
+
+  .answer-body :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--t-small);
+    display: block;
+    overflow-x: auto;
+  }
+
+  .answer-body :global(th),
+  .answer-body :global(td) {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .answer-body :global(th) {
+    color: var(--ink);
+    font-weight: 600;
+    background: var(--bg-2);
+  }
+
+  .answer-faq dl {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .answer-faq dt {
+    color: var(--ink);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .answer-faq dd {
+    color: var(--ink-2);
+    line-height: 1.65;
+  }
+
+  .answer-next {
+    display: grid;
+    gap: 0.75rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .answer-next ul {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+</style>
