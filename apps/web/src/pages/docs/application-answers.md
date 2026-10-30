@@ -22,4 +22,4 @@ description: The values autofill may use for questions your CV does not answer.
 
 jlog never guesses these, and never answers questions about **criminal history**, **visa type** or **date of birth**, whatever you save.
 
-A sensitive question is filled only when exactly one option on the form fits your saved value. Anything else is left for you. See [autofill](/docs/autofill) for the full rules.
+A sensitive question is filled only when exactly one option on the form fits your saved value. Anything else is left for you. See [autofill](/docs/autofill) for the full rules, and [applying in Germany and the EU](/job-tracker-germany-eu) for how these play out on European applications.

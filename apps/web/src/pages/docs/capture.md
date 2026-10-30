@@ -17,7 +17,7 @@ On these boards the extension waits for the moment an application is sent, then 
 | Wellfound | The apply button, then its confirmation on the page |
 | YC's job board | The apply click, then its confirmation |
 
-**It records the company, the role and the link.** Nothing else is read from the page.
+**It records the company, the role and the link.** Nothing else is read from the page. Board by board: [LinkedIn](/track-linkedin-job-applications), [Greenhouse](/track-greenhouse-job-applications).
 
 ## Anywhere else, with Extract
 

@@ -120,6 +120,12 @@ const jsonLd = faqs.length
     max-width: 46rem;
   }
 
+  /* A grid item grows to fit its widest child unless told otherwise, which
+     would let a wide table push the page sideways instead of scrolling. */
+  .answer > * {
+    min-width: 0;
+  }
+
   .answer-head {
     display: grid;
     gap: 1.25rem;
