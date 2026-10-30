@@ -17,6 +17,7 @@ On the hosted jlog, in its database:
 - **Your application answers**, from Settings.
 - **Your AI provider key**, encrypted with AES-GCM.
 - **Extension keys**, with their names and expiry dates.
+- **How you found jlog:** the site that sent your first visit (domain only), any campaign tags on that link, your first page, and your answer to *How did you find jlog?* if you gave one. Kept in your browser until you sign up, sent once after.
 
 ## What the extension reads
 
@@ -31,7 +32,7 @@ Only these, each with only what its job needs:
 
 | Who | What for |
 |---|---|
-| Cloudflare | Hosts the site, the API, the database and uploaded CV files. |
+| Cloudflare | Hosts the site, the API, the database and uploaded CV files, and counts visits to the site without cookies. |
 | GitHub, Google or Apple | Only if you sign in with them. jlog receives your name, verified email and avatar; they receive none of your job data. |
 | Resend | Delivers sign-in link emails, so it sees that address. |
 | Stripe | Payment for Pro, including card details, plus your name, email and account id for matching payments. |
@@ -42,7 +43,7 @@ Nothing is sold, rented or shared with advertisers.
 
 ## Deleting it
 
-**Settings → Delete account** deletes everything at once, when you confirm: applications and their timelines, your CV and its facts, generated documents and files, saved answers, your provider key and your extension keys. A Pro subscription is cancelled at the same time.
+**Settings → Delete account** deletes everything at once, when you confirm: applications and their timelines, your CV and its facts, generated documents and files, saved answers, your provider key, your extension keys and where your account came from. A Pro subscription is cancelled at the same time.
 
 Expired sign-in links and sessions are cleared by a daily job. Expired extension keys are kept for 30 more days, so the extension can still tell you when its key expired, and then removed.
 

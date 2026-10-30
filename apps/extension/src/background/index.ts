@@ -3,8 +3,8 @@ import type { CvProfile, SavedValues } from '../lib/autofill';
 import {
   API_BASE,
   type Connection,
+  INSTALL_WELCOME_URL,
   UNINSTALL_URL,
-  WELCOME_URL,
   checkConnection,
   getToken,
   setCachedConnection,
@@ -219,7 +219,7 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
   // A fresh install has no key, and saying so up front means the popup opens
   // straight onto the paste screen instead of guessing.
   void setCachedConnection({ status: 'no-key', expiresAt: null, label: null, account: null });
-  void chrome.tabs.create({ url: WELCOME_URL });
+  void chrome.tabs.create({ url: INSTALL_WELCOME_URL });
 });
 
 // Set on every start of the worker rather than once at install, so installs

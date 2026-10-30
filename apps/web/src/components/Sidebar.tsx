@@ -11,6 +11,7 @@ import {
   SettingsIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { sendFirstTouch } from '../lib/attribution';
 import { ThemeSegmented } from './ui/ThemeSegmented';
 
 const COLLAPSED_KEY = 'jlog_sidebar_collapsed';
@@ -110,6 +111,13 @@ export function Sidebar({ user, active, onSignOut }: SidebarProps) {
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSED_KEY) === '1');
   }, []);
+
+  // The rail renders only for a signed-in user, on every app page, which makes
+  // it the one place a fresh sign-up is certain to pass through. A demo account
+  // keeps the browser's first touch for the real sign-up that may follow.
+  useEffect(() => {
+    if (!user.demo) void sendFirstTouch();
+  }, [user.demo]);
 
   // Widening the window past the breakpoint with the drawer open should not
   // leave it open the next time the window narrows.

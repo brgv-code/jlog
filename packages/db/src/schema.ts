@@ -476,6 +476,35 @@ export const uninstallFeedback = sqliteTable('uninstall_feedback', {
 });
 
 /**
+ * Where an account came from (growth experiment E01). One row per user, written
+ * in two halves that can arrive in either order: the browser's first touch,
+ * sent once after sign-up, and the answer to "How did you find jlog?" from the
+ * setup guide. `channel` is derived from the raw values by `channelFor` in
+ * @jlog/shared; the raw values are kept so it can be derived again.
+ *
+ * Its own table rather than columns on `users`, so creating it is a re-runnable
+ * `CREATE TABLE IF NOT EXISTS` and deleting the account takes it along.
+ */
+export const signupAttribution = sqliteTable('signup_attribution', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  channel: text('channel'),
+  /** The referring site's host only, never the page. */
+  referrerHost: text('referrer_host'),
+  utmSource: text('utm_source'),
+  utmMedium: text('utm_medium'),
+  utmCampaign: text('utm_campaign'),
+  /** The first jlog page the browser opened, path only. */
+  landingPath: text('landing_path'),
+  firstSeenAt: integer('first_seen_at', { mode: 'timestamp' }),
+  heardFrom: text('heard_from'),
+  heardFromDetail: text('heard_from_detail'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
  * What the owner did to a line of a tailored CV (ADR-015): like, dislike,
  * regenerate, remove or edit. Likes and dislikes steer which wordings tailoring
  * offers; the whole log is the eval set. Not keyed to a fact by foreign key:

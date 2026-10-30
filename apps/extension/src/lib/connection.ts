@@ -31,6 +31,14 @@ export const SETTINGS_URL = `${WEB_BASE}/settings#extension`;
 export const WELCOME_URL = `${WEB_BASE}/extension/welcome/`;
 
 /**
+ * The same guide, tagged, for the tab a fresh install opens. For someone whose
+ * first jlog page is that tab there is no referrer, so without the tag a store
+ * install would read as a direct visit (growth experiment E01). Only the
+ * install tab: the popup's link to the guide is not a first visit.
+ */
+export const INSTALL_WELCOME_URL = `${WELCOME_URL}?utm_source=chrome-web-store&utm_medium=extension-install`;
+
+/**
  * Where Chrome sends someone after they remove the extension. A short, optional
  * form; the version is the only thing attached, so a report can be matched to
  * the build it is about. Nothing identifying: the key is gone by then anyway.

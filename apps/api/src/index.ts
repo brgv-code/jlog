@@ -12,6 +12,7 @@ import { authInstanceMiddleware } from './middleware/authInstance';
 import { sessionMiddleware } from './middleware/session';
 import { tracingMiddleware } from './middleware/tracing';
 import applicationsRouter from './routes/applications';
+import attributionRouter from './routes/attribution';
 import authRouter from './routes/auth';
 import billingRouter from './routes/billing';
 import companyLogoRouter from './routes/companyLogo';
@@ -215,6 +216,8 @@ app.route('/api/llm', llmRouter);
 app.route('/api/extract', extractRouter);
 app.route('/api/extension', extensionRouter);
 app.route('/api/feedback', feedbackRouter);
+// Where an account came from (growth experiment E01).
+app.route('/api/attribution', attributionRouter);
 // Billing. /billing/webhook is deliberately sessionless: Stripe sends no cookie
 // and the signature is what authenticates it.
 app.route('/api/billing', billingRouter);
