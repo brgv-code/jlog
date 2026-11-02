@@ -1,0 +1,104 @@
+name: Notify search engines
+
+# After a push to main that changes a public page, once Cloudflare Pages has
+# deployed it: resubmit the sitemap to Google Search Console and send the
+# changed URLs to IndexNow. The work is in apps/web/scripts/notify-search-engines.mjs.
+#
+# Why: Google read the sitemap on 29 Oct 2026, the comparison and answer pages
+# shipped on 31 Oct, and Search Console kept showing the old 26 URLs until the
+# sitemap was resubmitted by hand.
+#
+# Setup, once (each part is skipped with a notice until it is done):
+#   Environment `search-engines`, deployment branches limited to main, with
+#     secret   GSC_SERVICE_ACCOUNT  JSON key of a service account that is a Full
+#                                   user on the Search Console property, in a
+#                                   Google Cloud project with the Search Console
+#                                   API enabled
+#     variable GSC_PROPERTY         the property exactly as Search Console names
+#                                   it: `sc-domain:jlog.ai` or `https://jlog.ai/`
+#     secret   INDEXNOW_KEY         any 32 hex characters
+#   Cloudflare Pages project: the same INDEXNOW_KEY as an environment variable,
+#   so the site serves /<key>.txt (src/pages/[indexnow].txt.ts).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/src/pages/**'
+  # Resubmits the sitemap and sends every URL in it: for a first run, or after
+  # pages changed in a way the path filter above does not see.
+  workflow_dispatch:
+
+concurrency:
+  group: notify-search-engines
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    name: Resubmit sitemap and send changed URLs
+    # A fork has no Pages check to wait for and none of these secrets.
+    if: github.repository == 'brgv-code/jlog'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Reads the check runs on its own commit, nothing else.
+    permissions:
+      contents: read
+      checks: read
+
+    # Not `production`: that one needs an approval per run, which would hold
+    # every page edit for a click. This job installs nothing (the script uses
+    # Node built-ins only), so the dependency risk that approval guards against
+    # does not reach these secrets. The environment's branch policy still keeps
+    # them away from anything but main.
+    environment: search-engines
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # The push's own range is needed to know which pages changed.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      # Pages builds from its own git integration, outside Actions, and reports
+      # back as a check run on the commit. Announcing before it is live would
+      # point crawlers at the old pages.
+      - name: Wait for Cloudflare Pages to deploy this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 60); do
+            run=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?check_name=Cloudflare%20Pages" \
+              -q '.check_runs | sort_by(.started_at) | last | "\(.status) \(.conclusion)"')
+            case "$run" in
+              "completed success") echo "Deployed."; exit 0 ;;
+              "completed cancelled"|"completed skipped")
+                # A newer push superseded this one; its own run will announce.
+                echo "::notice::Pages did not deploy this commit ($run). Nothing to announce."
+                echo "SKIP=1" >> "$GITHUB_ENV"; exit 0 ;;
+              completed*) echo "::error::Cloudflare Pages build ended as: $run"; exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::No finished Cloudflare Pages check on $GITHUB_SHA after 20 minutes."
+          exit 1
+
+      - name: Notify
+        if: env.SKIP != '1'
+        env:
+          SITE_URL: https://jlog.ai
+          GSC_PROPERTY: ${{ vars.GSC_PROPERTY }}
+          GSC_SERVICE_ACCOUNT: ${{ secrets.GSC_SERVICE_ACCOUNT }}
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            export CHANGED_FILES=ALL
+          else
+            CHANGED_FILES=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+            export CHANGED_FILES
+          fi
+          node apps/web/scripts/notify-search-engines.mjs

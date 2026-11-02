@@ -1,8 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 import tailwind from '@astrojs/tailwind';
 import { defineConfig } from 'astro/config';
 import { isAppRoute } from './src/data/appRoutes.mjs';
+import { createLastmod } from './src/data/lastmod.mjs';
 
 /*
  * The public origin, used for canonical links and absolute social-card URLs
@@ -29,14 +31,24 @@ import { isAppRoute } from './src/data/appRoutes.mjs';
  */
 const site = process.env.PUBLIC_SITE_URL;
 
+/** The sitemap, with a lastmod wherever one is known (src/data/lastmod.mjs). */
+function sitemapIntegration() {
+  const lastmod = createLastmod({
+    pagesDir: fileURLToPath(new URL('./src/pages', import.meta.url)),
+  });
+  return sitemap({
+    filter: (page) => !isAppRoute(page),
+    serialize(item) {
+      const date = lastmod(item.url);
+      return date ? { ...item, lastmod: date } : item;
+    },
+  });
+}
+
 export default defineConfig({
   site,
   // The sitemap needs absolute URLs, so it is only written when `site` is set.
-  integrations: [
-    react(),
-    tailwind(),
-    ...(site ? [sitemap({ filter: (page) => !isAppRoute(page) })] : []),
-  ],
+  integrations: [react(), tailwind(), ...(site ? [sitemapIntegration()] : [])],
   output: 'static',
   server: { port: 4321 },
 });
