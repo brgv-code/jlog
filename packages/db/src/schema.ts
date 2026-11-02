@@ -22,6 +22,8 @@ export const users = sqliteTable('users', {
   emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
   avatarUrl: text('avatar_url'),
   analyticsOptIn: integer('analytics_opt_in', { mode: 'boolean' }).notNull().default(false),
+  // The cookie banner's answer: null until asked. Gates every PostHog event the API sends.
+  analyticsConsent: integer('analytics_consent', { mode: 'boolean' }),
   // Entitlement for paid features (see @jlog/pro). Core/public field; the paywall
   // is enforced server-side off this value, never on the client.
   plan: text('plan', { enum: ['free', 'pro'] })

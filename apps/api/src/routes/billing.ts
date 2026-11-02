@@ -3,6 +3,7 @@ import { and, eq, isNull, or } from 'drizzle-orm';
 import { Hono } from 'hono';
 import Stripe from 'stripe';
 import type { Env, Variables } from '../index';
+import { accountConsents, captureEvent } from '../lib/analytics';
 import { planChangeFor } from '../lib/billing';
 import { isDemoEmail } from '../lib/demo/account';
 import { requireSession } from '../lib/session';
@@ -206,6 +207,18 @@ router.post('/webhook', async (c) => {
       ),
     )
     .returning({ id: users.id });
+
+  const changed = updated[0];
+  if (changed) {
+    c.executionCtx.waitUntil(
+      captureEvent(c.env, {
+        userId: changed.id,
+        event: 'plan changed',
+        properties: { plan: change.plan, status: change.planStatus },
+        hasConsent: accountConsents(c.env.DB),
+      }),
+    );
+  }
 
   // Not an error: a manual comp, or an event for a customer that is not ours.
   return c.json({ received: true, applied: updated.length > 0 });

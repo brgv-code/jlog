@@ -1,5 +1,6 @@
 import { ArrowRightIcon, SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { analyticsAvailable, openConsentBanner } from '../lib/analytics';
 import { apiFetch } from '../lib/api';
 import { loginUrlFor } from '../lib/next';
 import { Sidebar } from './Sidebar';
@@ -346,6 +347,19 @@ export default function SettingsShell() {
                   {analyticsOptIn ? 'Contributing anonymized data' : 'Not sharing data'}
                 </span>
               </div>
+            )}
+            {analyticsAvailable && (
+              <p style={{ ...helpStyle, marginTop: 'var(--space-3)' }}>
+                Cookies and session recordings for jlog's own product analytics are a separate
+                choice.{' '}
+                <button
+                  type="button"
+                  className="underline underline-offset-2"
+                  onClick={openConsentBanner}
+                >
+                  Change your cookie choice
+                </button>
+              </p>
             )}
           </section>
 

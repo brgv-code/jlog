@@ -70,6 +70,8 @@ router.get('/me', async (c) => {
       currentPeriodEnd: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
       // Lets the app mark a demo account as one, and point at a real sign-up.
       demo: isDemoEmail(user.email),
+      // Lets a new browser adopt the account's cookie banner answer instead of asking again.
+      analyticsConsent: user.analyticsConsent ?? null,
     },
   });
 });

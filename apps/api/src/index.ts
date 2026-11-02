@@ -8,6 +8,7 @@ import { warmDemoLogos } from './lib/demo/seed';
 import { isTrustedExtensionOrigin } from './lib/extensionIds';
 import type { Tracing } from './lib/langfuse';
 import { makeDrafter, makeTailor } from './lib/tailor';
+import { analyticsMiddleware } from './middleware/analytics';
 import { authInstanceMiddleware } from './middleware/authInstance';
 import { sessionMiddleware } from './middleware/session';
 import { tracingMiddleware } from './middleware/tracing';
@@ -128,6 +129,9 @@ export interface Env {
    * nightly cleanup.
    */
   DEMO_ENABLED?: string;
+  // PostHog (lib/analytics.ts). Unset sends nothing, as locally and when self-hosted; the key is a public token, so a var.
+  POSTHOG_KEY?: string;
+  POSTHOG_HOST?: string;
 }
 
 export type Variables = {
@@ -180,7 +184,13 @@ app.use(
     // Lets the browser attach/receive the session cookie on cross-origin requests.
     credentials: true,
     allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization'],
+    // posthog-js adds the PostHog pair once someone accepts analytics; refusing them would fail every preflight.
+    allowHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-POSTHOG-DISTINCT-ID',
+      'X-POSTHOG-SESSION-ID',
+    ],
   }),
 );
 // Before anything that needs to know who is calling: build this request's auth
@@ -190,6 +200,8 @@ app.use('*', sessionMiddleware);
 // After the session middleware: a trace is only worth correlating if it can
 // carry the userId that middleware resolves.
 app.use('*', tracingMiddleware);
+// After the session middleware, for the same reason: an event needs the account it belongs to.
+app.use('/api/*', analyticsMiddleware);
 // jlog's own two auth endpoints go on FIRST. Hono runs matching handlers in
 // registration order, so /api/auth/providers and /api/auth/me are answered here
 // and every other path under /api/auth falls through to Better Auth below.

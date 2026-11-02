@@ -1,5 +1,6 @@
 import { type AuthProviderAvailability, authProvidersResponseSchema } from '@jlog/shared';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
+import { capture, resetAnalytics } from '../lib/analytics';
 import { apiFetch } from '../lib/api';
 import { disconnectExtension } from '../lib/extensionSync';
 import { safeNext } from '../lib/next';
@@ -154,6 +155,7 @@ export default function LoginPanel() {
    * navigate nothing.
    */
   async function signInWith(provider: 'github' | 'google' | 'apple') {
+    capture('sign in started', { method: provider });
     setError(null);
     setBusyProvider(provider);
 
@@ -194,6 +196,7 @@ export default function LoginPanel() {
 
   async function requestMagicLink(event: FormEvent) {
     event.preventDefault();
+    capture('sign in started', { method: 'email' });
     setError(null);
     setSending(true);
 
@@ -246,6 +249,7 @@ export default function LoginPanel() {
     try {
       await disconnectExtension();
       await apiFetch('/api/auth/sign-out', { method: 'POST' });
+      resetAnalytics();
       setSignedInAs(null);
     } catch {
       setError('Could not sign out. Check your connection and try again.');

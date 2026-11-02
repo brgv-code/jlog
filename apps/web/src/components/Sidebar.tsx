@@ -11,6 +11,7 @@ import {
   SettingsIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { linkAccount, resetAnalytics } from '../lib/analytics';
 import { sendFirstTouch } from '../lib/attribution';
 import { connectExtension, disconnectExtension } from '../lib/extensionSync';
 import { ThemeSegmented } from './ui/ThemeSegmented';
@@ -77,6 +78,7 @@ interface User {
   avatarUrl: string | null;
   /** A throwaway demo account (see apps/api/src/lib/demo). */
   demo?: boolean;
+  analyticsConsent?: boolean | null;
 }
 
 interface SidebarProps {
@@ -122,13 +124,18 @@ export function Sidebar({ user, active, onSignOut: signOutOfAccount }: SidebarPr
     if (!user.demo) void sendFirstTouch();
   }, [user.demo]);
 
-  // Same reason: every signed-in page passes through here, so the extension follows this account.
+  // Same reason: every signed-in page passes through here, so analytics and the extension follow this account.
+  useEffect(() => {
+    linkAccount(user);
+  }, [user]);
+
   useEffect(() => {
     void connectExtension({ id: user.id, demo: user.demo });
   }, [user.id, user.demo]);
 
-  // The extension disconnects with the site, so the next account on this browser does not inherit it.
+  // The next person on this browser must inherit neither this account's analytics identity nor its extension.
   async function onSignOut() {
+    resetAnalytics();
     // A demo never took the extension over, so leaving it must not disconnect the real account.
     if (!user.demo) await disconnectExtension();
     signOutOfAccount();
