@@ -1,6 +1,7 @@
 import { type AuthProviderAvailability, authProvidersResponseSchema } from '@jlog/shared';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { disconnectExtension } from '../lib/extensionSync';
 import { safeNext } from '../lib/next';
 import { JlogMark } from './ui/JlogMark';
 
@@ -243,6 +244,7 @@ export default function LoginPanel() {
   async function useAnotherAccount() {
     setSigningOut(true);
     try {
+      await disconnectExtension();
       await apiFetch('/api/auth/sign-out', { method: 'POST' });
       setSignedInAs(null);
     } catch {

@@ -60,7 +60,8 @@ router.get('/session', async (c) => {
     // has ever had a personal and a work login open at once.
     const db = createDb(c.env.DB);
     const [account] = await db
-      .select({ email: users.email, name: users.name })
+      // The id is how the extension matches this key to the account signed in on jlog.ai.
+      .select({ id: users.id, email: users.email, name: users.name })
       .from(users)
       .where(eq(users.id, session.userId));
 

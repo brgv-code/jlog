@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { sendFirstTouch } from '../lib/attribution';
+import { connectExtension, disconnectExtension } from '../lib/extensionSync';
 import { ThemeSegmented } from './ui/ThemeSegmented';
 
 const COLLAPSED_KEY = 'jlog_sidebar_collapsed';
@@ -69,6 +70,8 @@ const NAV: NavItem[] = [
 ];
 
 interface User {
+  /** Present at runtime from /api/auth/me; optional so every shell's narrower user type still fits. */
+  id?: string;
   name: string;
   email: string;
   avatarUrl: string | null;
@@ -98,7 +101,7 @@ interface SidebarProps {
  * over the content instead of pushing it, and that choice is not saved: a phone
  * opening the drawer once should not leave a desktop collapsed.
  */
-export function Sidebar({ user, active, onSignOut }: SidebarProps) {
+export function Sidebar({ user, active, onSignOut: signOutOfAccount }: SidebarProps) {
   const [savedCollapsed, setCollapsed] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const narrow = useNarrow();
@@ -118,6 +121,18 @@ export function Sidebar({ user, active, onSignOut }: SidebarProps) {
   useEffect(() => {
     if (!user.demo) void sendFirstTouch();
   }, [user.demo]);
+
+  // Same reason: every signed-in page passes through here, so the extension follows this account.
+  useEffect(() => {
+    void connectExtension({ id: user.id, demo: user.demo });
+  }, [user.id, user.demo]);
+
+  // The extension disconnects with the site, so the next account on this browser does not inherit it.
+  async function onSignOut() {
+    // A demo never took the extension over, so leaving it must not disconnect the real account.
+    if (!user.demo) await disconnectExtension();
+    signOutOfAccount();
+  }
 
   // Widening the window past the breakpoint with the drawer open should not
   // leave it open the next time the window narrows.

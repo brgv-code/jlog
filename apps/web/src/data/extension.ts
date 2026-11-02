@@ -11,3 +11,14 @@ export const STORE_URL = '';
  * move without an extension release.
  */
 export const SETUP_GUIDE_URL = '/extension/welcome/';
+
+/*
+ * The extension builds jlog.ai may message to keep them on the signed-in
+ * account: the store build, then the unpacked development build (its ID comes
+ * from the folder it is loaded from). Same pair as EXTENSION_ID in the API's
+ * wrangler.toml.
+ */
+export const EXTENSION_IDS = [
+  'ghianoebaadfaoheimmapmbdbljppmcb',
+  'enonliciopahgdejgpdjaeadebclgjom',
+];

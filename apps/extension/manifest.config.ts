@@ -1,6 +1,13 @@
 import { defineManifest } from '@crxjs/vite-plugin';
+import { loadEnv } from 'vite';
 
-export default defineManifest({
+/** Only jlog's own site may message the extension; a pattern takes no port, so localhost covers the dev server. */
+function websitePattern(mode: string): string {
+  const web = new URL(loadEnv(mode, process.cwd(), '').VITE_WEB_BASE ?? 'http://localhost:4321');
+  return `${web.protocol}//${web.hostname}/*`;
+}
+
+export default defineManifest(({ mode }) => ({
   manifest_version: 3,
   name: 'jlog',
   version: '1.0.0',
@@ -36,6 +43,8 @@ export default defineManifest({
       '128': 'icons/icon-128.png',
     },
   },
+  // How jlog.ai tells the extension which account is signed in (lib/accountSync.ts). No permission warning.
+  externally_connectable: { matches: [websitePattern(mode)] },
   background: {
     service_worker: 'src/background/index.ts',
     type: 'module',
@@ -81,4 +90,4 @@ export default defineManifest({
       all_frames: true,
     },
   ],
-});
+}));
