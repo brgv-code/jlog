@@ -17,20 +17,20 @@ name: Deploy API
 # Turn OFF Cloudflare Workers Builds for jlog-api when enabling this, or the
 # two race and the git-connected one wins whenever it runs last.
 
+# Called by CI once its checks pass on main, so a merge that breaks the tests never ships.
 on:
-  push:
-    branches: [main]
+  workflow_call:
   workflow_dispatch:
-
-# A half-finished deploy overwritten by the next one is worse than a queue.
-concurrency:
-  group: deploy-api
-  cancel-in-progress: false
 
 jobs:
   deploy:
     name: Overlay private implementation and deploy
     runs-on: ubuntu-latest
+
+    # A half-finished deploy overwritten by the next one is worse than a queue. Job level: a called workflow runs inside CI's.
+    concurrency:
+      group: deploy-api
+      cancel-in-progress: false
 
     # This job reads nothing from GitHub beyond its own checkout, and writes
     # nothing back. The default GITHUB_TOKEN is far broader than that.
