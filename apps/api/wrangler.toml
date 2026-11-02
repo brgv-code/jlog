@@ -45,8 +45,9 @@ COOKIE_DOMAIN = "production"
 # set as secrets. Tracing is skipped entirely if those two aren't set (see
 # getTracing in lib/langfuse.ts), so this alone doesn't turn anything on.
 LANGFUSE_BASE_URL = "https://cloud.langfuse.com"
-# PostHog EU cloud. Nothing is sent until POSTHOG_KEY (a public project token) is also set.
+# PostHog EU cloud. The key is a public project token, not a secret; remove it and the API sends nothing.
 POSTHOG_HOST = "https://eu.i.posthog.com"
+POSTHOG_KEY = "phc_m4TAmf9zRV2MuwBuGWSFuSBdY44qckpVseFi33FqKACc"
 # Keeps a preview deployment's traces out of production's inside the same
 # Langfuse project. Unset locally, which lands traces in "default".
 LANGFUSE_TRACING_ENVIRONMENT = "production"
