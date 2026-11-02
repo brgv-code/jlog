@@ -2,6 +2,7 @@ import { type AuthProviderAvailability, authProvidersResponseSchema } from '@jlo
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
 import { capture, resetAnalytics } from '../lib/analytics';
 import { apiFetch } from '../lib/api';
+import { disconnectExtension } from '../lib/extensionSync';
 import { safeNext } from '../lib/next';
 import { JlogMark } from './ui/JlogMark';
 
@@ -246,6 +247,7 @@ export default function LoginPanel() {
   async function useAnotherAccount() {
     setSigningOut(true);
     try {
+      await disconnectExtension();
       await apiFetch('/api/auth/sign-out', { method: 'POST' });
       resetAnalytics();
       setSignedInAs(null);

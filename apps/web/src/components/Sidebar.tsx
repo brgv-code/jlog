@@ -13,6 +13,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { linkAccount, resetAnalytics } from '../lib/analytics';
 import { sendFirstTouch } from '../lib/attribution';
+import { connectExtension, disconnectExtension } from '../lib/extensionSync';
 import { ThemeSegmented } from './ui/ThemeSegmented';
 
 const COLLAPSED_KEY = 'jlog_sidebar_collapsed';
@@ -123,14 +124,20 @@ export function Sidebar({ user, active, onSignOut: signOutOfAccount }: SidebarPr
     if (!user.demo) void sendFirstTouch();
   }, [user.demo]);
 
-  // Same reason as above: every signed-in page passes through here.
+  // Same reason: every signed-in page passes through here, so analytics and the extension follow this account.
   useEffect(() => {
     linkAccount(user);
   }, [user]);
 
-  // The next person on this browser must not inherit this account's analytics identity.
-  function onSignOut() {
+  useEffect(() => {
+    void connectExtension({ id: user.id, demo: user.demo });
+  }, [user.id, user.demo]);
+
+  // The next person on this browser must inherit neither this account's analytics identity nor its extension.
+  async function onSignOut() {
     resetAnalytics();
+    // A demo never took the extension over, so leaving it must not disconnect the real account.
+    if (!user.demo) await disconnectExtension();
     signOutOfAccount();
   }
 

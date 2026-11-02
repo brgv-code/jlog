@@ -1,3 +1,4 @@
+import { handleWebsiteMessage } from '../lib/accountSync';
 import { loadRecentActivity } from '../lib/activity';
 import type { CvProfile, SavedValues } from '../lib/autofill';
 import {
@@ -5,6 +6,7 @@ import {
   type Connection,
   INSTALL_WELCOME_URL,
   UNINSTALL_URL,
+  WEB_BASE,
   checkConnection,
   getToken,
   setCachedConnection,
@@ -240,5 +242,26 @@ chrome.runtime.onMessage.addListener(
         sendResponse({ ok: false, error: String(err) });
       });
     return true; // keep channel open for async response
+  },
+);
+
+// jlog.ai telling the extension who is signed in. The manifest already limits senders to jlog.ai; this checks again.
+chrome.runtime.onMessageExternal.addListener(
+  (
+    message: unknown,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: unknown) => void,
+  ) => {
+    if (!sender.origin || sender.origin !== new URL(WEB_BASE).origin) {
+      sendResponse({ status: 'ignored' });
+      return false;
+    }
+    handleWebsiteMessage(message)
+      .then(sendResponse)
+      .catch((err: unknown) => {
+        console.warn('Account sync failed', err);
+        sendResponse({ status: 'offline' });
+      });
+    return true;
   },
 );

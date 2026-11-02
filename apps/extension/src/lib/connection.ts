@@ -55,6 +55,8 @@ export const DASHBOARD_URL = `${WEB_BASE}/applications`;
 
 const TOKEN_KEY = 'jlog_token';
 const STATE_KEY = 'jlog_connection';
+// Every key that has verified, by account id, so switching back to an account on jlog.ai needs no new key.
+const ACCOUNT_KEYS_KEY = 'jlog_account_keys';
 
 /** Below this much life left, the popup starts nudging you to renew. */
 export const RENEW_WARNING_MS = 3 * 24 * 60 * 60 * 1000;
@@ -73,6 +75,8 @@ export type ConnectionStatus =
 
 /** Who the key belongs to. Null whenever the key is not currently good. */
 export interface Account {
+  /** Absent from an API older than account switching. */
+  id?: string;
   email: string;
   name: string;
 }
@@ -105,6 +109,27 @@ export async function setToken(token: string): Promise<void> {
 
 export async function clearToken(): Promise<void> {
   await chrome.storage.local.remove([TOKEN_KEY, STATE_KEY]);
+}
+
+async function readAccountKeys(): Promise<Record<string, string>> {
+  const result = await chrome.storage.local.get(ACCOUNT_KEYS_KEY);
+  return (result[ACCOUNT_KEYS_KEY] as Record<string, string> | undefined) ?? {};
+}
+
+export async function rememberedKeyFor(accountId: string): Promise<string | null> {
+  return (await readAccountKeys())[accountId] ?? null;
+}
+
+async function rememberKey(accountId: string, token: string): Promise<void> {
+  const keys = await readAccountKeys();
+  if (keys[accountId] === token) return;
+  await chrome.storage.local.set({ [ACCOUNT_KEYS_KEY]: { ...keys, [accountId]: token } });
+}
+
+async function forgetKey(token: string): Promise<void> {
+  const keys = await readAccountKeys();
+  const kept = Object.fromEntries(Object.entries(keys).filter(([, key]) => key !== token));
+  await chrome.storage.local.set({ [ACCOUNT_KEYS_KEY]: kept });
 }
 
 /** The last answer the server gave, if any. Null when nothing has been checked. */
@@ -168,6 +193,9 @@ export async function checkConnection(): Promise<Connection> {
     const expiresAt = data.expiresAt ? new Date(data.expiresAt).getTime() : null;
     const status: ConnectionStatus =
       data.status === 'active' ? 'active' : data.status === 'expired' ? 'expired' : 'rejected';
+    if (status === 'active' && data.account?.id) await rememberKey(data.account.id, token);
+    // A dead key is never worth switching back to; jlog.ai makes a fresh one instead.
+    else if (status !== 'active') await forgetKey(token);
     return setCachedConnection({
       status,
       expiresAt,
