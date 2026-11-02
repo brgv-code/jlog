@@ -37,3 +37,12 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  # Only a push to main deploys, and only after the checks above pass; pull requests stop at the checks.
+  deploy-api:
+    name: Deploy API
+    needs: lint-typecheck-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy-api.yml
+    # The deploy's own secrets come from its production environment; this passes the repository ones it names.
+    secrets: inherit
