@@ -3,7 +3,7 @@ import { defineManifest } from '@crxjs/vite-plugin';
 export default defineManifest({
   manifest_version: 3,
   name: 'jlog',
-  version: '1.0.0',
+  version: '1.1.0',
   homepage_url: 'https://jlog.ai',
   description:
     'Track job applications from LinkedIn, Greenhouse, Lever and more, and fill in application forms from your profile.',
