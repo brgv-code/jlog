@@ -458,3 +458,72 @@ describe('pasting a key that works', () => {
     expect(root.textContent).toContain('Track this page');
   });
 });
+
+describe('the offline screen', () => {
+  it('lets the user forget the stored key instead of only retrying it', async () => {
+    stubs.storage.jlog_token = 'a-key-that-never-verified';
+    stubs.connection = { __throw: true };
+
+    const root = await openPopup(400);
+    expect(root.textContent).toContain("Can't reach jlog");
+
+    const forget = Array.from(root.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Forget this key',
+    );
+    forget?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(stubs.storage.jlog_token).toBeUndefined();
+    expect(root.querySelector('#token-input')).not.toBeNull();
+  });
+});
+
+describe('pasting a key with whitespace inside it', () => {
+  it('drops the whitespace before storing, since a key never contains any', async () => {
+    const root = await openPopup();
+    const input = document.getElementById('token-input') as HTMLInputElement;
+    input.value = ' a1b2c3d4 -0000-0000\t-0000 ';
+    Array.from(root.querySelectorAll('button'))
+      .find((button) => button.textContent === 'Connect')
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(stubs.storage.jlog_token).toBe('a1b2c3d4-0000-0000-0000');
+  });
+});
+
+describe('reopening after the last check could not reach jlog', () => {
+  const offline: Connection = {
+    status: 'offline',
+    expiresAt: null,
+    label: null,
+    account: null,
+    checkedAt: Date.now(),
+  };
+
+  it('does not draw the tracking screen while the key is still unverified', async () => {
+    stubs.storage.jlog_token = 'a-key';
+    stubs.storage.jlog_connection = offline;
+    stubs.hold = true;
+
+    const root = await openPopup();
+    expect(root.textContent).not.toContain('Track this page');
+  });
+
+  it('shows the offline screen when jlog is still unreachable', async () => {
+    stubs.storage.jlog_token = 'a-key';
+    stubs.storage.jlog_connection = offline;
+    stubs.connection = { __throw: true };
+
+    const root = await openPopup(400);
+    expect(root.textContent).toContain("Can't reach jlog");
+  });
+
+  it('moves on to the tracking screen once the key checks out', async () => {
+    stubs.storage.jlog_token = 'a-key';
+    stubs.storage.jlog_connection = offline;
+
+    const root = await openPopup();
+    expect(root.textContent).toContain('Track this page');
+  });
+});
