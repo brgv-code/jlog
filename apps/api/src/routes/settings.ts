@@ -1,5 +1,5 @@
 import { createDb, users } from '@jlog/db';
-import { HttpError, settingsSchema } from '@jlog/shared';
+import { HttpError, analyticsConsentSchema, settingsSchema } from '@jlog/shared';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env, Variables } from '../index';
@@ -33,6 +33,27 @@ router.put('/', async (c) => {
   await db.update(users).set({ analyticsOptIn }).where(eq(users.id, session.userId));
 
   return c.json({ analyticsOptIn });
+});
+
+// The cookie banner's answer, so server-side events follow the same choice as the browser.
+router.put('/analytics-consent', async (c) => {
+  const session = requireSession(c);
+  const body = await c.req.json().catch(() => {
+    throw new HttpError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+  });
+
+  const parsed = analyticsConsentSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
+  }
+
+  const db = createDb(c.env.DB);
+  await db
+    .update(users)
+    .set({ analyticsConsent: parsed.data.granted })
+    .where(eq(users.id, session.userId));
+
+  return c.json({ granted: parsed.data.granted });
 });
 
 export default router;

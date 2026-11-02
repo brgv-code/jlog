@@ -1,4 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { capture } from '../lib/analytics';
 import { apiFetch } from '../lib/api';
 import { JlogMark } from './ui/JlogMark';
 
@@ -25,6 +26,7 @@ export default function DemoStart() {
   const started = useRef(false);
 
   const start = useCallback(async () => {
+    capture('demo started');
     setState({ step: 'creating' });
     try {
       const res = await apiFetch('/api/auth/demo/sign-in', {
