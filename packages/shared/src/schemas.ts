@@ -129,6 +129,10 @@ export const settingsSchema = z.object({
   analyticsOptIn: z.boolean(),
 });
 
+export const analyticsConsentSchema = z.object({
+  granted: z.boolean(),
+});
+
 export const FOLLOW_UP_CHANNELS = ['email', 'whatsapp'] as const;
 
 export const followUpEventSchema = z.object({

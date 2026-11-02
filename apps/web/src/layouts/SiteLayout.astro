@@ -11,6 +11,7 @@ import geistMono from '@fontsource-variable/geist-mono/files/geist-mono-latin-wg
 import geist from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
 import '../styles/site.css';
 import { SETUP_GUIDE_URL } from '../data/extension';
+import { analyticsAvailable } from '../lib/analytics';
 import Layout from './Layout.astro';
 
 interface Props {
@@ -149,6 +150,7 @@ const path = Astro.url.pathname.replace(/\/$/, '');
         <a href="/docs">Docs</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
+        {analyticsAvailable && <button type="button" class="foot-consent" data-consent-open>Cookie choice</button>}
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href={`${GITHUB_URL}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">
           MIT licence
@@ -159,6 +161,10 @@ const path = Astro.url.pathname.replace(/\/$/, '');
 </Layout>
 
 <script>
+  import { openConsentBanner } from '../lib/analytics';
+
+  document.querySelector('[data-consent-open]')?.addEventListener('click', openConsentBanner);
+
   // Menus close on outside click, on Escape, and when another one opens.
   const menus = [...document.querySelectorAll<HTMLDetailsElement>('[data-menu]')];
   for (const menu of menus) {
@@ -377,8 +383,19 @@ const path = Astro.url.pathname.replace(/\/$/, '');
     text-decoration: none;
   }
 
-  .foot-links a:hover {
+  .foot-links a:hover,
+  .foot-consent:hover {
     color: var(--ink);
+  }
+
+  /* A button, since it opens the banner rather than going anywhere, styled like its neighbours. */
+  .foot-consent {
+    font: inherit;
+    color: var(--ink-2);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
   }
 
   .mnav {

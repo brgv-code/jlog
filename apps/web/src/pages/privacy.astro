@@ -13,7 +13,7 @@ const contactEmail = 'support@jlog.ai';
 
 <Layout
   title="Privacy · jlog"
-  description="What jlog stores about you and your job search, who else sees it, and how to export or delete it. No ads, no tracking cookies, nothing sold."
+  description="What jlog stores about you and your job search, who else sees it, and how to export or delete it. No ads, nothing sold, and analytics cookies only if you say yes."
 >
   <main class="prose">
     <p class="back"><a href="/">← jlog</a></p>
@@ -23,8 +23,8 @@ const contactEmail = 'support@jlog.ai';
 
     <p class="lede">
       jlog holds your job search, which is about as personal as work data gets. This page says
-      plainly what is stored, who else sees it, and how to get rid of it. No cookie banners, no
-      advertising networks, no selling anything to anyone.
+      plainly what is stored, who else sees it, and how to get rid of it. No advertising networks, no
+      selling anything to anyone, and no analytics unless you agree to it.
     </p>
 
     <h2>Who this covers</h2>
@@ -176,7 +176,7 @@ const contactEmail = 'support@jlog.ai';
       it is deleted after a year.
     </p>
 
-    <h2>Analytics</h2>
+    <h2 id="analytics">Analytics</h2>
     <p>
       The site counts visits with <strong>Cloudflare Web Analytics</strong>, which sets no cookies,
       stores nothing in your browser and does not follow you to other sites. jlog sees totals: how
@@ -197,9 +197,16 @@ const contactEmail = 'support@jlog.ai';
       built. If it ever is, it will apply only to accounts that have switched the setting on, and
       this page will say so before it starts rather than after.
     </p>
+    <h3>Product analytics, only if you say yes</h3>
     <p>
-      Apart from Cloudflare's visit counter, there is no analytics script on this site, no
-      advertising pixel, and no cross-site tracking.
+      jlog asks once, with a banner. If you agree, the site loads <strong>PostHog</strong> (EU
+      cloud, in Frankfurt), which records which pages you open, what you click, errors, and
+      recordings of sessions in which everything you type, all text on the page and all images are
+      hidden. If you are signed in, it is linked to your account ID and email address, and the
+      actions you take in jlog, including through the extension, are recorded too. If you decline,
+      nothing loads and nothing is recorded. You can change your answer any time from "Cookie
+      choice" in the footer or in Settings. There is no advertising pixel and no cross-site
+      tracking.
     </p>
 
     <h2>Cookies</h2>
@@ -216,7 +223,8 @@ const contactEmail = 'support@jlog.ai';
     <p>
       Your light/dark theme preference is kept in your browser's local storage and never sent
       anywhere. Where your first visit came from is kept there too, and sent once if you sign up, as
-      described under <em>How you found jlog</em>. That is the lot — no tracking cookies of any kind.
+      described under <em>How you found jlog</em>. If you agree to analytics, PostHog adds its own
+      cookie and local storage entry to tell your visits apart. Without that yes, that is the lot.
     </p>
 
     <h2>Who else sees your data</h2>
@@ -229,6 +237,10 @@ const contactEmail = 'support@jlog.ai';
       <li>
         <strong>GitHub, Google or Apple</strong> — only when you choose to sign in with them. jlog
         receives your name, verified email address and avatar; they do not receive your job data.
+      </li>
+      <li>
+        <strong>PostHog</strong>: only if you agree to analytics. It receives the usage described
+        under <a href="#analytics">Analytics</a>, on servers in the EU.
       </li>
       <li>
         <strong>Resend</strong> — delivers sign-in link emails. It sees the address the link is

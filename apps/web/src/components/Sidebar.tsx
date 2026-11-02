@@ -11,6 +11,7 @@ import {
   SettingsIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { linkAccount, resetAnalytics } from '../lib/analytics';
 import { sendFirstTouch } from '../lib/attribution';
 import { ThemeSegmented } from './ui/ThemeSegmented';
 
@@ -69,11 +70,14 @@ const NAV: NavItem[] = [
 ];
 
 interface User {
+  /** Present at runtime from /api/auth/me; optional so every shell's narrower user type still fits. */
+  id?: string;
   name: string;
   email: string;
   avatarUrl: string | null;
   /** A throwaway demo account (see apps/api/src/lib/demo). */
   demo?: boolean;
+  analyticsConsent?: boolean | null;
 }
 
 interface SidebarProps {
@@ -98,7 +102,7 @@ interface SidebarProps {
  * over the content instead of pushing it, and that choice is not saved: a phone
  * opening the drawer once should not leave a desktop collapsed.
  */
-export function Sidebar({ user, active, onSignOut }: SidebarProps) {
+export function Sidebar({ user, active, onSignOut: signOutOfAccount }: SidebarProps) {
   const [savedCollapsed, setCollapsed] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const narrow = useNarrow();
@@ -118,6 +122,17 @@ export function Sidebar({ user, active, onSignOut }: SidebarProps) {
   useEffect(() => {
     if (!user.demo) void sendFirstTouch();
   }, [user.demo]);
+
+  // Same reason as above: every signed-in page passes through here.
+  useEffect(() => {
+    linkAccount(user);
+  }, [user]);
+
+  // The next person on this browser must not inherit this account's analytics identity.
+  function onSignOut() {
+    resetAnalytics();
+    signOutOfAccount();
+  }
 
   // Widening the window past the breakpoint with the drawer open should not
   // leave it open the next time the window narrows.
