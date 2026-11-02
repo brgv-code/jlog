@@ -121,6 +121,16 @@ export async function setCachedConnection(
   return stored;
 }
 
+/** Null when fetch would refuse the key outright, e.g. a pasted "a1b2c3d4…" or a line break. */
+function sendableAuthHeader(token: string): Headers | null {
+  try {
+    return new Headers({ Authorization: `Bearer ${token}` });
+  } catch {
+    // Same check fetch runs; failing it says the key is malformed, not that we are offline.
+    return null;
+  }
+}
+
 /**
  * Ask the server about the stored key. Always resolves — a network failure is
  * reported as `offline`, never as a bad key, because telling someone their key
@@ -132,10 +142,13 @@ export async function checkConnection(): Promise<Connection> {
     return setCachedConnection({ status: 'no-key', expiresAt: null, label: null, account: null });
   }
 
+  const headers = sendableAuthHeader(token);
+  if (!headers) {
+    return setCachedConnection({ status: 'rejected', expiresAt: null, label: null, account: null });
+  }
+
   try {
-    const res = await fetch(`${API_BASE}/api/extension/session`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(`${API_BASE}/api/extension/session`, { headers });
     if (!res.ok) {
       // The endpoint answers 200 for every key verdict, so a non-2xx here is
       // the server itself being unwell, not a statement about the key.

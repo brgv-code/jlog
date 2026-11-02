@@ -228,6 +228,8 @@ function renderConnect(root: HTMLElement, conn: Connection | null): void {
     const retryBtn = h('button', { class: 'btn btn-primary', type: 'button' }, 'Try again');
     retryBtn.addEventListener('click', () => init());
     root.appendChild(retryBtn);
+    // Without this, a key that never verifies leaves no way to paste a different one.
+    root.appendChild(forgetKeyLink());
     return;
   } else {
     root.appendChild(h('div', { class: 'headline' }, 'Connect the extension'));
@@ -252,7 +254,8 @@ function renderConnect(root: HTMLElement, conn: Connection | null): void {
   const saveBtn = h('button', { class: 'btn btn-primary', type: 'button' }, 'Connect');
 
   async function submit(): Promise<void> {
-    const val = input.value.trim();
+    // Keys never contain whitespace, so any found inside one came from the copy.
+    const val = input.value.replace(/\s+/g, '');
     if (!val) return;
     saveBtn.setAttribute('disabled', 'true');
     error.style.display = 'none';
@@ -303,16 +306,18 @@ function renderConnect(root: HTMLElement, conn: Connection | null): void {
     root.appendChild(guide);
   }
 
-  if (status !== 'no-key') {
-    const forget = h('button', { class: 'link', style: 'margin-top:10px' }, 'Forget this key');
-    forget.addEventListener('click', async () => {
-      await clearToken();
-      init();
-    });
-    root.appendChild(forget);
-  }
+  if (status !== 'no-key') root.appendChild(forgetKeyLink());
 
   input.focus();
+}
+
+function forgetKeyLink(): HTMLElement {
+  const forget = h('button', { class: 'link', style: 'margin-top:10px' }, 'Forget this key');
+  forget.addEventListener('click', async () => {
+    await clearToken();
+    init();
+  });
+  return forget;
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -959,7 +964,8 @@ async function init(): Promise<void> {
   // here would be inventing one — and a key that is in fact dead would offer
   // actions that spend a doomed request, while the guard below suppressed the
   // screen explaining why. Wait for the real answer; it is one request.
-  if (!cached) {
+  // An offline verdict is no answer about the key either, so it gets the same wait.
+  if (!cached || cached.status !== 'active') {
     const first = await checkConnectionViaBackground();
     renderStatus(first);
     if (first.status === 'active') renderForTab(root, first);
