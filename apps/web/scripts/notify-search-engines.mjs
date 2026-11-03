@@ -1,22 +1,27 @@
 #!/usr/bin/env node
 /*
- * Tells search engines the public site changed. Run by
- * .github/workflows/notify-search-engines.yml once Cloudflare Pages has
- * deployed a push to main.
+ * Tells search engines which public pages changed. Run once a day by
+ * .github/workflows/notify-search-engines.yml.
  *
- * - Google: resubmits the sitemap index through the Search Console API. Google
- *   retired its anonymous sitemap ping in 2023; an authenticated resubmit is
- *   what is left. It asks Google to read the sitemap again soon. It does not
- *   make Google index anything.
- * - IndexNow (Bing and others): sends the URLs of the pages this push changed.
+ * Compares the live sitemap with the snapshot from the last successful run
+ * and sends only URLs that are new or whose <lastmod> moved. Once a day, not
+ * on every push: IndexNow asks sites not to resend a URL many times a day,
+ * and Google says repeat requests do not get anything crawled faster.
+ *
+ * - Google: resubmits the sitemap index through the Search Console API, when
+ *   anything changed. Google retired its anonymous sitemap ping in 2023; an
+ *   authenticated resubmit is what is left. It asks Google to read the sitemap
+ *   again soon. It does not make Google index anything.
+ * - IndexNow (Bing and others): sends the changed URLs.
  *
  * Built-ins only, so the workflow installs nothing and runs no third-party
  * code with these credentials in scope.
  *
  * Environment:
  *   SITE_URL             https://jlog.ai
- *   CHANGED_FILES        repo-relative paths changed by the push, one per line,
- *                        or `ALL` to send every URL in the sitemap
+ *   SNAPSHOT             path to the last run's snapshot; missing means a first
+ *                        run, which sends every URL
+ *   SEND_ALL=1           ignore the snapshot and send every URL
  *   GSC_PROPERTY         the Search Console property, `sc-domain:jlog.ai` or
  *                        `https://jlog.ai/`; Google is skipped without it
  *   GSC_SERVICE_ACCOUNT  a service account's JSON key; it must be a Full user
@@ -25,41 +30,28 @@
  *                        skipped without it
  */
 import { createSign } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-
-const PAGES_DIR = 'apps/web/src/pages/';
-const PAGE_EXTENSION = /\.(astro|md|mdx)$/;
-
-/** The public URL a source file under src/pages builds to, or undefined. */
-export function pageUrl(file, site) {
-  if (!file.startsWith(PAGES_DIR) || !PAGE_EXTENSION.test(file) || file.includes('[')) {
-    return undefined;
-  }
-  const path = file
-    .slice(PAGES_DIR.length)
-    .replace(PAGE_EXTENSION, '')
-    .replace(/(^|\/)index$/, '');
-  return new URL(path ? `/${path}/` : '/', site).href;
-}
 
 /** Every <loc> in a sitemap or sitemap index. */
 export function locs(xml) {
   return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((match) => match[1] ?? '');
 }
 
-/**
- * The URLs to send to IndexNow: pages the push changed that the live sitemap
- * lists. Going through the sitemap keeps out everything it leaves out on
- * purpose (sign-in pages, the 404) without a second list of them here.
- */
-export function changedUrls(changedFiles, sitemapUrls, site) {
-  if (changedFiles.trim() === 'ALL') return [...sitemapUrls];
-  const listed = new Set(sitemapUrls);
-  const urls = changedFiles
-    .split('\n')
-    .map((file) => pageUrl(file.trim(), site))
-    .filter((url) => url !== undefined && listed.has(url));
-  return [...new Set(urls)];
+/** `{ url: lastmod | null }` for every <url> in a urlset. */
+export function sitemapEntries(xml) {
+  const entries = {};
+  for (const [, block] of xml.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
+    const loc = /<loc>\s*([^<\s]+)\s*<\/loc>/.exec(block ?? '')?.[1];
+    if (!loc) continue;
+    entries[loc] = /<lastmod>\s*([^<\s]+)\s*<\/lastmod>/.exec(block ?? '')?.[1] ?? null;
+  }
+  return entries;
+}
+
+/** URLs that are new since the snapshot, or whose lastmod moved. */
+export function changedUrls(current, previous) {
+  return Object.keys(current).filter((url) => !(url in previous) || previous[url] !== current[url]);
 }
 
 async function fetchText(url) {
@@ -68,10 +60,13 @@ async function fetchText(url) {
   return response.text();
 }
 
-async function sitemapUrls(indexUrl) {
+/** Every page in the live sitemap, following the index to its children. */
+async function liveEntries(indexUrl) {
   const children = locs(await fetchText(indexUrl));
-  const pages = await Promise.all(children.map(async (child) => locs(await fetchText(child))));
-  return pages.flat();
+  const parts = await Promise.all(
+    children.map(async (child) => sitemapEntries(await fetchText(child))),
+  );
+  return Object.assign({}, ...parts);
 }
 
 const base64url = (value) => Buffer.from(value).toString('base64url');
@@ -159,8 +154,20 @@ async function main(env) {
   const site = env.SITE_URL;
   if (!site) throw new Error('SITE_URL is not set.');
   const sitemap = new URL('/sitemap-index.xml', site).href;
-  const failures = [];
+  const current = await liveEntries(sitemap);
 
+  const hasSnapshot = Boolean(env.SNAPSHOT) && existsSync(env.SNAPSHOT);
+  const previous =
+    env.SEND_ALL === '1' || !hasSnapshot ? {} : JSON.parse(readFileSync(env.SNAPSHOT, 'utf8'));
+  const urls = changedUrls(current, previous);
+  console.log(
+    `${Object.keys(current).length} URL(s) in the sitemap, ${urls.length} new or changed${
+      hasSnapshot ? '' : ' (no snapshot yet, so all of them)'
+    }.`,
+  );
+  if (urls.length === 0) return;
+
+  const failures = [];
   if (env.GSC_PROPERTY && env.GSC_SERVICE_ACCOUNT) {
     await resubmitToGoogle({
       property: env.GSC_PROPERTY,
@@ -171,22 +178,25 @@ async function main(env) {
     console.log('::notice::Google skipped: GSC_PROPERTY or GSC_SERVICE_ACCOUNT is not set.');
   }
 
-  if (env.INDEXNOW_KEY) {
-    const urls = changedUrls(env.CHANGED_FILES ?? '', await sitemapUrls(sitemap), site);
-    if (urls.length === 0) {
-      console.log('IndexNow: no page in the sitemap changed, nothing to send.');
-    } else {
-      await sendToIndexNow({ site, key: env.INDEXNOW_KEY, urls }).catch((error) =>
-        failures.push(error),
-      );
-    }
-  } else {
+  if (!env.INDEXNOW_KEY) {
+    // The snapshot is what IndexNow has been told, so it only moves after a send.
     console.log('::notice::IndexNow skipped: INDEXNOW_KEY is not set.');
+  } else {
+    await sendToIndexNow({ site, key: env.INDEXNOW_KEY, urls }).catch((error) =>
+      failures.push(error),
+    );
   }
 
-  // Both run even if one fails, and both failures are reported.
+  // Both run even if one fails, and both failures are reported. No new
+  // snapshot then, so the next run sends the same URLs again.
   for (const error of failures) console.log(`::error::${error.message}`);
-  if (failures.length > 0) process.exitCode = 1;
+  if (failures.length > 0) {
+    process.exitCode = 1;
+    return;
+  }
+  if (env.SNAPSHOT && env.INDEXNOW_KEY) {
+    writeFileSync(env.SNAPSHOT, JSON.stringify(current, null, 2));
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
