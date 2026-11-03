@@ -66,6 +66,9 @@ this one would send every user's data to their own machine. Set the hosted URL f
 console.log(`  API  ${apiBase}`);
 console.log(`  Web  ${webBase}`);
 
+// 1.1.0 was packaged from a branch that predated the account sync merged under that version.
+console.log(`  From ${assertPushedMain()} (origin/main)`);
+
 // --- 2. Build ---------------------------------------------------------------
 
 execFileSync('npx', ['vite', 'build'], { cwd: root, stdio: 'inherit' });
@@ -86,6 +89,18 @@ if (!existsSync(join(dist, 'manifest.json'))) {
  */
 const emittedFiles = collect(dist);
 const everything = emittedFiles.map((f) => f.body.toString('utf8')).join('\n');
+
+// Without it jlog.ai cannot tell the extension who is signed in, so it keeps saving into the last account.
+const builtManifest = JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8'));
+const webUrl = new URL(webBase);
+const sitePattern = `${webUrl.protocol}//${webUrl.hostname}/*`;
+if (!builtManifest.externally_connectable?.matches?.includes(sitePattern)) {
+  fail(
+    `dist/manifest.json does not let ${sitePattern} message the extension.
+jlog.ai uses that to keep the extension on the signed-in account; without it the
+extension stays on whichever account it last had.`,
+  );
+}
 
 const localhostHit = everything.match(/https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/);
 if (localhostHit) {
@@ -138,6 +153,24 @@ console.log('Upload this to the Chrome Web Store. See STORE_LISTING.md for the l
 function fail(message) {
   console.error(`\nRefusing to package.\n\n${message}\n`);
   process.exit(1);
+}
+
+/** The store build is exactly origin/main, so a version number names one build and nothing else. */
+function assertPushedMain() {
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  git('fetch', '--quiet', 'origin', 'main');
+  if (git('status', '--porcelain')) {
+    fail(`The working tree has uncommitted changes.
+Package from a clean checkout of main, so the zip is exactly what was merged.`);
+  }
+  const head = git('rev-parse', '--short', 'HEAD');
+  const main = git('rev-parse', '--short', 'origin/main');
+  if (head !== main) {
+    fail(`HEAD is ${head}, but origin/main is ${main}.
+Package from main as pushed: a zip built on another branch can carry the right version
+number and still miss what was merged under it.`);
+  }
+  return head;
 }
 
 /** Reads one key out of .env without pulling in a dotenv dependency. */
