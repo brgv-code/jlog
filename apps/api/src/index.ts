@@ -184,12 +184,13 @@ app.use(
     // Lets the browser attach/receive the session cookie on cross-origin requests.
     credentials: true,
     allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    // posthog-js adds the PostHog pair once someone accepts analytics; refusing them would fail every preflight.
+    // posthog-js adds its three tracing headers once someone accepts analytics; refusing any would fail every preflight.
     allowHeaders: [
       'Content-Type',
       'Authorization',
       'X-POSTHOG-DISTINCT-ID',
       'X-POSTHOG-SESSION-ID',
+      'X-POSTHOG-WINDOW-ID',
     ],
   }),
 );
