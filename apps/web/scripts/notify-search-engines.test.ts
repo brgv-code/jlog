@@ -1,51 +1,52 @@
 import { describe, expect, it } from 'vitest';
-import { changedUrls, locs, pageUrl } from './notify-search-engines.mjs';
+import { changedUrls, locs, sitemapEntries } from './notify-search-engines.mjs';
 
-const site = 'https://jlog.ai';
-
-describe('pageUrl', () => {
-  it.each([
-    ['apps/web/src/pages/index.astro', 'https://jlog.ai/'],
-    ['apps/web/src/pages/job-tracker-comparison.md', 'https://jlog.ai/job-tracker-comparison/'],
-    ['apps/web/src/pages/docs/index.astro', 'https://jlog.ai/docs/'],
-    ['apps/web/src/pages/docs/self-hosting/deploy.md', 'https://jlog.ai/docs/self-hosting/deploy/'],
-  ])('%s builds to %s', (file, url) => {
-    expect(pageUrl(file, site)).toBe(url);
-  });
-
-  it.each([
-    'apps/web/src/pages/robots.txt.ts',
-    'apps/web/src/pages/[indexnow].txt.ts',
-    'apps/web/src/layouts/AnswerLayout.astro',
-    'apps/api/src/index.ts',
-  ])('%s is not a page', (file) => {
-    expect(pageUrl(file, site)).toBeUndefined();
+describe('locs', () => {
+  it('reads every loc, as in a sitemap index', () => {
+    const xml =
+      '<sitemapindex><sitemap><loc>https://jlog.ai/sitemap-0.xml</loc></sitemap><sitemap><loc> https://jlog.ai/sitemap-1.xml </loc></sitemap></sitemapindex>';
+    expect(locs(xml)).toEqual(['https://jlog.ai/sitemap-0.xml', 'https://jlog.ai/sitemap-1.xml']);
   });
 });
 
-describe('locs', () => {
-  it('reads every loc', () => {
-    const xml =
-      '<urlset><url><loc>https://jlog.ai/</loc></url><url><loc> https://jlog.ai/docs/ </loc></url></urlset>';
-    expect(locs(xml)).toEqual(['https://jlog.ai/', 'https://jlog.ai/docs/']);
+describe('sitemapEntries', () => {
+  it('maps each url to its lastmod, or null without one', () => {
+    const xml = `<urlset>
+      <url><loc>https://jlog.ai/</loc><lastmod>2026-10-30T00:00:00.000Z</lastmod></url>
+      <url><loc>https://jlog.ai/privacy/</loc></url>
+    </urlset>`;
+    expect(sitemapEntries(xml)).toEqual({
+      'https://jlog.ai/': '2026-10-30T00:00:00.000Z',
+      'https://jlog.ai/privacy/': null,
+    });
   });
 });
 
 describe('changedUrls', () => {
-  const sitemap = ['https://jlog.ai/', 'https://jlog.ai/job-tracker-comparison/'];
+  const previous = {
+    'https://jlog.ai/': '2026-10-30',
+    'https://jlog.ai/privacy/': null,
+    'https://jlog.ai/terms/': '2026-09-27',
+  };
 
-  it('keeps changed pages the sitemap lists, once each', () => {
-    const files = [
-      'apps/web/src/pages/job-tracker-comparison.md',
-      'apps/web/src/pages/job-tracker-comparison.md',
-      'apps/web/src/pages/dashboard.astro',
-      'apps/web/src/pages/404.astro',
-      'README.md',
-    ].join('\n');
-    expect(changedUrls(files, sitemap, site)).toEqual(['https://jlog.ai/job-tracker-comparison/']);
+  it('finds pages that are new or whose lastmod moved, and nothing else', () => {
+    const current = {
+      'https://jlog.ai/': '2026-11-03',
+      'https://jlog.ai/privacy/': null,
+      'https://jlog.ai/terms/': '2026-09-27',
+      'https://jlog.ai/new-page/': null,
+    };
+    expect(changedUrls(current, previous)).toEqual([
+      'https://jlog.ai/',
+      'https://jlog.ai/new-page/',
+    ]);
   });
 
-  it('sends the whole sitemap for ALL', () => {
-    expect(changedUrls('ALL\n', sitemap, site)).toEqual(sitemap);
+  it('sends nothing when the sitemap has not changed', () => {
+    expect(changedUrls({ ...previous }, previous)).toEqual([]);
+  });
+
+  it('sends everything against an empty snapshot, as on a first run', () => {
+    expect(changedUrls(previous, {})).toEqual(Object.keys(previous));
   });
 });
