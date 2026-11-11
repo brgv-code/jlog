@@ -1,6 +1,6 @@
 import { createDb, llmConfigs } from '@jlog/db';
 import { makeProvider, rawJsonSchema } from '@jlog/llm';
-import type { TailorJson, TailorRequest } from '@jlog/pro';
+import type { TailorJson, TailorRequest, TraceOptions, TraceStep, TracedLLM } from '@jlog/pro';
 import { budgetFor, effortFor } from '@jlog/shared/models';
 import { eq } from 'drizzle-orm';
 import type { Context } from 'hono';
@@ -9,19 +9,31 @@ import { cfAccessHeadersFor } from './cfAccess';
 import { isDemoUser } from './demo/account';
 import { demoJsonCaller } from './demo/model';
 import { decrypt } from './encryption';
-import { callAttributes } from './langfuse';
+import { callAttributes, sessionIdFor, untracedStep } from './langfuse';
 import { lookupModel } from './models';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
+type TraceName = { name: string; tags: string[] };
+
 export async function makeJsonCaller(
   c: Context<AppContext>,
-  trace: { name: string; tags: string[] },
+  trace: TraceName,
 ): Promise<TailorJson | null> {
+  return (await startJsonCall(c, trace))?.call ?? null;
+}
+
+async function startJsonCall(
+  c: Context<AppContext>,
+  trace: TraceName,
+  options: TraceOptions = {},
+): Promise<TracedLLM | null> {
   const session = c.var.session;
   if (!session) return null;
 
-  if (await isDemoUser(c.env.DB, session.userId)) return demoJsonCaller;
+  if (await isDemoUser(c.env.DB, session.userId)) {
+    return { call: demoJsonCaller, step: untracedStep };
+  }
 
   const db = createDb(c.env.DB);
   const [row] = await db.select().from(llmConfigs).where(eq(llmConfigs.userId, session.userId));
@@ -49,20 +61,20 @@ export async function makeJsonCaller(
   const traced = c.var.tracing?.start({
     traceName: trace.name,
     userId: session.userId,
+    ...(options.session ? { sessionId: await sessionIdFor(options.session) } : {}),
     tags: [...trace.tags, row.provider],
     metadata: { provider: row.provider, model: row.model },
   });
+  const step = traced?.step ?? untracedStep;
 
   const provider = makeProvider(config);
-  const lookup = traced?.span('lookup-model');
-  const info = await lookupModel(row.provider, row.model);
-  lookup?.end();
+  const info = await step('lookup-model', () => lookupModel(row.provider, row.model));
   const maxTokens = budgetFor(info, fallbackBudget(row.provider));
   const reasoningEffort = effortFor(info, row.reasoningEffort);
 
   let rootHasInput = false;
 
-  return async (req: TailorRequest) => {
+  const call = async (req: TailorRequest) => {
     const generation = traced?.generation(req.name, {
       model: row.model,
       modelParameters: { maxTokens, ...(reasoningEffort ? { reasoningEffort } : {}) },
@@ -89,6 +101,8 @@ export async function makeJsonCaller(
       throw e;
     }
   };
+
+  return { call, step };
 }
 
 function fallbackBudget(provider: string): number {
@@ -97,10 +111,23 @@ function fallbackBudget(provider: string): number {
 
 const JSON_CALL_TIMEOUT_MS = 120_000;
 
-export function makeTailor(c: Context<AppContext>): Promise<TailorJson | null> {
-  return makeJsonCaller(c, { name: 'tailor-cv', tags: ['tailoring'] });
+export function makeTailor(
+  c: Context<AppContext>,
+  options?: TraceOptions,
+): Promise<TracedLLM | null> {
+  return startJsonCall(c, { name: 'tailor-cv', tags: ['tailoring'] }, options);
 }
 
-export function makeDrafter(c: Context<AppContext>): Promise<TailorJson | null> {
-  return makeJsonCaller(c, { name: 'draft-answer', tags: ['autofill'] });
+export function makeDrafter(
+  c: Context<AppContext>,
+  options?: TraceOptions,
+): Promise<TracedLLM | null> {
+  return startJsonCall(c, { name: 'draft-answer', tags: ['autofill'] }, options);
+}
+
+export async function startTrace(c: Context<AppContext>, name: string): Promise<TraceStep> {
+  const session = c.var.session;
+  if (!session) return untracedStep;
+  const traced = c.var.tracing?.start({ traceName: name, userId: session.userId, tags: [name] });
+  return traced?.step ?? untracedStep;
 }

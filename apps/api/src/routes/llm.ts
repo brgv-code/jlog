@@ -16,7 +16,7 @@ import { cfAccessHeadersFor } from '../lib/cfAccess';
 import { isDemoUser } from '../lib/demo/account';
 import { DEMO_LATENCY_MS, demoExtract, sleep } from '../lib/demo/model';
 import { decrypt, encrypt } from '../lib/encryption';
-import { callAttributes } from '../lib/langfuse';
+import { callAttributes, sessionIdFor, untracedStep } from '../lib/langfuse';
 import { loadCatalogue, lookupModel } from '../lib/models';
 import { requireSession } from '../lib/session';
 
@@ -217,14 +217,14 @@ extractRouter.post('/', async (c) => {
     {
       traceName: 'extract-job',
       userId: session.userId,
+      ...(parsed.data.url ? { sessionId: await sessionIdFor(parsed.data.url) } : {}),
       tags: ['extraction', row.provider],
       metadata: { provider: row.provider, model: row.model },
     },
     { url: parsed.data.url, content },
   );
-  const lookup = traced?.span('lookup-model');
-  const info = await lookupModel(row.provider, row.model);
-  lookup?.end();
+  const step = traced?.step ?? untracedStep;
+  const info = await step('lookup-model', () => lookupModel(row.provider, row.model));
   const reasoningEffort = effortFor(info, row.reasoningEffort);
   const maxTokens = budgetFor(info, 1024);
   const generation = traced?.generation('extract-job-llm-call', {

@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Env } from '../index';
-import { callAttributes, getTracing } from './langfuse';
+import { callAttributes, getTracing, sessionIdFor } from './langfuse';
 
 type ExportedSpan = {
   name: string;
@@ -187,13 +187,51 @@ describe('getTracing', () => {
   it('hangs a non-model step off the root, so the waterfall has no gaps', async () => {
     const tracing = tracingOrThrow();
     const traced = tracing.start({ traceName: 'extract-job' });
-    traced.span('lookup-model').end();
+    const value = await traced.step('lookup-model', async () => 42);
     await tracing.finish();
 
+    expect(value).toBe(42);
     expect(spanNamed('lookup-model').parentSpanId).toBe(spanNamed('extract-job').spanId);
+  });
+
+  it('marks a failed step and lets the error through', async () => {
+    const tracing = tracingOrThrow();
+    const traced = tracing.start({ traceName: 'compile-cv' });
+    await expect(
+      traced.step('compile-latex', async () => {
+        throw new Error('tectonic down');
+      }),
+    ).rejects.toThrow('tectonic down');
+    await tracing.finish();
+
+    const step = spanNamed('compile-latex');
+    expect(attribute(step, 'langfuse.observation.level')).toBe('ERROR');
+    expect(attribute(step, 'langfuse.observation.status_message')).toBe('tectonic down');
   });
 
   it('is off when the keys are unset, so a local run traces nothing', () => {
     expect(getTracing({} as Env)).toBeNull();
+  });
+});
+
+describe('sessionIdFor', () => {
+  it('gives one job the same session every time', async () => {
+    expect(await sessionIdFor('We need a backend engineer.')).toBe(
+      await sessionIdFor('We need a backend engineer.'),
+    );
+    expect(await sessionIdFor('We need a backend engineer.')).not.toBe(
+      await sessionIdFor('We need a designer.'),
+    );
+  });
+
+  it('ignores the query string and fragment of a page', async () => {
+    expect(await sessionIdFor('https://jobs.example.com/acme/123?utm_source=x#apply')).toBe(
+      await sessionIdFor('https://jobs.example.com/acme/123'),
+    );
+  });
+
+  it('keeps the posting text out of the id', async () => {
+    const id = await sessionIdFor('We need a backend engineer.');
+    expect(id).toMatch(/^[0-9a-f]{16}$/);
   });
 });

@@ -25,11 +25,15 @@ export type TraceAttributes = {
   metadata?: Record<string, string>;
 };
 
+export type Step = <T>(name: string, run: () => Promise<T>) => Promise<T>;
+
 export type TracedRequest = {
   root: LangfuseSpan;
   generation(name: string, attributes: LangfuseGenerationAttributes): LangfuseGeneration;
-  span(name: string): LangfuseSpan;
+  step: Step;
 };
+
+export const untracedStep: Step = (_name, run) => run();
 
 export type Tracing = {
   start(attributes: TraceAttributes, input?: unknown): TracedRequest;
@@ -100,10 +104,20 @@ export function getTracing(env: Env): Tracing | null {
           open.push(generation);
           return generation;
         },
-        span(name) {
+        async step(name, run) {
           const span = propagateAttributes(attributes, () => root.startObservation(name));
           open.push(span);
-          return span;
+          try {
+            return await run();
+          } catch (error) {
+            span.update({
+              level: 'ERROR',
+              statusMessage: error instanceof Error ? error.message : String(error),
+            });
+            throw error;
+          } finally {
+            span.end();
+          }
         },
       };
     },
@@ -130,4 +144,21 @@ export function callAttributes(report: LLMCallReport): LangfuseGenerationAttribu
       : {}),
     ...(effortRetried ? { metadata: { effortRetried: 'true' } } : {}),
   };
+}
+
+export async function sessionIdFor(subject: string): Promise<string> {
+  const canonical = pageOf(subject) ?? subject.trim();
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return [...new Uint8Array(digest).slice(0, 8)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function pageOf(subject: string): string | null {
+  try {
+    const url = new URL(subject);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return null;
+  }
 }

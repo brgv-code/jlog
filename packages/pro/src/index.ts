@@ -2,25 +2,8 @@ import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 
-/**
- * Pro-feature seam — PUBLIC STUB.
- *
- * This is the open-source stub of `@jlog/pro`. It keeps the public build
- * compiling and running with the paid document-generation feature visibly
- * *locked*. The real implementation lives in a private package and is aliased
- * over this one in the hosted build.
- *
- * Every consumer (`apps/api`, `apps/web`) imports only from `@jlog/pro`, so the
- * same source compiles in both the OSS and the hosted worlds — only the
- * implementation behind this interface differs.
- *
- * See the knowledge base: projects/jlog/docs/open-core-architecture.md (ADR-003).
- */
-
-/** Whether the real pro implementation is present. Always false in the stub. */
 export const isProEnabled = false as const;
 
-/** Standard error body returned when a pro feature is hit without entitlement. */
 export const PRO_REQUIRED_ERROR = {
   error: {
     code: 'PRO_REQUIRED',
@@ -28,47 +11,31 @@ export const PRO_REQUIRED_ERROR = {
   },
 } as const;
 
-/** Upsell copy the web app renders in place of the locked feature. */
 export const PRO_UPSELL = {
   title: 'Tailored documents are a Pro feature',
   body: 'Generate a job-specific CV and cover letter from your base templates, compiled to PDF — upgrade to jlog Pro to unlock.',
   cta: 'Upgrade to Pro',
 } as const;
 
-/**
- * Middleware guarding a pro-only route. In the stub it always short-circuits
- * with 402; the private impl replaces this with a real entitlement check
- * (subscription plan lookup) that calls `next()` for entitled users.
- */
 export const requirePro = createMiddleware(async (c) => {
   return c.json(PRO_REQUIRED_ERROR, 402);
 });
 
-/**
- * A JSON-returning LLM call. The private impl's tailoring agent needs one, but
- * the provider lives behind the user's encrypted config in `apps/api` and is
- * wrapped in Langfuse tracing there, so the host injects it rather than the pro
- * package rebuilding either. Declared in the stub because the two packages must
- * present the same types, not just the same runtime symbols.
- */
 export type TailorRequest = { name: string; system: string; user: string };
 export type TailorJson = (req: TailorRequest) => Promise<unknown>;
 
-/** What the host app supplies to the pro router. Ignored by this stub. */
+export type TraceStep = <T>(name: string, run: () => Promise<T>) => Promise<T>;
+
+export type TraceOptions = { session?: string };
+
+export type TracedLLM = { call: TailorJson; step: TraceStep };
+
 export type ProDeps = {
-  makeTailor?: (c: Context) => Promise<TailorJson | null>;
-  /** The same call, traced as drafted answers rather than tailoring (ADR-012 phase 3). */
-  makeDrafter?: (c: Context) => Promise<TailorJson | null>;
+  makeTailor?: (c: Context, options?: TraceOptions) => Promise<TracedLLM | null>;
+  makeDrafter?: (c: Context, options?: TraceOptions) => Promise<TracedLLM | null>;
+  startTrace?: (c: Context, name: string) => Promise<TraceStep>;
 };
 
-/**
- * Router mounted at `/api/pro`. In the stub every path returns 402, so the OSS
- * build exposes the pro surface as locked rather than missing. The private impl
- * provides the real routes (document render/compile, and the tailoring agent).
- *
- * `deps` is accepted and ignored here: the stub never reaches an LLM, and a
- * signature that differs from the impl's would break the swap.
- */
 export function createProRouter(_deps: ProDeps = {}): Hono {
   const router = new Hono();
   router.all('*', (c) => c.json(PRO_REQUIRED_ERROR, 402));
