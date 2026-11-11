@@ -1,3 +1,4 @@
+import type { LLMCallReport } from '@jlog/llm';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import type {
   LangfuseGeneration,
@@ -16,11 +17,6 @@ import type { Env } from '../index';
 
 const DEFAULT_BASE_URL = 'https://cloud.langfuse.com';
 
-/**
- * The attributes Langfuse filters and aggregates on. Since v5 these belong on
- * every observation rather than only on the trace, so they are carried
- * alongside the root span and reapplied to each child — see `Tracing.start`.
- */
 export type TraceAttributes = {
   traceName: string;
   userId?: string;
@@ -29,34 +25,19 @@ export type TraceAttributes = {
   metadata?: Record<string, string>;
 };
 
-/**
- * One request's worth of tracing: a root observation plus the generations
- * hanging off it. Created by the tracing middleware, which is also what closes
- * it — the callers here hand back a JSON-calling closure that outlives their
- * own frame, so none of them can say when the request is done.
- */
 export type TracedRequest = {
   root: LangfuseSpan;
-  /**
-   * A cost-bearing child of the root, carrying the same userId/sessionId/tags.
-   * Generations are where the money is, so they are the observations that have
-   * to be filterable on their own.
-   */
   generation(name: string, attributes: LangfuseGenerationAttributes): LangfuseGeneration;
+  span(name: string): LangfuseSpan;
 };
 
 export type Tracing = {
   start(attributes: TraceAttributes, input?: unknown): TracedRequest;
-  /** Ends every observation this request opened, then exports them. */
   finish(): Promise<void>;
 };
 
 type Configured = { fingerprint: string; processor: LangfuseSpanProcessor };
 
-// Workers hands credentials in per request rather than per process, so the
-// OpenTelemetry setup is built on first use and then reused for the life of
-// the isolate. Re-keying on the credentials means a key rotation rebuilds it
-// instead of quietly exporting to the old project.
 let configured: Configured | null = null;
 let contextManagerInstalled = false;
 
@@ -68,10 +49,6 @@ function processorFor(env: Env): LangfuseSpanProcessor | null {
   if (configured?.fingerprint === fingerprint) return configured.processor;
 
   if (!contextManagerInstalled) {
-    // `propagateAttributes` passes the correlating attributes down through the
-    // OpenTelemetry context, and workerd installs no context manager of its
-    // own. Without this every child would be created against an empty context
-    // and would carry neither the userId nor the tags.
     context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
     contextManagerInstalled = true;
   }
@@ -84,9 +61,6 @@ function processorFor(env: Env): LangfuseSpanProcessor | null {
     ...(env.LANGFUSE_TRACING_ENVIRONMENT ? { environment: env.LANGFUSE_TRACING_ENVIRONMENT } : {}),
   });
 
-  // An isolated provider rather than the global one: Workers' own tracing owns
-  // `@opentelemetry/api`'s global provider, and taking that over would put
-  // every platform span in front of the Langfuse exporter.
   setLangfuseTracerProvider(new BasicTracerProvider({ spanProcessors: [processor] }));
   configured = { fingerprint, processor };
   void previous?.shutdown();
@@ -94,11 +68,6 @@ function processorFor(env: Env): LangfuseSpanProcessor | null {
   return processor;
 }
 
-/**
- * Returns null when tracing isn't configured (e.g. a contributor's local
- * .dev.vars with no Langfuse keys set) — callers treat every observation as
- * optional via `?.` so tracing being off never affects the actual response.
- */
 export function getTracing(env: Env): Tracing | null {
   const processor = processorFor(env);
   if (!processor) return null;
@@ -107,31 +76,58 @@ export function getTracing(env: Env): Tracing | null {
 
   return {
     start(attributes, input) {
-      // The attributes have to be in scope as the span is created, not set on
-      // it afterwards, which is why both this and `generation` below go
-      // through `propagateAttributes` rather than sharing one outer wrapper.
       const root = propagateAttributes(attributes, () =>
         startObservation(attributes.traceName, input === undefined ? {} : { input }),
       );
       open.push(root);
+      const attempts = new Map<string, number>();
 
       return {
         root,
         generation(name, generationAttributes) {
+          const attempt = (attempts.get(name) ?? 0) + 1;
+          attempts.set(name, attempt);
           const generation = propagateAttributes(attributes, () =>
-            root.startObservation(name, generationAttributes, { asType: 'generation' }),
+            root.startObservation(
+              name,
+              {
+                ...generationAttributes,
+                metadata: { ...generationAttributes.metadata, attempt: String(attempt) },
+              },
+              { asType: 'generation' },
+            ),
           );
           open.push(generation);
           return generation;
+        },
+        span(name) {
+          const span = propagateAttributes(attributes, () => root.startObservation(name));
+          open.push(span);
+          return span;
         },
       };
     },
 
     async finish() {
-      // Ending twice is harmless — OpenTelemetry ignores the second call — so
-      // call sites are free to end a generation as soon as it resolves.
       for (const observation of open.splice(0)) observation.end();
       await processor.forceFlush();
     },
+  };
+}
+
+export function callAttributes(report: LLMCallReport): LangfuseGenerationAttributes {
+  const { usage, effortRetried } = report;
+  return {
+    ...(usage
+      ? {
+          usageDetails: {
+            input: usage.input,
+            output: usage.output,
+            ...(usage.reasoning ? { output_reasoning_tokens: usage.reasoning } : {}),
+            total: usage.input + usage.output,
+          },
+        }
+      : {}),
+    ...(effortRetried ? { metadata: { effortRetried: 'true' } } : {}),
   };
 }

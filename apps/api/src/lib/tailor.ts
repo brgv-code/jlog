@@ -9,23 +9,11 @@ import { cfAccessHeadersFor } from './cfAccess';
 import { isDemoUser } from './demo/account';
 import { demoJsonCaller } from './demo/model';
 import { decrypt } from './encryption';
+import { callAttributes } from './langfuse';
 import { lookupModel } from './models';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
-/**
- * `@jlog/pro` carries hono and nothing else, so it cannot build a provider or
- * reach Langfuse. It asks for a JSON-returning call instead and this supplies
- * one, using the same per-user encrypted config and the same tracing as
- * `/api/llm/extract` — so tailoring shows up in Langfuse next to extraction
- * rather than in a second, parallel setup (ADR-004).
- */
-
-/**
- * The same provider, key handling and tracing, named for whatever is calling
- * it. CV import needs a JSON-returning model call too, and a second copy of
- * this wiring would be a second place for the encrypted-key handling to drift.
- */
 export async function makeJsonCaller(
   c: Context<AppContext>,
   trace: { name: string; tags: string[] },
@@ -33,9 +21,6 @@ export async function makeJsonCaller(
   const session = c.var.session;
   if (!session) return null;
 
-  // A demo account has no provider. It gets the deterministic stand-in, which
-  // answers the same prompts in the same shapes, so everything downstream (the
-  // pro package's checks, the render gate, the compile) runs for real.
   if (await isDemoUser(c.env.DB, session.userId)) return demoJsonCaller;
 
   const db = createDb(c.env.DB);
@@ -48,8 +33,6 @@ export async function makeJsonCaller(
       ? await decrypt(row.apiKeyEncrypted, c.env.ENCRYPTION_SECRET)
       : undefined;
   } catch {
-    // A key we cannot decrypt is the same as no provider: the caller's 503
-    // tells the user to re-save their LLM settings, which is the actual fix.
     return null;
   }
 
@@ -63,18 +46,6 @@ export async function makeJsonCaller(
     ...(cfAccessHeaders !== undefined ? { extraHeaders: cfAccessHeaders } : {}),
   };
 
-  const provider = makeProvider(config);
-  // Sized for the model that was picked, not for its provider (BRG-232): a
-  // reasoning model needs room to think as well as answer, and the effort the
-  // user chose is matched to the values this model accepts.
-  const info = await lookupModel(row.provider, row.model);
-  const maxTokens = budgetFor(info, fallbackBudget(row.provider));
-  const reasoningEffort = effortFor(info, row.reasoningEffort);
-  // One trace per request, spanning every attempt the caller makes. The retries
-  // are the interesting part — a run that took three goes is worth seeing as
-  // one story rather than three unrelated generations. The tracing middleware
-  // closes the root, since this function returns long before the caller stops
-  // using what it returned.
   const traced = c.var.tracing?.start({
     traceName: trace.name,
     userId: session.userId,
@@ -82,15 +53,19 @@ export async function makeJsonCaller(
     metadata: { provider: row.provider, model: row.model },
   });
 
-  // What the root observation shows: the first attempt's prompt going in and
-  // the last successful attempt's answer coming out — the request's own story
-  // rather than any one retry's. Evaluators read the root, so leaving it empty
-  // would leave them nothing to score.
+  const provider = makeProvider(config);
+  const lookup = traced?.span('lookup-model');
+  const info = await lookupModel(row.provider, row.model);
+  lookup?.end();
+  const maxTokens = budgetFor(info, fallbackBudget(row.provider));
+  const reasoningEffort = effortFor(info, row.reasoningEffort);
+
   let rootHasInput = false;
 
   return async (req: TailorRequest) => {
     const generation = traced?.generation(req.name, {
       model: row.model,
+      modelParameters: { maxTokens, ...(reasoningEffort ? { reasoningEffort } : {}) },
       input: { system: req.system, user: req.user },
     });
     if (traced && !rootHasInput) {
@@ -98,14 +73,12 @@ export async function makeJsonCaller(
       rootHasInput = true;
     }
     try {
-      // The system prompt must go in as the system prompt. Passed as `prompt`
-      // it lands in the user message behind EXTRACT_JOB_SYSTEM_PROMPT, which
-      // tells the model to answer with company/role/location instead.
       const result = await provider.extractJSON('', rawJsonSchema, req.user, {
         system: req.system,
         maxTokens,
         timeoutMs: JSON_CALL_TIMEOUT_MS,
         ...(reasoningEffort ? { reasoningEffort } : {}),
+        onResponse: (report) => generation?.update(callAttributes(report)),
       });
       generation?.update({ output: result }).end();
       traced?.root.update({ output: result });
@@ -118,25 +91,16 @@ export async function makeJsonCaller(
   };
 }
 
-/**
- * Output budget for a model the catalogue does not know (a custom id, a model
- * newer than the catalogue, Ollama). On OpenAI's reasoning models the cap
- * covers hidden reasoning too, and 4096 was spent on reasoning alone; the cap
- * is a ceiling, billed by use. Anthropic stays at 4096 because some Claude
- * models reject a larger max_tokens outright.
- */
 function fallbackBudget(provider: string): number {
   return provider === 'openai' ? 16_384 : 4096;
 }
 
-/** A reasoning model tailoring a CV can think for a minute; 30s cut it off. */
 const JSON_CALL_TIMEOUT_MS = 120_000;
 
 export function makeTailor(c: Context<AppContext>): Promise<TailorJson | null> {
   return makeJsonCaller(c, { name: 'tailor-cv', tags: ['tailoring'] });
 }
 
-/** Drafted answers to application questions (ADR-012 phase 3), traced apart from tailoring. */
 export function makeDrafter(c: Context<AppContext>): Promise<TailorJson | null> {
   return makeJsonCaller(c, { name: 'draft-answer', tags: ['autofill'] });
 }

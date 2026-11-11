@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Env } from '../index';
-import { getTracing } from './langfuse';
+import { callAttributes, getTracing } from './langfuse';
 
 type ExportedSpan = {
   name: string;
@@ -139,6 +139,58 @@ describe('getTracing', () => {
     await tracing.finish();
 
     expect(spanNamed('import-cv').name).toBe('import-cv');
+  });
+
+  it('records token usage, with a total that does not count reasoning twice', async () => {
+    const tracing = tracingOrThrow();
+    const traced = tracing.start({ traceName: 'tailor-cv' });
+    traced.generation('tailor-cv-select', { model: 'gpt-5-nano' }).update(
+      callAttributes({
+        usage: { input: 900, output: 300, reasoning: 256 },
+        effortRetried: false,
+      }),
+    );
+    await tracing.finish();
+
+    const usage = JSON.parse(
+      String(attribute(spanNamed('tailor-cv-select'), 'langfuse.observation.usage_details')),
+    );
+    expect(usage).toEqual({ input: 900, output: 300, output_reasoning_tokens: 256, total: 1200 });
+  });
+
+  it('flags a generation whose request went out twice', async () => {
+    const tracing = tracingOrThrow();
+    const traced = tracing.start({ traceName: 'extract-job' });
+    traced
+      .generation('extract-job-llm-call', { model: 'gpt-4o-mini' })
+      .update(callAttributes({ usage: null, effortRetried: true }));
+    await tracing.finish();
+
+    const generation = spanNamed('extract-job-llm-call');
+    expect(attribute(generation, 'langfuse.observation.usage_details')).toBeUndefined();
+    expect(attribute(generation, 'langfuse.observation.metadata.effortRetried')).toBe('true');
+  });
+
+  it('numbers repeated generations instead of giving each attempt its own name', async () => {
+    const tracing = tracingOrThrow();
+    const traced = tracing.start({ traceName: 'tailor-cv' });
+    traced.generation('tailor-cv-select', { model: 'llama3' });
+    traced.generation('tailor-cv-select', { model: 'llama3' });
+    await tracing.finish();
+
+    const attempts = received
+      .filter((span) => span.name === 'tailor-cv-select')
+      .map((span) => attribute(span, 'langfuse.observation.metadata.attempt'));
+    expect(attempts.sort()).toEqual(['1', '2']);
+  });
+
+  it('hangs a non-model step off the root, so the waterfall has no gaps', async () => {
+    const tracing = tracingOrThrow();
+    const traced = tracing.start({ traceName: 'extract-job' });
+    traced.span('lookup-model').end();
+    await tracing.finish();
+
+    expect(spanNamed('lookup-model').parentSpanId).toBe(spanNamed('extract-job').spanId);
   });
 
   it('is off when the keys are unset, so a local run traces nothing', () => {

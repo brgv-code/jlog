@@ -16,6 +16,7 @@ import { cfAccessHeadersFor } from '../lib/cfAccess';
 import { isDemoUser } from '../lib/demo/account';
 import { DEMO_LATENCY_MS, demoExtract, sleep } from '../lib/demo/model';
 import { decrypt, encrypt } from '../lib/encryption';
+import { callAttributes } from '../lib/langfuse';
 import { loadCatalogue, lookupModel } from '../lib/models';
 import { requireSession } from '../lib/session';
 
@@ -23,7 +24,6 @@ type AppContext = { Bindings: Env; Variables: Variables };
 
 const router = new Hono<AppContext>();
 
-// GET /config — return current LLM config for the user (never return the raw key)
 router.get('/config', async (c) => {
   const session = requireSession(c);
   const db = createDb(c.env.DB);
@@ -45,7 +45,6 @@ router.get('/config', async (c) => {
   });
 });
 
-// PUT /config — upsert LLM config
 router.put('/config', async (c) => {
   const session = requireSession(c);
 
@@ -58,8 +57,6 @@ router.put('/config', async (c) => {
     throw new HttpError(400, 'VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid body');
   }
 
-  // A demo account runs on the built-in demo model, and a key pasted into a
-  // throwaway account that is deleted tomorrow is a key nobody meant to store.
   if (await isDemoUser(c.env.DB, session.userId)) {
     throw new HttpError(
       403,
@@ -72,7 +69,6 @@ router.put('/config', async (c) => {
   const db = createDb(c.env.DB);
   const now = new Date();
 
-  // Fetch existing config to preserve API key if not updating
   const [existing] = await db
     .select()
     .from(llmConfigs)
@@ -118,19 +114,8 @@ router.put('/config', async (c) => {
   });
 });
 
-/** How many models the dropdown leads with, newest first. */
 const LATEST = 5;
 
-/**
- * POST /models — the models a user can pick for one provider (BRG-232).
- *
- * POST rather than GET so a key typed into the form, not yet saved, can be
- * used to check access without landing in a URL or a log. The catalogue answers
- * what exists and what each model can do; the provider's own list, with the
- * key, answers which of those this key may call. `available` is null when that
- * could not be asked (no key, or the provider did not answer), and the form
- * then shows the catalogue without marking anything unavailable.
- */
 router.post('/models', async (c) => {
   const session = requireSession(c);
   const body = await c.req.json().catch(() => ({}));
@@ -163,7 +148,6 @@ router.post('/models', async (c) => {
 
 export default router;
 
-// --- Extract router (wired at /api/extract in index.ts) ---
 export const extractRouter = new Hono<AppContext>();
 
 extractRouter.post('/', async (c) => {
@@ -229,9 +213,6 @@ extractRouter.post('/', async (c) => {
   };
 
   const content = html.slice(0, 6000);
-  // The root observation carries the request's overall input and output; the
-  // generation under it carries what the model was actually handed. The
-  // tracing middleware ends both and exports them.
   const traced = c.var.tracing?.start(
     {
       traceName: 'extract-job',
@@ -241,24 +222,27 @@ extractRouter.post('/', async (c) => {
     },
     { url: parsed.data.url, content },
   );
+  const lookup = traced?.span('lookup-model');
+  const info = await lookupModel(row.provider, row.model);
+  lookup?.end();
+  const reasoningEffort = effortFor(info, row.reasoningEffort);
+  const maxTokens = budgetFor(info, 1024);
   const generation = traced?.generation('extract-job-llm-call', {
     model: row.model,
+    modelParameters: { maxTokens, ...(reasoningEffort ? { reasoningEffort } : {}) },
     input: content,
   });
 
   try {
-    // Extraction is short, but on a reasoning model the cap covers thinking
-    // too, and the old implicit 1024 would be spent before any answer.
-    const info = await lookupModel(row.provider, row.model);
-    const reasoningEffort = effortFor(info, row.reasoningEffort);
     const result = await makeProvider(config).extractJSON(
       'Extract the job details from the following job posting content:',
       extractedJobSchema,
       content,
       {
-        maxTokens: budgetFor(info, 1024),
+        maxTokens,
         timeoutMs: 60_000,
         ...(reasoningEffort ? { reasoningEffort } : {}),
+        onResponse: (report) => generation?.update(callAttributes(report)),
       },
     );
 
