@@ -5,6 +5,8 @@ import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
 
 interface OllamaResponse {
   response: string;
+  prompt_eval_count?: number;
+  eval_count?: number;
 }
 
 export function makeOllamaProvider(
@@ -43,6 +45,7 @@ export function makeOllamaProvider(
       }
 
       if (!res.ok) {
+        options?.onResponse?.({ usage: null, effortRetried: false });
         const body = await res.text().catch(() => '');
         throw new LLMError('API_ERROR', `Ollama API error ${res.status}: ${body}`);
       }
@@ -57,6 +60,13 @@ export function makeOllamaProvider(
           `Ollama returned non-JSON (got HTML?): ${rawText.slice(0, 200)}`,
         );
       }
+      options?.onResponse?.({
+        usage:
+          data.prompt_eval_count !== undefined && data.eval_count !== undefined
+            ? { input: data.prompt_eval_count, output: data.eval_count }
+            : null,
+        effortRetried: false,
+      });
       const text = data.response;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'Ollama returned no content');

@@ -1,6 +1,6 @@
 import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
-import type { ExtractOptions, LLMProvider } from '../index';
+import type { ExtractOptions, LLMProvider, LLMUsage } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
 import { sendWithEffort } from './effort';
 
@@ -8,6 +8,11 @@ interface GeminiResponse {
   candidates: Array<{
     content: { parts: Array<{ text: string; thought?: boolean }> };
   }>;
+  usageMetadata?: {
+    promptTokenCount: number;
+    candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
+  };
 }
 
 export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
@@ -22,6 +27,7 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       let res: Response;
+      let effortRetried = false;
       try {
         const send = (effort: string | undefined) =>
           fetch(url, {
@@ -44,12 +50,13 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
               },
             }),
           });
-        res = await sendWithEffort(send, options?.reasoningEffort);
+        ({ response: res, effortRetried } = await sendWithEffort(send, options?.reasoningEffort));
       } catch (e) {
         throw new LLMError('NETWORK_ERROR', `Gemini request failed: ${String(e)}`);
       }
 
       if (!res.ok) {
+        options?.onResponse?.({ usage: null, effortRetried });
         const body = await res.text().catch(() => '');
         throw new LLMError('API_ERROR', `Gemini API error ${res.status}: ${body}`);
       }
@@ -57,7 +64,7 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
       const data = (await res.json().catch(() => {
         throw new LLMError('PARSE_ERROR', 'Gemini returned a non-JSON success response');
       })) as GeminiResponse;
-      // Thought summaries arrive as parts marked `thought`; the answer is the rest.
+      options?.onResponse?.({ usage: geminiUsage(data.usageMetadata), effortRetried });
       const text = data.candidates[0]?.content?.parts.find((part) => !part.thought)?.text;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'Gemini returned no content');
@@ -80,5 +87,15 @@ export function makeGeminiProvider(apiKey: string, model: string): LLMProvider {
 
       return result.data;
     },
+  };
+}
+
+function geminiUsage(usage: GeminiResponse['usageMetadata']): LLMUsage | null {
+  if (!usage) return null;
+  const reasoning = usage.thoughtsTokenCount ?? 0;
+  return {
+    input: usage.promptTokenCount,
+    output: (usage.candidatesTokenCount ?? 0) + reasoning,
+    ...(reasoning ? { reasoning } : {}),
   };
 }

@@ -6,6 +6,7 @@ import { sendWithEffort } from './effort';
 
 interface AnthropicMessage {
   content: Array<{ type: string; text: string }>;
+  usage?: { input_tokens: number; output_tokens: number };
 }
 
 export function makeAnthropicProvider(apiKey: string, model: string): LLMProvider {
@@ -18,6 +19,7 @@ export function makeAnthropicProvider(apiKey: string, model: string): LLMProvide
       options?: ExtractOptions,
     ): Promise<T> {
       let res: Response;
+      let effortRetried = false;
       try {
         const send = (effort: string | undefined) =>
           fetch('https://api.anthropic.com/v1/messages', {
@@ -36,12 +38,13 @@ export function makeAnthropicProvider(apiKey: string, model: string): LLMProvide
               ...(effort ? { output_config: { effort } } : {}),
             }),
           });
-        res = await sendWithEffort(send, options?.reasoningEffort);
+        ({ response: res, effortRetried } = await sendWithEffort(send, options?.reasoningEffort));
       } catch (e) {
         throw new LLMError('NETWORK_ERROR', `Anthropic request failed: ${String(e)}`);
       }
 
       if (!res.ok) {
+        options?.onResponse?.({ usage: null, effortRetried });
         const body = await res.text().catch(() => '');
         throw new LLMError('API_ERROR', `Anthropic API error ${res.status}: ${body}`);
       }
@@ -49,8 +52,12 @@ export function makeAnthropicProvider(apiKey: string, model: string): LLMProvide
       const data = (await res.json().catch(() => {
         throw new LLMError('PARSE_ERROR', 'Anthropic returned a non-JSON success response');
       })) as AnthropicMessage;
-      // A model that thinks puts its thinking blocks first; the answer is the
-      // text block, wherever it lands.
+      options?.onResponse?.({
+        usage: data.usage
+          ? { input: data.usage.input_tokens, output: data.usage.output_tokens }
+          : null,
+        effortRetried,
+      });
       const text = data.content.find((block) => block.type === 'text')?.text;
       if (!text) {
         throw new LLMError('EMPTY_RESPONSE', 'Anthropic returned no content');

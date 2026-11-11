@@ -1,11 +1,16 @@
 import { LLMError } from '@jlog/shared';
 import type { z } from 'zod';
-import type { ExtractOptions, LLMProvider } from '../index';
+import type { ExtractOptions, LLMProvider, LLMUsage } from '../index';
 import { EXTRACT_JOB_SYSTEM_PROMPT } from '../prompts/extract-job';
 import { sendWithEffort } from './effort';
 
 interface OpenAICompletion {
   choices: Array<{ message: { content: string | null }; finish_reason?: string }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    completion_tokens_details?: { reasoning_tokens?: number };
+  };
 }
 
 export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
@@ -18,6 +23,7 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
       options?: ExtractOptions,
     ): Promise<T> {
       let res: Response;
+      let effortRetried = false;
       try {
         const send = (effort: string | undefined) =>
           fetch('https://api.openai.com/v1/chat/completions', {
@@ -33,32 +39,18 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
                 { role: 'system', content: options?.system ?? EXTRACT_JOB_SYSTEM_PROMPT },
                 { role: 'user', content: `${prompt}\n\n${content}` },
               ],
-              /*
-               * Not `max_tokens`. The reasoning models reject it outright —
-               * "Unsupported parameter: 'max_tokens' is not supported with this
-               * model. Use 'max_completion_tokens' instead." — and fail the whole
-               * request with a 400 rather than ignoring it.
-               *
-               * `max_completion_tokens` is accepted by the older chat models too,
-               * so this is one parameter for both families rather than a
-               * model-name lookup that goes stale every time OpenAI ships
-               * something.
-               *
-               * Note it bounds reasoning tokens as well as visible ones on those
-               * models, so a budget that is merely enough for the answer can be
-               * spent entirely on thinking and return empty content.
-               */
               max_completion_tokens: options?.maxTokens ?? 1024,
               response_format: { type: 'json_object' },
               ...(effort ? { reasoning_effort: effort } : {}),
             }),
           });
-        res = await sendWithEffort(send, options?.reasoningEffort);
+        ({ response: res, effortRetried } = await sendWithEffort(send, options?.reasoningEffort));
       } catch (e) {
         throw new LLMError('NETWORK_ERROR', `OpenAI request failed: ${String(e)}`);
       }
 
       if (!res.ok) {
+        options?.onResponse?.({ usage: null, effortRetried });
         const body = await res.text().catch(() => '');
         throw new LLMError('API_ERROR', `OpenAI API error ${res.status}: ${body}`);
       }
@@ -66,13 +58,10 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
       const data = (await res.json().catch(() => {
         throw new LLMError('PARSE_ERROR', 'OpenAI returned a non-JSON success response');
       })) as OpenAICompletion;
+      options?.onResponse?.({ usage: openAIUsage(data.usage), effortRetried });
       const choice = data.choices[0];
       const text = choice?.message?.content;
       if (!text) {
-        // "no content" on its own sends you looking at the prompt. The usual
-        // cause on a reasoning model is the budget being spent on hidden
-        // reasoning before any visible token was produced, and `finish_reason`
-        // is the only thing that distinguishes that from a genuine refusal.
         const budget = options?.maxTokens ?? 1024;
         throw new LLMError(
           'EMPTY_RESPONSE',
@@ -99,5 +88,15 @@ export function makeOpenAIProvider(apiKey: string, model: string): LLMProvider {
 
       return result.data;
     },
+  };
+}
+
+function openAIUsage(usage: OpenAICompletion['usage']): LLMUsage | null {
+  if (!usage) return null;
+  const reasoning = usage.completion_tokens_details?.reasoning_tokens;
+  return {
+    input: usage.prompt_tokens,
+    output: usage.completion_tokens,
+    ...(reasoning ? { reasoning } : {}),
   };
 }
