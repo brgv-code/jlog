@@ -269,4 +269,4 @@ jlog/
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Built by [Bhargav](https://bhargav.dev/projects/jlog).
